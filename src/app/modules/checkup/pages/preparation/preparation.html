@@ -1,0 +1,40 @@
+<h1 class="title">Chequeo rápido — Preparación</h1>
+<p class="subtitle">Antes de comenzar, te ayudaremos a configurar tu micrófono.</p>
+
+<div class="tabs">
+  <span class="tab active">● Preparación</span>
+  <span class="tab">● Calibración</span>
+  <span class="tab">● Rango</span>
+  <span class="tab">● Estabilidad</span>
+  <span class="tab">● Resultados</span>
+</div>
+
+<div class="card">
+  <div class="mic-box" (click)="state() === 'idle' ? activateMic() : null">
+    <div class="mic-circle">🎤</div>
+  </div>
+
+  <div class="right">
+    <ul class="checklist">
+      <li>✔️ Asegúrate de estar en un lugar silencioso y con buena conexión.</li>
+      <li>✔️ Cuando estés listo, activa tu micrófono para empezar la evaluación.</li>
+    </ul>
+
+    <div class="row">
+      <span class="badge" [class.ok]="state()==='active'">
+        {{ state()==='active' ? 'Micrófono activo' : 'Micrófono no activo' }}
+      </span>
+    </div>
+  </div>
+</div>
+
+<div class="cta">
+  <button class="secondary" (click)="activateMic()" [disabled]="state()!=='idle'">Activar micrófono</button>
+  <button class="primary" (click)="startCheck()" [disabled]="state()!=='active'">Comenzar chequeo</button>
+</div>
+
+@if (state() === 'error') {
+  <p class="error">
+    No pudimos acceder al micrófono. Revisa los permisos del navegador o usa HTTPS.
+  </p>
+}
