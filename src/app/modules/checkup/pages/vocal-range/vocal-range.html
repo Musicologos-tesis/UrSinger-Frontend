@@ -88,16 +88,53 @@
         
         <p class="instruction">{{ tip.value }}</p>
         
-        <!-- Validaciones en tiempo real -->
-        <div class="validation-checks">
+        <!-- NOTA OBJETIVO -->
+        <div class="target-note-display">
+          <div class="target-label">Nota objetivo:</div>
+          <div class="target-note">{{ rangeService.getTargetNoteName() }}</div>
+          <button class="play-note-btn" (click)="playTargetNote()" title="Escuchar nota">
+            🔊 Reproducir nota
+          </button>
+        </div>
+        
+        <!-- BOTÓN EMPEZAR (solo si no ha empezado) -->
+        @if (!rangeService.extremeStarted$.value) {
+          <button class="btn-start-exercise" (click)="rangeService.startExtremeExercise()">
+            ▶ Empezar
+          </button>
+        }
+        
+        <!-- CONTENIDO DEL EJERCICIO (solo si ya empezó) -->
+        @if (rangeService.extremeStarted$.value) {
+          <!-- Tiempo restante -->
+          <div class="timeout-indicator">
+            <span class="timeout-label">Tiempo restante:</span>
+            <span class="timeout-value">{{ rangeService.getRemainingTime() }}s</span>
+          </div>
+          
+          <!-- Indicadores en tiempo real -->
+          <div class="live-indicators">
+            <div class="indicator-row">
+              <span class="label">Detectando:</span>
+              <span class="value">{{ currentNote.value || '---' }}</span>
+            </div>
+            
+            <div class="indicator-row">
+              <span class="label">Confianza:</span>
+              <span class="value">{{ (currentConfidence.value * 100).toFixed(0) }}%</span>
+            </div>
+          </div>
+          
+          <!-- Validaciones en tiempo real -->
+          <div class="validation-checks">
           <div class="check-item" [class.valid]="extremeValidation.value.pitchOk">
             <span class="check-icon">{{ extremeValidation.value.pitchOk ? '✓' : '○' }}</span>
-            <span class="check-label">Afinación correcta (±50 cents)</span>
+            <span class="check-label">Afinación correcta (±100 cents)</span>
           </div>
           
           <div class="check-item" [class.valid]="extremeValidation.value.confidenceOk">
             <span class="check-icon">{{ extremeValidation.value.confidenceOk ? '✓' : '○' }}</span>
-            <span class="check-label">Confianza alta (&gt;80%)</span>
+            <span class="check-label">Confianza suficiente (&gt;30%)</span>
           </div>
           
           <div class="check-item" [class.valid]="extremeValidation.value.rmsOk">
@@ -118,6 +155,7 @@
           </div>
           <p class="progress-text">Sosteniendo... {{ (progress.value * 100).toFixed(0) }}%</p>
         }
+        }
       </div>
     }
 
@@ -135,16 +173,53 @@
         
         <p class="instruction">{{ tip.value }}</p>
         
-        <!-- Validaciones (igual que ConfirmMin) -->
-        <div class="validation-checks">
+        <!-- NOTA OBJETIVO -->
+        <div class="target-note-display">
+          <div class="target-label">Nota objetivo:</div>
+          <div class="target-note">{{ rangeService.getTargetNoteName() }}</div>
+          <button class="play-note-btn" (click)="playTargetNote()" title="Escuchar nota">
+            🔊 Reproducir nota
+          </button>
+        </div>
+        
+        <!-- BOTÓN EMPEZAR (solo si no ha empezado) -->
+        @if (!rangeService.extremeStarted$.value) {
+          <button class="btn-start-exercise" (click)="rangeService.startExtremeExercise()">
+            ▶ Empezar
+          </button>
+        }
+        
+        <!-- CONTENIDO DEL EJERCICIO (solo si ya empezó) -->
+        @if (rangeService.extremeStarted$.value) {
+          <!-- Tiempo restante -->
+          <div class="timeout-indicator">
+            <span class="timeout-label">Tiempo restante:</span>
+            <span class="timeout-value">{{ rangeService.getRemainingTime() }}s</span>
+          </div>
+          
+          <!-- Indicadores en tiempo real -->
+          <div class="live-indicators">
+            <div class="indicator-row">
+              <span class="label">Detectando:</span>
+              <span class="value">{{ currentNote.value || '---' }}</span>
+            </div>
+            
+            <div class="indicator-row">
+              <span class="label">Confianza:</span>
+              <span class="value">{{ (currentConfidence.value * 100).toFixed(0) }}%</span>
+            </div>
+          </div>
+          
+          <!-- Validaciones (igual que ConfirmMin) -->
+          <div class="validation-checks">
           <div class="check-item" [class.valid]="extremeValidation.value.pitchOk">
             <span class="check-icon">{{ extremeValidation.value.pitchOk ? '✓' : '○' }}</span>
-            <span class="check-label">Afinación correcta (±50 cents)</span>
+            <span class="check-label">Afinación correcta (±100 cents)</span>
           </div>
           
           <div class="check-item" [class.valid]="extremeValidation.value.confidenceOk">
             <span class="check-icon">{{ extremeValidation.value.confidenceOk ? '✓' : '○' }}</span>
-            <span class="check-label">Confianza alta (&gt;80%)</span>
+            <span class="check-label">Confianza suficiente (&gt;30%)</span>
           </div>
           
           <div class="check-item" [class.valid]="extremeValidation.value.rmsOk">
@@ -164,35 +239,23 @@
           </div>
           <p class="progress-text">Sosteniendo... {{ (progress.value * 100).toFixed(0) }}%</p>
         }
+        }
       </div>
     }
 
     <!-- ESTADO: COMPLETE - Ejercicio completado -->
     @if (phase.value === RangePhase.Complete) {
-      <div class="pill ok">● Rango vocal detectado</div>
-      
-      @if (rangeService.getCalculatedMetrics(); as metrics) {
-        <div class="metrics-summary">
-          <div class="metric-item">
-            <span class="metric-label">Rango Total:</span>
-            <span class="metric-value">{{ metrics.rangeSpanSemitones }} semitonos</span>
+      <div class="success-container">
+        @if (rangeService.getCalculatedMetrics(); as metrics) {
+          <div class="success-message">
+            Tu rango vocal estimado es de {{ formatNote(metrics.rangeMinMidi) }} 
+            a {{ formatNote(metrics.rangeMaxMidi) }} 
+            ({{ Math.round(metrics.rangeSpanSemitones) }} semitonos).
           </div>
-          <div class="metric-item">
-            <span class="metric-label">Nota Mínima:</span>
-            <span class="metric-value">{{ formatNote(metrics.rangeMinMidi) }}</span>
-          </div>
-          <div class="metric-item">
-            <span class="metric-label">Nota Máxima:</span>
-            <span class="metric-value">{{ formatNote(metrics.rangeMaxMidi) }}</span>
-          </div>
-          @if (metrics.voiceType) {
-            <div class="metric-item">
-              <span class="metric-label">Tipo de Voz:</span>
-              <span class="metric-value">{{ metrics.voiceType }}</span>
-            </div>
-          }
-        </div>
-      }
+          
+          <div class="pill ok">● Rango detectado correctamente</div>
+        }
+      </div>
     }
 
     <!-- ESTADO: ERROR -->

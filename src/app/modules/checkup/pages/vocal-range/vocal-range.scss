@@ -184,6 +184,141 @@
   transition: width 0.3s ease;
 }
 
+/* Nota objetivo (fases de confirmación) */
+.target-note-display {
+  margin: 16px 0;
+  padding: 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 12px;
+  text-align: center;
+  color: white;
+}
+
+.target-label {
+  font-size: 13px;
+  font-weight: 600;
+  opacity: 0.9;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.target-note {
+  font-size: 48px;
+  font-weight: 700;
+  margin: 8px 0;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.play-note-btn {
+  margin-top: 12px;
+  padding: 10px 20px;
+  background: rgba(255, 255, 255, 0.2);
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-radius: 24px;
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  backdrop-filter: blur(10px);
+}
+
+.play-note-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.6);
+  transform: scale(1.05);
+}
+
+.play-note-btn:active {
+  transform: scale(0.98);
+}
+
+/* Indicadores en tiempo real (fases de confirmación) */
+.live-indicators {
+  margin: 12px 0;
+  padding: 12px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-around;
+  gap: 16px;
+}
+
+.live-indicators .indicator-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.live-indicators .label {
+  font-size: 11px;
+  color: #6b7280;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.live-indicators .value {
+  font-size: 20px;
+  font-weight: 700;
+  color: #111827;
+}
+
+/* Botón Empezar (para ejercicios de extremos) */
+.btn-start-exercise {
+  width: 100%;
+  padding: 16px 24px;
+  margin: 16px 0;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  border-radius: 12px;
+  color: white;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-start-exercise:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.5);
+}
+
+.btn-start-exercise:active {
+  transform: translateY(0);
+}
+
+/* Indicador de timeout */
+.timeout-indicator {
+  margin: 12px 0;
+  padding: 12px;
+  background: #fef3c7;
+  border: 2px solid #f59e0b;
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.timeout-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #92400e;
+}
+
+.timeout-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: #b45309;
+}
+
 /* Checks de validación */
 .validation-checks {
   margin: 12px 0;
@@ -221,6 +356,22 @@
 .check-label {
   font-size: 13px;
   font-weight: 500;
+}
+
+/* Vista de éxito */
+.success-container {
+  margin-top: 16px;
+  text-align: center;
+}
+
+.success-message {
+  margin-bottom: 16px;
+  padding: 16px;
+  background: #f3f4f6;
+  border-radius: 8px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: #374151;
 }
 
 /* Resumen de métricas */

@@ -634,6 +634,13 @@ export class CalibrationService {
         return this.noiseFloorDbfs || -90;
     }
 
+    /**
+     * Obtiene el RMS promedio del usuario (para calibración de pitch detector)
+     */
+    getAverageRmsDb(): number {
+        return this.finalRmsDb || -30;
+    }
+
     private log(event: string, data?: any) {
         if (!environment.production) {
             const logData: any = { event };

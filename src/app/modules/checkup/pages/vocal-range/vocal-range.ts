@@ -30,6 +30,7 @@ export class VocalRangeComponent implements OnInit, OnDestroy {
   // Estados locales
   isLoading = signal(false);
   RangePhase = RangePhase; // Para usar en el template
+  Math = Math; // Para usar Math.round en el template
 
   ngOnInit(): void {
     console.log('[VocalRange] Componente inicializado');
@@ -77,6 +78,49 @@ export class VocalRangeComponent implements OnInit, OnDestroy {
    */
   onConfirmExtreme(): void {
     this.rangeService.confirmCurrentExtreme();
+  }
+
+  /**
+   * Reproduce la nota objetivo como referencia
+   */
+  playTargetNote(): void {
+    const frequency = this.rangeService.getTargetFrequency();
+    if (frequency === 0) return;
+
+    try {
+      // Crear contexto de audio si no existe
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      
+      // Crear oscilador (onda sinusoidal)
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.type = 'sine';
+      oscillator.frequency.value = frequency;
+      
+      // Configurar volumen (fade in/out)
+      gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+      gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.1); // Fade in
+      gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.9); // Sostener
+      gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 1.0);   // Fade out
+      
+      // Conectar y reproducir
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 1.0);
+      
+      // Limpiar después
+      setTimeout(() => {
+        oscillator.disconnect();
+        gainNode.disconnect();
+        audioContext.close();
+      }, 1100);
+      
+    } catch (error) {
+      console.error('[VocalRange] Error al reproducir nota:', error);
+    }
   }
 
   /**
@@ -142,9 +186,16 @@ export class VocalRangeComponent implements OnInit, OnDestroy {
    * Formatea un número MIDI a nombre de nota
    */
   formatNote(midi: number): string {
+    if (!midi || midi <= 0 || !isFinite(midi)) return '-';
+    
+    const midiInt = Math.round(midi);
     const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-    const octave = Math.floor(midi / 12) - 1;
-    const noteName = noteNames[midi % 12];
+    const octave = Math.floor(midiInt / 12) - 1;
+    const noteIndex = midiInt % 12;
+    const noteName = noteNames[noteIndex];
+    
+    if (!noteName) return '-';
+    
     return `${noteName}${octave}`;
   }
 
