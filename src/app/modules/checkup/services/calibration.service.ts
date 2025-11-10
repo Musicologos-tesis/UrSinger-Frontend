@@ -100,8 +100,10 @@ export class CalibrationService {
             this.totalSamples = 0;
             this.measuredLatencyMs = this.calculateLatency();
             
-            // Generar sessionId y obtener thresholds del backend
+            // Generar sessionId y guardarlo en localStorage para reutilizar en próximos pasos
             this.sessionId = uuid();
+            localStorage.setItem('ursinger.checkup.sessionId', this.sessionId);
+            this.log('session_created', { sessionId: this.sessionId });
             
             const deviceIdHash = localStorage.getItem('ursinger.prep.deviceHash') || 'unknown';
             const sampleRate = Number(localStorage.getItem('ursinger.prep.sampleRate') || 48000);
@@ -583,6 +585,24 @@ export class CalibrationService {
         }
     }
 
+    /**
+     * Obtiene el sessionId actual (de la calibración en curso o del localStorage)
+     * Útil para reutilizar en otros módulos (rango vocal, estabilidad)
+     */
+    getSessionId(): string | null {
+        return this.sessionId || localStorage.getItem('ursinger.checkup.sessionId');
+    }
+
+    /**
+     * Limpia el sessionId del localStorage
+     * Útil cuando se quiere iniciar una nueva sesión completa de checkup
+     */
+    clearSession() {
+        this.sessionId = undefined;
+        localStorage.removeItem('ursinger.checkup.sessionId');
+        this.log('session_cleared', {});
+    }
+
     reset() {
         this.clearPhaseTimeout();
         this.disconnect();
@@ -596,6 +616,8 @@ export class CalibrationService {
         this.inputStatus$.next(ValidationStatus.Pending);
         this.noiseMessage$.next('');
         this.inputMessage$.next('');
+        // Nota: No eliminamos sessionId de localStorage para reutilizar en próximos módulos
+        // Para limpiar completamente la sesión, usar clearSession()
         this.sessionId = undefined;
         this.noiseFloorDbfs = undefined;
         this.finalRmsDb = 0;
@@ -603,6 +625,13 @@ export class CalibrationService {
         this.clipEventsCount = 0;
         this.totalSamples = 0;
         this.measuredLatencyMs = 0;
+    }
+
+    /**
+     * Obtiene el noise floor calibrado (para uso en pitch detection)
+     */
+    getNoiseFloorDbfs(): number {
+        return this.noiseFloorDbfs || -90;
     }
 
     private log(event: string, data?: any) {

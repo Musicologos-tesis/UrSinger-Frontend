@@ -172,8 +172,8 @@
   
   <!-- Estado final: continuar al siguiente paso -->
   @if (state() === CalibState.Done) {
-    <button class="primary" (click)="onCalibrate()">
-      Continuar con el rango vocal
+    <button class="primary" (click)="onContinueToVocalRange()">
+      Continuar al Ejercicio de Rango Vocal
     </button>
   }
   
@@ -194,5 +194,7 @@
 }
 
 @if (state() === CalibState.Done) {
-  <p class="foot">Podrás volver a calibrar tu micrófono más adelante si es necesario.</p>
+  <p class="foot">
+    Calibración completada. Ahora continuaremos con el ejercicio de rango vocal.
+  </p>
 }

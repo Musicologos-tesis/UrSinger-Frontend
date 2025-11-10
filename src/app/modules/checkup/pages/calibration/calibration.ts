@@ -44,8 +44,10 @@ export class CalibrationComponent implements OnDestroy {
   }
 
   async onCalibrate() {
+    // Si ya está calibrado, navegar a vocal-range
     if (this.state() === CalibState.Done) {
-      this.router.navigate(['/checkup/range']);
+      console.log('[Calibration] Estado Done, navegando a vocal-range');
+      await this.router.navigate(['/checkup/vocal-range']);
       return;
     }
 
@@ -87,6 +89,15 @@ export class CalibrationComponent implements OnDestroy {
   
   onRetry() {
     this.cal.reset();
+  }
+  
+  onContinueToVocalRange() {
+    console.log('[Calibration] Navegando a /checkup/vocal-range');
+    this.router.navigate(['/checkup/vocal-range']).then(success => {
+      console.log('[Calibration] Navegación exitosa:', success);
+    }).catch(error => {
+      console.error('[Calibration] Error en navegación:', error);
+    });
   }
   
   canConfirmNoise(): boolean {

@@ -1,0 +1,290 @@
+<h1>Chequeo rápido - Rango vocal</h1>
+
+<!-- Descripción -->
+<p>En esta prueba descubriremos las notas más bajas y altas que puedes emitir cómodamente.</p>
+
+<!-- Tabs de navegación (igual que calibración) -->
+<div class="tabs">
+  <span>● Preparación</span>
+  <span>● Calibración</span>
+  <span class="active">● Rango</span>
+  <span>● Estabilidad</span>
+  <span>● Resultados</span>
+</div>
+
+<!-- Panel principal -->
+<div class="panel">
+  <!-- Icono del micrófono a la izquierda -->
+  <div class="mic-box">
+    <div class="mic-circle" 
+         [class.pulse]="phase.value === RangePhase.Sweep || phase.value === RangePhase.ConfirmMin || phase.value === RangePhase.ConfirmMax">
+      🎤
+    </div>
+  </div>
+
+  <!-- Contenido derecho -->
+  <div class="right">
+    
+    <!-- ESTADO: IDLE - Instrucciones iniciales -->
+    @if (phase.value === RangePhase.Idle) {
+      <p class="instruction">
+        Primero harás un sonido bajo, luego uno alto.<br>
+        No te preocupes si no sabes qué notas usar, UrSinger te guiará paso a paso.
+      </p>
+    }
+
+    <!-- ESTADO: SWEEP - Barrido continuo (12s) -->
+    @if (phase.value === RangePhase.Sweep) {
+      <div class="phase-container">
+        <div class="phase-header">
+          <span class="phase-label">Recorriendo tu rango vocal...</span>
+          <span class="status-indicator pending">⏳</span>
+        </div>
+        
+        <p class="instruction">{{ tip.value || 'Canta desde tu nota más grave hasta la más aguda' }}</p>
+        
+        <!-- Indicadores en tiempo real -->
+        <div class="live-indicators">
+          @if (currentNote.value) {
+            <div class="indicator-row">
+              <span class="label">Nota actual:</span>
+              <span class="value">{{ currentNote.value }} (MIDI {{ currentMidi.value }})</span>
+            </div>
+          }
+          
+          <div class="indicator-row">
+            <span class="label">Confianza:</span>
+            <div class="confidence-bar">
+              <div class="confidence-fill" [style.width.%]="currentConfidence.value * 100"></div>
+            </div>
+            <span class="value">{{ (currentConfidence.value * 100).toFixed(0) }}%</span>
+          </div>
+          
+          <div class="indicator-row">
+            <span class="label">Volumen:</span>
+            <span class="value">{{ currentRms.value.toFixed(1) }} dB</span>
+          </div>
+        </div>
+        
+        <!-- Barra de progreso -->
+        <div class="progress-bar">
+          <div class="progress-fill" [style.width.%]="progress.value * 100"></div>
+        </div>
+        <p class="progress-text">Progreso: {{ (progress.value * 100).toFixed(0) }}% ({{ (25 - progress.value * 25).toFixed(1) }}s restantes)</p>
+      </div>
+    }
+
+    <!-- ESTADO: CONFIRM MIN - Confirmar nota mínima -->
+    @if (phase.value === RangePhase.ConfirmMin) {
+      <div class="phase-container">
+        <div class="phase-header">
+          <span class="phase-label">Confirmando nota mínima...</span>
+          @if (!extremeValidation.value.sustained) {
+            <span class="status-indicator pending">⏳</span>
+          } @else {
+            <span class="status-indicator valid">✓</span>
+          }
+        </div>
+        
+        <p class="instruction">{{ tip.value }}</p>
+        
+        <!-- Validaciones en tiempo real -->
+        <div class="validation-checks">
+          <div class="check-item" [class.valid]="extremeValidation.value.pitchOk">
+            <span class="check-icon">{{ extremeValidation.value.pitchOk ? '✓' : '○' }}</span>
+            <span class="check-label">Afinación correcta (±50 cents)</span>
+          </div>
+          
+          <div class="check-item" [class.valid]="extremeValidation.value.confidenceOk">
+            <span class="check-icon">{{ extremeValidation.value.confidenceOk ? '✓' : '○' }}</span>
+            <span class="check-label">Confianza alta (&gt;80%)</span>
+          </div>
+          
+          <div class="check-item" [class.valid]="extremeValidation.value.rmsOk">
+            <span class="check-icon">{{ extremeValidation.value.rmsOk ? '✓' : '○' }}</span>
+            <span class="check-label">Volumen adecuado</span>
+          </div>
+          
+          <div class="check-item" [class.valid]="extremeValidation.value.sustained">
+            <span class="check-icon">{{ extremeValidation.value.sustained ? '✓' : '○' }}</span>
+            <span class="check-label">Sostenido 1 segundo</span>
+          </div>
+        </div>
+        
+        <!-- Barra de progreso de sostenimiento -->
+        @if (extremeValidation.value.pitchOk && extremeValidation.value.confidenceOk && extremeValidation.value.rmsOk) {
+          <div class="progress-bar">
+            <div class="progress-fill" [style.width.%]="progress.value * 100"></div>
+          </div>
+          <p class="progress-text">Sosteniendo... {{ (progress.value * 100).toFixed(0) }}%</p>
+        }
+      </div>
+    }
+
+    <!-- ESTADO: CONFIRM MAX - Confirmar nota máxima -->
+    @if (phase.value === RangePhase.ConfirmMax) {
+      <div class="phase-container">
+        <div class="phase-header">
+          <span class="phase-label">Confirmando nota máxima...</span>
+          @if (!extremeValidation.value.sustained) {
+            <span class="status-indicator pending">⏳</span>
+          } @else {
+            <span class="status-indicator valid">✓</span>
+          }
+        </div>
+        
+        <p class="instruction">{{ tip.value }}</p>
+        
+        <!-- Validaciones (igual que ConfirmMin) -->
+        <div class="validation-checks">
+          <div class="check-item" [class.valid]="extremeValidation.value.pitchOk">
+            <span class="check-icon">{{ extremeValidation.value.pitchOk ? '✓' : '○' }}</span>
+            <span class="check-label">Afinación correcta (±50 cents)</span>
+          </div>
+          
+          <div class="check-item" [class.valid]="extremeValidation.value.confidenceOk">
+            <span class="check-icon">{{ extremeValidation.value.confidenceOk ? '✓' : '○' }}</span>
+            <span class="check-label">Confianza alta (&gt;80%)</span>
+          </div>
+          
+          <div class="check-item" [class.valid]="extremeValidation.value.rmsOk">
+            <span class="check-icon">{{ extremeValidation.value.rmsOk ? '✓' : '○' }}</span>
+            <span class="check-label">Volumen adecuado</span>
+          </div>
+          
+          <div class="check-item" [class.valid]="extremeValidation.value.sustained">
+            <span class="check-icon">{{ extremeValidation.value.sustained ? '✓' : '○' }}</span>
+            <span class="check-label">Sostenido 1 segundo</span>
+          </div>
+        </div>
+        
+        @if (extremeValidation.value.pitchOk && extremeValidation.value.confidenceOk && extremeValidation.value.rmsOk) {
+          <div class="progress-bar">
+            <div class="progress-fill" [style.width.%]="progress.value * 100"></div>
+          </div>
+          <p class="progress-text">Sosteniendo... {{ (progress.value * 100).toFixed(0) }}%</p>
+        }
+      </div>
+    }
+
+    <!-- ESTADO: COMPLETE - Ejercicio completado -->
+    @if (phase.value === RangePhase.Complete) {
+      <div class="pill ok">● Rango vocal detectado</div>
+      
+      @if (rangeService.getCalculatedMetrics(); as metrics) {
+        <div class="metrics-summary">
+          <div class="metric-item">
+            <span class="metric-label">Rango Total:</span>
+            <span class="metric-value">{{ metrics.rangeSpanSemitones }} semitonos</span>
+          </div>
+          <div class="metric-item">
+            <span class="metric-label">Nota Mínima:</span>
+            <span class="metric-value">{{ formatNote(metrics.rangeMinMidi) }}</span>
+          </div>
+          <div class="metric-item">
+            <span class="metric-label">Nota Máxima:</span>
+            <span class="metric-value">{{ formatNote(metrics.rangeMaxMidi) }}</span>
+          </div>
+          @if (metrics.voiceType) {
+            <div class="metric-item">
+              <span class="metric-label">Tipo de Voz:</span>
+              <span class="metric-value">{{ metrics.voiceType }}</span>
+            </div>
+          }
+        </div>
+      }
+    }
+
+    <!-- ESTADO: ERROR -->
+    @if (phase.value === RangePhase.Error) {
+      <div class="error-banner">
+        <p>⚠️ {{ errorMessage.value }}</p>
+      </div>
+    }
+
+  </div>
+</div>
+
+<!-- Botones de acción -->
+<div class="cta">
+  <!-- IDLE: Comenzar -->
+  @if (phase.value === RangePhase.Idle) {
+    <button class="primary" (click)="onStartSweep()" [disabled]="isLoading()">
+      @if (isLoading()) {
+        Iniciando...
+      } @else {
+        Comenzar prueba de rango
+      }
+    </button>
+  }
+  
+  <!-- SWEEP: Completar barrido -->
+  @if (phase.value === RangePhase.Sweep) {
+    @if (progress.value >= 0.8) {
+      <button class="primary" (click)="onCompleteSweep()">
+        Completar barrido
+      </button>
+    } @else {
+      <button class="primary" disabled>
+        Cantando... {{ (25 - progress.value * 25).toFixed(0) }}s
+      </button>
+    }
+  }
+  
+  <!-- CONFIRM MIN: Confirmar o reintentar -->
+  @if (phase.value === RangePhase.ConfirmMin) {
+    @if (extremeValidation.value.sustained) {
+      <button class="primary" (click)="onConfirmExtreme()">
+        Confirmar nota mínima
+      </button>
+    } @else {
+      <button class="primary" disabled>
+        Sostén la nota...
+      </button>
+    }
+    <button class="secondary" (click)="onRetry('sweep')">
+      Volver a intentar barrido
+    </button>
+  }
+  
+  <!-- CONFIRM MAX: Confirmar o reintentar -->
+  @if (phase.value === RangePhase.ConfirmMax) {
+    @if (extremeValidation.value.sustained) {
+      <button class="primary" (click)="onConfirmExtreme()">
+        Confirmar nota máxima
+      </button>
+    } @else {
+      <button class="primary" disabled>
+        Sostén la nota...
+      </button>
+    }
+    <button class="secondary" (click)="onRetry('min')">
+      Volver a confirmar mínimo
+    </button>
+  }
+  
+  <!-- COMPLETE: Continuar -->
+  @if (phase.value === RangePhase.Complete) {
+    <button class="primary" (click)="onContinue()">
+      Continuar al Ejercicio de Estabilidad
+    </button>
+  }
+  
+  <!-- ERROR: Reintentar -->
+  @if (phase.value === RangePhase.Error) {
+    <button class="secondary" (click)="onRetry('sweep')">
+      Reintentar
+    </button>
+  }
+</div>
+
+<!-- Mensaje de pie -->
+@if (phase.value === RangePhase.Idle) {
+  <p class="foot">Asegúrate de estar en un lugar tranquilo antes de comenzar.</p>
+}
+
+@if (phase.value === RangePhase.Complete) {
+  <p class="foot">
+    ¡Excelente! Ahora continuaremos con el ejercicio de estabilidad vocal.
+  </p>
+}
