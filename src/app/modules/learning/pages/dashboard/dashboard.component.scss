@@ -1,99 +1,74 @@
-/* Learning module dashboard styles */
-:root {
-  --bg: #f8f9fb;
-  --card-bg: #ffffff;
-  --muted: #666666;
-  --dark: #333333;
-  --accent: #6c63ff;
-  --border: #e6e6ee;
-  --radius: 12px;
-  font-family: 'Inter', 'Roboto', system-ui, -apple-system, 'Segoe UI', 'Helvetica Neue', Arial;
+:root{
+  --bg:#f8f9fb; --card-bg:#fff; --muted:#646b75; --dark:#23262b;
+  --accent:#6c63ff; --border:#e7e9f0; --radius:12px;
+  font-family: Inter, Roboto, system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial;
 }
 
-.learning-root {
-  background: var(--bg);
-  min-height: 100vh;
-  padding: 40px 24px;
-  box-sizing: border-box;
-  color: var(--dark);
+.learning-root{background:var(--bg);min-height:100vh;padding:24px;color:var(--dark)}
+.learning-body{max-width:1100px;margin:0 auto}
+
+/* Header + progreso */
+.learning-header{
+  max-width:1100px;margin:0 auto 24px;display:flex;gap:24px;
+  align-items:flex-start;justify-content:space-between;flex-wrap:wrap
+}
+.titles{flex:1 1 520px}
+.title{margin:0;font-size:30px;font-weight:700;color:#23262b}
+.subtitle{margin:6px 0 0;color:var(--muted);font-size:14px}
+
+.progress-card{
+  flex:0 1 420px;min-width:280px;
+  background:#f6f7fb;border:1px solid var(--border);border-radius:8px;padding:14px
+}
+.progress-label{font-size:14px;color:#2a2f36;font-weight:600;margin-bottom:8px}
+.progress-bar{height:10px;border-radius:999px;background:#e9ebf2;overflow:hidden}
+.progress-fill{height:100%;width:0;background:var(--accent);transition:width .25s ease}
+.progress-help{margin-top:8px;font-size:12px;color:var(--muted)}
+
+/* Grid + tarjetas */
+.challenges-grid{
+  display:grid;gap:16px;
+  grid-template-columns:repeat(auto-fill,minmax(300px,1fr))
 }
 
-.learning-header {
-  max-width: 1200px;
-  margin: 0 auto 28px auto;
-  display: flex;
-  gap: 24px;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
+.challenge-card{
+  background:#fff;border:1px solid var(--border);border-radius:12px;padding:16px;
+  display:flex;flex-direction:column;gap:10px;min-height:180px;
+  box-shadow:0 1px 2px rgba(0,0,0,.04)
 }
-
-.titles { flex: 1 1 480px; }
-.title { margin: 0; font-size: 28px; color: var(--dark); font-weight: 700; }
-.subtitle { margin: 6px 0 0 0; color: var(--muted); font-size: 14px; }
-
-.progress-block { flex: 0 1 380px; min-width: 260px; }
-.progress-label { font-size: 14px; color: var(--dark); font-weight: 600; margin-bottom: 8px; }
-.progress-bar { background: #eceff6; border-radius: 8px; height: 12px; overflow: hidden; border: 1px solid var(--border); }
-.progress-fill { background: linear-gradient(90deg, var(--accent), #8b5cf6); height: 100%; width: 0%; transition: width 0.4s ease; }
-.progress-help { margin-top: 8px; font-size: 12px; color: var(--muted); }
-
-.learning-body { max-width: 1200px; margin: 0 auto; }
-
-.challenges-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 20px;
+.card-top{display:flex;gap:10px;align-items:center}
+.icon-circle{
+  width:36px;height:36px;border-radius:999px;display:grid;place-items:center;
+  background:#eef0ff;color:var(--accent);font-size:18px;line-height:1
 }
+.card-title{margin:0;font-weight:700;font-size:16.5px;color:#23262b}
+.card-desc{margin:0;color:#5b6270;min-height:40px}
 
-/* Responsive: 2 cols medium, 3 cols large */
-@media (min-width: 720px) {
-  .challenges-grid { grid-template-columns: repeat(2, 1fr); }
+.card-meta{display:flex;align-items:center;justify-content:space-between;margin-top:auto}
+.meta-left{display:flex;gap:8px;flex-wrap:wrap}
+
+.chip{
+  font-size:12px;padding:6px 10px;border-radius:999px;
+  background:#f2f3f7;border:1px solid var(--border);color:#2a2f36
 }
-@media (min-width: 1024px) {
-  .challenges-grid { grid-template-columns: repeat(3, 1fr); }
+.chip--level{background:rgba(108,99,255,.10);color:#4d47d3}
+.chip--time{background:#f2f3f7}
+
+.btn{border:0;border-radius:10px;padding:10px 12px;font-weight:600;cursor:pointer}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{filter:brightness(.96)}
+
+/* Footer */
+.learning-footer{max-width:1100px;margin:18px auto 0}
+.footer-box{
+  background:#f8f9fb;border:1px solid #ececf1;border-radius:8px;
+  padding:14px;display:flex;gap:12px;align-items:center;justify-content:space-between
 }
+.footer-left{font-weight:600;color:#23262b}
+.help{color:var(--muted);font-size:13px}
 
-.challenge-card {
-  background: var(--card-bg);
-  border-radius: var(--radius);
-  padding: 18px;
-  box-shadow: 0 6px 18px rgba(20,20,50,0.06);
-  border: 1px solid rgba(16,24,40,0.03);
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.card-top { display: flex; gap: 12px; align-items: flex-start; }
-.icon { font-size: 22px; color: var(--accent); line-height: 1; }
-.card-title { margin: 0; font-size: 16px; color: var(--dark); font-weight: 700; }
-.card-desc { margin: 0; color: var(--muted); font-size: 13px; }
-
-.card-meta { display: flex; align-items: center; justify-content: space-between; margin-top: auto; }
-.meta-left { display: flex; gap: 10px; align-items: center; color: var(--muted); font-size: 13px; }
-.level { background: rgba(108,99,255,0.08); color: var(--accent); padding: 6px 8px; border-radius: 8px; font-weight: 600; }
-.duration { color: var(--muted); }
-
-.btn-start {
-  background: var(--accent);
-  color: #fff;
-  border: 0;
-  padding: 8px 14px;
-  border-radius: 10px;
-  cursor: pointer;
-  font-weight: 700;
-  transition: transform 0.12s ease, box-shadow 0.12s ease;
-}
-.btn-start:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(108,99,255,0.14); }
-
-.learning-footer { max-width: 1200px; margin: 28px auto 0 auto; }
-.footer-box { background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; display: flex; gap: 12px; align-items: center; justify-content: space-between; }
-.footer-left { font-weight: 600; color: var(--dark); }
-.help { color: var(--muted); font-size: 13px; }
-
-/* Small screens spacing tweaks */
-@media (max-width: 520px) {
-  .learning-header { padding-bottom: 12px; }
-  .title { font-size: 22px; }
+/* Responsive */
+@media (max-width:768px){
+  .learning-root{padding:16px}
+  .title{font-size:24px}
 }
