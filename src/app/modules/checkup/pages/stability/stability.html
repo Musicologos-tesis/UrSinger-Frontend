@@ -1,0 +1,122 @@
+<h1>Chequeo rápido - Estabilidad</h1>
+
+<!-- Descripción -->
+<p>Vamos a medir qué tan estable puedes mantener una nota sostenida.</p>
+
+<!-- Tabs de navegación (igual que calibración / rango) -->
+<div class="tabs">
+  <span>● Preparación</span>
+  <span>● Calibración</span>
+  <span>● Rango</span>
+  <span class="active">● Estabilidad</span>
+  <span>● Resultados</span>
+</div>
+
+<!-- 🔴 Bloque de error -->
+<div class="alert" *ngIf="errorMessage() as error">
+  {{ error }}
+</div>
+
+<!-- Panel principal -->
+<div class="panel">
+  <!-- Caja del micrófono a la izquierda -->
+  <div class="mic-box">
+    <div
+      class="mic-circle"
+      [class.pulse]="state() === 'recording'"
+    >
+      🎤
+    </div>
+  </div>
+
+  <!-- Contenido derecho -->
+  <div class="right">
+
+    <!-- ESTADO: INTRODUCCIÓN -->
+    @if (state() === 'intro') {
+      <p class="instruction">
+        Durante esta prueba mantendrás una vocal “ahh” en un tono cómodo durante unos segundos.<br />
+        No necesitas alcanzar una nota exacta, solo mantenerla lo más estable posible.
+      </p>
+
+      <div class="phase-container">
+        <div class="phase-header">
+          <div class="phase-title">Prueba de estabilidad</div>
+        </div>
+        <p class="phase-foot">
+          Cuando estés listo, presiona el botón y sostén tu voz hasta que el contador llegue a cero.
+        </p>
+      </div>
+
+      <button class="primary" (click)="startTest()">
+        Comenzar prueba de estabilidad
+      </button>
+    }
+
+    <!-- ESTADO: ANALIZANDO -->
+    @if (state() === 'recording') {
+      <div class="phase-container">
+        <div class="phase-header">
+          <div class="phase-title">Analizando estabilidad vocal…</div>
+        </div>
+
+        <div class="phase-bar">
+          <div
+            class="phase-bar-fill"
+            [style.width.%]="(10 - remainingSeconds()) * 10"
+          ></div>
+        </div>
+
+        <p class="phase-foot">
+          Mantén la misma nota y volumen. Tiempo restante:
+          {{ remainingSeconds() }} segundos.
+        </p>
+      </div>
+
+      <div class="pill pill--info">
+        Analizando…
+      </div>
+    }
+
+    <!-- ESTADO: RESULTADO -->
+    @if (state() === 'done') {
+      <div class="phase-container">
+        <div class="phase-header">
+          <div class="phase-title">Análisis completado</div>
+        </div>
+
+        <p class="result-line" *ngIf="stabilityPercent !== null">
+          Promedio de estabilidad:
+          {{ stabilityPercent | number : '1.0-0' }}%.
+          Tu control vocal es
+          <strong *ngIf="stabilityPercent >= 80">bueno</strong>
+          <strong *ngIf="stabilityPercent < 80 && stabilityPercent >= 50">
+            intermedio
+          </strong>
+          <strong *ngIf="stabilityPercent < 50">mejorable</strong>.
+        </p>
+
+        <p class="phase-foot">
+          Puedes repetir esta prueba cuando lo desees para mejorar tu estabilidad.
+        </p>
+      </div>
+
+      <button class="primary" (click)="goToResults()">
+        Ver resultados finales
+      </button>
+    }
+  </div>
+</div>
+
+<!-- Mensajes de pie de página -->
+@if (state() === 'intro') {
+  <p class="foot">
+    Asegúrate de estar en un lugar tranquilo antes de comenzar.
+  </p>
+}
+
+@if (state() === 'done') {
+  <p class="foot">
+    Puedes repetir este chequeo en el futuro para ver tu progreso.
+  </p>
+}

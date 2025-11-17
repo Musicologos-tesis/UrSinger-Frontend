@@ -37,12 +37,38 @@ export interface RangeMetrics {
     rangeMaxMidi: number;
     meanRmsDb?: number;
     rmsConsistency?: number;
-    durationSeconds?: number;
+    durationSec?: number;
     voiceType?: string;
     tessituraCenterMidi?: number;
     spectralCentroid?: number;
     dynamicRangeDb?: number;
     registerShifts?: number;
+}
+
+export interface MetricsData {
+  meanRmsDb: number | null;
+  rmsConsistency: number | null;
+  dynamicRangeDb: number | null;
+  durationSec: number | null;
+
+  precisionCents: number | null;
+  stabilityCents: number | null;
+
+  rangeMinMidi: number | null;
+  rangeMaxMidi: number | null;
+  rangeSpanSemitones: number | null;
+
+  vibratoRateHz: number | null;
+  vibratoDepthCents: number | null;
+
+  attackLatencyMs: number | null;
+}
+
+export interface ExerciseMetricsPayload {
+  sessionId: string;
+  exerciseId: string;
+  attemptNumber: number;
+  metricsData: MetricsData;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -494,9 +520,11 @@ export class VocalRangeService {
         try {
             // Calcular todas las métricas
             this.calculatedMetrics = this.calculateMetrics();
-
+            
             // Enviar al backend
-            await this.submitMetrics(this.calculatedMetrics);
+            // await this.submitMetrics(this.calculatedMetrics);
+            const payload = this.buildExercisePayload(this.calculatedMetrics);
+            console.log('[vocal-range] payload listo para backend:', payload);
 
             this.tip$.next('¡Ejercicio completado exitosamente!');
             this.log('exercise_complete', this.calculatedMetrics);
@@ -505,6 +533,38 @@ export class VocalRangeService {
             this.handleError('Error al enviar métricas: ' + error.message);
         }
     }
+
+    private buildExercisePayload(metrics: RangeMetrics): ExerciseMetricsPayload {
+        const data: MetricsData = {
+        // Métricas generales que este ejercicio SÍ produce
+        meanRmsDb: metrics.meanRmsDb ?? null,
+        rmsConsistency: metrics.rmsConsistency ?? null,
+        dynamicRangeDb: metrics.dynamicRangeDb ?? null,
+        durationSec: metrics.durationSec ?? null,
+
+        // Este ejercicio de rango NO calcula estas todavía
+        precisionCents: null,
+        stabilityCents: null,
+        attackLatencyMs: null,
+
+        // Métricas específicas de rango
+        rangeMinMidi: metrics.rangeMinMidi ?? null,
+        rangeMaxMidi: metrics.rangeMaxMidi ?? null,
+        rangeSpanSemitones: metrics.rangeSpanSemitones ?? null,
+
+        // Futuro vibrato → de momento null
+        vibratoRateHz: null,
+        vibratoDepthCents: null,
+    };
+
+    return {
+        sessionId: metrics.sessionId,
+        exerciseId: 'vocal_range', // id lógico del ejercicio
+        attemptNumber: 1,          // más adelante puedes parametrizarlo
+        metricsData: data,
+    };
+}
+
 
     /**
      * Calcula todas las métricas del ejercicio
@@ -546,7 +606,7 @@ export class VocalRangeService {
             rangeMaxMidi: this.confirmedMax,
             meanRmsDb,
             rmsConsistency,
-            durationSeconds: duration,
+            durationSec: duration,
             voiceType,
             tessituraCenterMidi,
             spectralCentroid,
