@@ -1,0 +1,208 @@
+.checkup-page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 3rem;
+}
+
+.checkup-header {
+  margin-bottom: 1.25rem;
+}
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+  color: #6b7280;
+  margin-bottom: 0.25rem;
+}
+
+.app-name {
+  font-weight: 600;
+  color: #111827;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.subtitle {
+  margin: 0.25rem 0 0;
+  font-size: 0.9rem;
+  color: #6b7280;
+}
+
+/* Tabs / steps */
+.steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.step-pill {
+  border-radius: 999px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  padding: 0.35rem 0.9rem;
+  font-size: 0.8rem;
+  color: #374151;
+  cursor: pointer;
+}
+
+.step-pill--active {
+  background: #4f46e5;
+  color: #f9fafb;
+  border-color: #4f46e5;
+}
+
+/* Layout principal */
+.results-main {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+/* Cards superiores */
+.summary-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.summary-card {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.9rem 1rem;
+  border-radius: 0.9rem;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.03);
+}
+
+.summary-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: #eef2ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+}
+
+.summary-label {
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+.summary-value {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+/* Ruta recomendada */
+.route-card {
+  margin-top: 0.25rem;
+  padding: 1.1rem 1.2rem;
+  border-radius: 1rem;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.03);
+}
+
+.route-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.route-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.route-text {
+  margin: 0.25rem 0 0;
+  font-size: 0.9rem;
+  color: #4b5563;
+}
+
+.route-tag {
+  align-self: flex-start;
+  padding: 0.25rem 0.7rem;
+  border-radius: 999px;
+  background: #111827;
+  color: #f9fafb;
+  font-size: 0.75rem;
+}
+
+/* Estado del chequeo */
+.route-footer {
+  margin-top: 0.85rem;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.8rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.status-pill--complete {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #16a34a;
+}
+
+/* Botón inferior */
+.bottom-actions {
+  text-align: center;
+  margin-top: 0.5rem;
+}
+
+.finish-btn {
+  margin-top: 0.5rem;
+  border-radius: 999px;
+  padding: 0.7rem 2.6rem;
+  border: none;
+  cursor: pointer;
+  background: #4f46e5;
+  color: #f9fafb;
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.bottom-note {
+  margin-top: 0.6rem;
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+@media (max-width: 768px) {
+  .summary-row {
+    grid-template-columns: 1fr;
+  }
+
+  .checkup-page {
+    padding-inline: 1rem;
+  }
+}

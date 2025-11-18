@@ -7,4 +7,5 @@ export const CHECKUP_ROUTES: Routes = [
   { path: 'calibration', loadComponent: () => import('./pages/calibration/calibration').then(m => m.CalibrationComponent) },
   { path: 'vocal-range', loadComponent: () => import('./pages/vocal-range/vocal-range').then(m => m.VocalRangeComponent) },
   { path: 'stability', loadComponent: () => import('./pages/stability/stability').then(m => m.StabilityComponent) },
+  { path: 'results', loadComponent: () => import('./pages/results/results').then(m => m.CheckupResultsComponent) },
 ];
