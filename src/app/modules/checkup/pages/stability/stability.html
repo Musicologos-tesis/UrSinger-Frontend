@@ -3,14 +3,7 @@
 <!-- Descripción -->
 <p>Vamos a medir qué tan estable puedes mantener una nota sostenida.</p>
 
-<!-- Tabs de navegación (igual que calibración / rango) -->
-<div class="tabs">
-  <span>● Preparación</span>
-  <span>● Calibración</span>
-  <span>● Rango</span>
-  <span class="active">● Estabilidad</span>
-  <span>● Resultados</span>
-</div>
+<app-stepper [currentStep]="'stability'"></app-stepper>
 
 <!-- 🔴 Bloque de error -->
 <div class="alert" *ngIf="errorMessage() as error">

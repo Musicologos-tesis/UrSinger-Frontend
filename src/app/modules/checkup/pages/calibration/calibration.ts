@@ -5,10 +5,12 @@ import { AudioAnalyzerService } from '../../services/audio.analyzer.service';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../../../environments/environment.development';
 import { firstValueFrom } from 'rxjs';
+import { StepperComponent } from '../../../../shared/components/stepper/stepper.component';
+import { AuthHeaderComponent } from '../../../auth/components/auth-header/auth-header.component';
 
 @Component({
   selector: 'app-calibration',
-  imports: [],
+  imports: [StepperComponent, AuthHeaderComponent],
   templateUrl: './calibration.html',
   styleUrl: './calibration.scss',
 })

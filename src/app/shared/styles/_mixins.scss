@@ -1,0 +1,183 @@
+@import './variables';
+
+// Mixin para botones
+@mixin button-base {
+  border: 0;
+  padding: 10px 14px;
+  border-radius: $radius-md;
+  font-weight: $font-weight-semibold;
+  font-size: $font-size-md;
+  cursor: pointer;
+  transition: all $transition-base;
+  
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+}
+
+@mixin button-primary {
+  @include button-base;
+  background: $primary;
+  color: #fff;
+  
+  &:hover:not(:disabled) {
+    background: $primary-dark;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+  }
+  
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+  
+  &:disabled {
+    background: $gray-400;
+  }
+}
+
+@mixin button-secondary {
+  @include button-base;
+  background: $gray-100;
+  color: $gray-700;
+  
+  &:hover:not(:disabled) {
+    background: $gray-200;
+  }
+}
+
+// Mixin para cards
+@mixin card {
+  border: 1px solid $gray-200;
+  border-radius: $radius-lg;
+  padding: $spacing-xl;
+  background: #fff;
+}
+
+// Mixin para badges
+@mixin badge {
+  display: inline-block;
+  padding: $spacing-sm 10px;
+  border-radius: $radius-md;
+  font-size: $font-size-sm;
+  font-weight: $font-weight-medium;
+}
+
+@mixin badge-default {
+  @include badge;
+  background: $gray-200;
+  color: $gray-700;
+}
+
+@mixin badge-success {
+  @include badge;
+  background: $success;
+  color: #fff;
+}
+
+@mixin badge-warning {
+  @include badge;
+  background: $warning;
+  color: $gray-900;
+}
+
+@mixin badge-error {
+  @include badge;
+  background: $error;
+  color: #fff;
+}
+
+// Mixin para mic-box (usado en múltiples páginas)
+@mixin mic-box {
+  width: 260px;
+  height: 160px;
+  background: $dark-bg;
+  border-radius: $radius-md;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+@mixin mic-circle {
+  width: 84px;
+  height: 84px;
+  border-radius: $radius-full;
+  background: $dark-circle;
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 28px;
+  transition: transform $transition-slow;
+}
+
+// Mixin para animación de pulso
+@mixin pulse-animation {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+// Mixin para mensajes de error
+@mixin error-banner {
+  background: $error-light;
+  border: 1px solid $error-border;
+  border-radius: $radius-md;
+  padding: $spacing-lg;
+  color: $error-dark;
+}
+
+// Mixin para mensajes de validación
+@mixin validation-message {
+  padding: $spacing-md 10px;
+  border-radius: $radius-sm;
+  font-size: $font-size-sm;
+  font-weight: $font-weight-medium;
+}
+
+@mixin validation-success {
+  @include validation-message;
+  background: $success-light;
+  color: $success-dark;
+  border: 1px solid $success-border;
+}
+
+@mixin validation-error {
+  @include validation-message;
+  background: $error-light;
+  color: $error-dark;
+  border: 1px solid $error-border;
+}
+
+// Mixin para progress bar
+@mixin progress-bar {
+  height: 6px;
+  background: $gray-200;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+@mixin progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, $primary, #8b5cf6);
+  transition: width $transition-slow;
+  border-radius: 3px;
+}
+
+// Mixin para fade-in animation
+@mixin fade-in {
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { 
+    opacity: 0; 
+    transform: translateY(-4px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
+}

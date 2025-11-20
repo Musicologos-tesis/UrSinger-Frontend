@@ -8,13 +8,14 @@ import {
   StabilityService,
   StabilityMetrics
 } from '../../services/stability.service';
+import { StepperComponent } from '../../../../shared/components/stepper/stepper.component';
 
 type UiState = 'intro' | 'recording' | 'done';
 
 @Component({
   selector: 'app-stability',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, StepperComponent],
   templateUrl: './stability.html',
   styleUrl: './stability.scss',
 })

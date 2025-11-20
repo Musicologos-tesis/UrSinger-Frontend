@@ -1,0 +1,29 @@
+@import '../../../shared/styles/variables';
+
+.stepper {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+  max-width: 1200px;
+  margin: 0;
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 22px;
+  border: 1px solid $gray-200;
+  border-radius: $radius-md;
+  color: $gray-500;
+  font-size: 20px;
+  transition: all $transition-base;
+  text-align: center;
+}
+
+.step.active {
+  background: $primary-light;
+  border-color: $primary-border;
+  color: $primary-text;
+  font-weight: $font-weight-semibold;
+}

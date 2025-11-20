@@ -2,10 +2,12 @@ import { Component, OnDestroy, signal, effect } from '@angular/core';
 import { AudioAnalyzerService } from '../../services/audio.analyzer.service';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { StepperComponent } from '../../../../shared/components/stepper/stepper.component';
+import { AuthHeaderComponent } from '../../../auth/components/auth-header/auth-header.component';
 
 @Component({
   selector: 'app-preparation',
-  imports: [FormsModule],
+  imports: [FormsModule, StepperComponent, AuthHeaderComponent],
   templateUrl: './preparation.html',
   styleUrl: './preparation.scss',
 })

@@ -1,16 +1,14 @@
-<h1>Chequeo rápido - Rango vocal</h1>
+<app-auth-header [pageTitle]="'Chequeo rápido'"></app-auth-header>
 
-<!-- Descripción -->
-<p>En esta prueba descubriremos las notas más bajas y altas que puedes emitir cómodamente.</p>
+<div class="page-container">
+  <h1 class="title">Rango vocal</h1>
 
-<!-- Tabs de navegación (igual que calibración) -->
-<div class="tabs">
-  <span>● Preparación</span>
-  <span>● Calibración</span>
-  <span class="active">● Rango</span>
-  <span>● Estabilidad</span>
-  <span>● Resultados</span>
-</div>
+  <!-- Descripción -->
+  <p class="subtitle">En esta prueba descubriremos las notas más bajas y altas que puedes emitir cómodamente.</p>
+
+  <div class="stepper-container">
+    <app-stepper [currentStep]="'vocal-range'"></app-stepper>
+  </div>
 
 <!-- Panel principal -->
 <div class="panel">
@@ -351,3 +349,4 @@
     ¡Excelente! Ahora continuaremos con el ejercicio de estabilidad vocal.
   </p>
 }
+</div>

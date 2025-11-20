@@ -3,11 +3,13 @@ import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { VocalRangeService, RangePhase } from '../../services/vocal-range.service';
 import { AudioAnalyzerService } from '../../services/audio.analyzer.service';
+import { StepperComponent } from '../../../../shared/components/stepper/stepper.component';
+import { AuthHeaderComponent } from '../../../auth/components/auth-header/auth-header.component';
 
 @Component({
   selector: 'app-vocal-range',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, StepperComponent, AuthHeaderComponent],
   templateUrl: './vocal-range.html',
   styleUrl: './vocal-range.scss'
 })
