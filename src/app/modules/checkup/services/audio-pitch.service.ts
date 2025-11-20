@@ -161,10 +161,11 @@ export class AudioPitchService {
             // 8. Interpretar salida (360 bins de probabilidad)
             let { frequency, confidence } = this.interpretCrepeOutput(outputData);
 
-            // MEJORA PARA GRAVES: Aumentar ganancia y promediar confidence
-            if (frequency > 0 && frequency < 150) {
+            // MEJORA PARA GRAVES Y MEDIOS-GRAVES: Aumentar ganancia y promediar confidence
+            if (frequency > 0 && frequency < 200) {
                 // Aplicar ganancia extra para graves (tienen menos energía armónica)
-                confidence = Math.min(1.0, confidence * 1.3);
+                // 1.5x boost para mejorar detección (antes 1.3x)
+                confidence = Math.min(1.0, confidence * 1.5);
                 
                 // Promedio móvil de confidence para estabilizar graves
                 this.confidenceHistory.push(confidence);
@@ -183,11 +184,19 @@ export class AudioPitchService {
 
             // DEBUG: Log cada 20 detecciones
             if (Math.random() < 0.05) {
+                // Calcular RMS del audio normalizado
+                let rms = 0;
+                for (let i = 0; i < normalizedData.length; i++) {
+                    rms += normalizedData[i] * normalizedData[i];
+                }
+                rms = Math.sqrt(rms / normalizedData.length);
+
                 console.log('[CREPE Debug]', {
-                    frequency: frequency.toFixed(1),
+                    frequency: frequency.toFixed(1) + ' Hz',
                     confidence: (confidence * 100).toFixed(1) + '%',
-                    outputDataLength: outputData.length,
-                    maxValue: Math.max(...Array.from(outputData))
+                    gain: this.calibratedGain.toFixed(2) + 'x',
+                    normRMS: rms.toFixed(3),
+                    maxConfBin: Math.max(...Array.from(outputData)).toFixed(3)
                 });
             }
 
@@ -292,13 +301,16 @@ export class AudioPitchService {
         const correlationF4 = this.calculateAutocorrelation(audioData, period * 4);
 
         // Si la correlación de f/2 o f/4 es significativamente mejor, usar esa
-        if (correlationF2 > correlationF * 1.2 && frequency / 2 >= 65) {
+        // Thresholds aumentados (1.4 y 1.6) para ser menos agresivo en correcciones
+        if (correlationF2 > correlationF * 1.4 && frequency / 2 >= 65) {
             // Octava abajo es más probable
+            console.log('[CREPE] Corrección de octava: ', frequency.toFixed(1), '→', (frequency / 2).toFixed(1), 'Hz');
             return frequency / 2;
         }
         
-        if (correlationF4 > correlationF * 1.3 && frequency / 4 >= 65) {
+        if (correlationF4 > correlationF * 1.6 && frequency / 4 >= 65) {
             // Dos octavas abajo es más probable
+            console.log('[CREPE] Corrección de 2 octavas: ', frequency.toFixed(1), '→', (frequency / 4).toFixed(1), 'Hz');
             return frequency / 4;
         }
 
@@ -339,7 +351,8 @@ export class AudioPitchService {
         }
 
         // Si el audio es silencio, retornar ceros
-        if (max === 0 || max < 0.001) {
+        // Threshold reducido a 0.0001 para capturar voces muy suaves
+        if (max === 0 || max < 0.0001) {
             return new Float32Array(audioData.length);
         }
 

@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 import { AudioPitchService } from './audio-pitch.service';
 import { CalibrationService } from './calibration.service';
-import { environment } from '../../../../environments/environment.development';
+import { MetricsService } from './metrics.service';
 
 export enum StabilityPhase {
   Idle = 'idle',
@@ -14,7 +14,16 @@ export enum StabilityPhase {
 interface StabilitySample {
   midi: number;
   rms: number;
+  confidence: number;
+  frequency: number;
   timestamp: number;
+}
+
+interface VocalSegment {
+  samples: StabilitySample[];
+  startTime: number;
+  endTime: number;
+  durationSec: number;
 }
 
 export interface StabilityMetrics {
@@ -61,10 +70,14 @@ export interface ExerciseMetricsPayload {
 export class StabilityService {
   private pitch = inject(AudioPitchService);
   private calibration = inject(CalibrationService);
+  private metricsService = inject(MetricsService);
 
   readonly phase$ = new BehaviorSubject<StabilityPhase>(StabilityPhase.Idle);
   readonly currentMidi$ = new BehaviorSubject<number>(0);
   readonly currentRms$ = new BehaviorSubject<number>(-90);
+  readonly currentConfidence$ = new BehaviorSubject<number>(0);
+  readonly currentNote$ = new BehaviorSubject<string>('-');
+  readonly samplesCount$ = new BehaviorSubject<number>(0);
   readonly progress$ = new BehaviorSubject<number>(0); // 0–1
   readonly errorMessage$ = new BehaviorSubject<string | null>(null);
 
@@ -73,6 +86,15 @@ export class StabilityService {
   private startTime = 0;
   private targetDurationSec = 10;
   private noiseFloorDb: number = -90;
+  
+  // Filtro de estabilidad temporal (para distinguir picos aislados de notas sostenidas)
+  private lastAcceptedMidi: number = 0;
+  private lastAcceptedCount: number = 0;
+  private readonly MIN_REPETITIONS = 3; // Una nota debe repetirse 3 veces (300ms) para ser válida
+  
+  // Rango de frecuencias de voz humana (para filtrar ruidos externos)
+  private readonly HUMAN_VOICE_MIN_HZ = 80;   // E2 (graves masculinos extremos)
+  private readonly HUMAN_VOICE_MAX_HZ = 880;  // A5 (agudas femeninas típicas) - Reducido de 1100
 
   lastMetrics?: StabilityMetrics;
   lastPayload?: ExerciseMetricsPayload;
@@ -137,10 +159,22 @@ export class StabilityService {
     const metrics = this.calculateMetrics();
     this.lastMetrics = metrics;
 
+    // Guardar métricas parciales en localStorage
+    this.metricsService.savePartialMetrics('stability', {
+      precisionCents: metrics.precisionCents ?? undefined,
+      stabilityCents: metrics.stabilityCents ?? undefined,
+      attackLatencyMs: metrics.attackLatencyMs ?? undefined,
+      meanRmsDb: metrics.meanRmsDb ?? undefined,
+      rmsConsistency: metrics.rmsConsistency ?? undefined,
+      dynamicRangeDb: metrics.dynamicRangeDb ?? undefined,
+      durationSec: metrics.durationSec ?? undefined
+    });
+
     // Construir payload estándar para el backend / modelo
     const payload = this.buildExercisePayload(metrics);
     this.lastPayload = payload;
     this.log('metrics_computed', { metrics, payload });
+    console.log('[stability] métricas guardadas en localStorage');
 
     this.phase$.next(StabilityPhase.Complete);
     return metrics;
@@ -153,6 +187,9 @@ export class StabilityService {
     this.progress$.next(0);
     this.currentMidi$.next(0);
     this.currentRms$.next(-90);
+    this.currentConfidence$.next(0);
+    this.currentNote$.next('-');
+    this.samplesCount$.next(0);
     this.lastMetrics = undefined;
     this.lastPayload = undefined;
     this.errorMessage$.next(null);
@@ -183,19 +220,75 @@ export class StabilityService {
 
       this.currentMidi$.next(midiNote);
       this.currentRms$.next(rms);
+      this.currentConfidence$.next(confidence);
+      
+      // Actualizar nota si es válida
+      if (midiNote > 0) {
+        const noteName = this.pitch.midiToNoteName(midiNote);
+        this.currentNote$.next(noteName);
+      } else {
+        this.currentNote$.next('-');
+      }
 
-      // Filtro: señal vocal real (sobre ruido y con confianza suficiente)
-      const isVocalSignal = rms > (this.noiseFloorDb + 6);
+      // VALIDACIÓN: Filtros para voz humana (igual que vocal-range)
+      // 1. RMS > ruido ambiente (eliminar ruido de fondo)
+      const isAboveNoise = rms > this.noiseFloorDb;
+      
+      // 2. Frecuencia en rango vocal humano (80-880 Hz)
+      const isHumanVoiceRange = frequency >= this.HUMAN_VOICE_MIN_HZ && frequency <= this.HUMAN_VOICE_MAX_HZ;
+      
+      // 3. Confidence SOLO para frecuencias extremas (muy graves o muy agudas)
+      // Graves < 100 Hz o agudas > 700 Hz requieren mínima confidence (15%)
+      let passesConfidenceCheck = true;
+      if (frequency < 100 || frequency > 700) {
+        passesConfidenceCheck = confidence >= 0.15; // 15% mínimo para extremos
+      }
+      
+      // 4. Estabilidad temporal: una nota debe repetirse 3 veces seguidas (300ms)
+      // Esto filtra picos instantáneos vs notas sostenidas
+      let isStableNote = false;
+      if (midiNote > 0) {
+        if (Math.abs(midiNote - this.lastAcceptedMidi) <= 1) { // Misma nota (±1 semitono por vibrato)
+          this.lastAcceptedCount++;
+        } else {
+          this.lastAcceptedMidi = midiNote;
+          this.lastAcceptedCount = 1;
+        }
+        isStableNote = this.lastAcceptedCount >= this.MIN_REPETITIONS;
+      }
+      
+      const isVocalSignal = isAboveNoise && isHumanVoiceRange && passesConfidenceCheck && isStableNote;
 
-      // Graves necesitan menos confianza que notas más agudas
-      const confidenceThreshold = frequency < 150 ? 0.25 : 0.4;
+      // DEBUG: Log cada 20 capturas (~2 segundos)
+      if (Math.random() < 0.05) {
+        console.log('[Stability] Captura:', {
+          midi: midiNote,
+          freq: frequency.toFixed(1) + ' Hz',
+          conf: (confidence * 100).toFixed(1) + '%',
+          rms: rms.toFixed(1) + ' dB',
+          filters: {
+            aboveNoise: isAboveNoise,
+            inRange: isHumanVoiceRange,
+            confCheck: passesConfidenceCheck,
+            stable: isStableNote,
+            reps: this.lastAcceptedCount
+          },
+          FINAL: isVocalSignal,
+          samples: this.samples.length
+        });
+      }
 
-      if (midiNote > 0 && confidence >= confidenceThreshold && isVocalSignal) {
+      // Capturar muestra si hay señal vocal (RMS > ruido) y CREPE detectó algo
+      // SIN filtros de confidence - capturar hasta lo más mínimo
+      if (midiNote > 0 && isVocalSignal) {
         this.samples.push({
           midi: midiNote,
           rms,
+          confidence,
+          frequency,
           timestamp: performance.now(),
         });
+        this.samplesCount$.next(this.samples.length);
       }
 
       // Progreso UI
@@ -217,55 +310,48 @@ export class StabilityService {
   // ─────────────────────────────
 
   private calculateMetrics(): StabilityMetrics {
-    const durationSec =
-      this.samples.length > 1
-        ? (this.samples[this.samples.length - 1].timestamp - this.samples[0].timestamp) / 1000
-        : (performance.now() - this.startTime) / 1000;
+    // PASO 1: Segmentar las muestras en fragmentos vocales continuos
+    const segments = this.segmentVocalPhrases(this.samples);
+    
+    console.log('[Stability] Segmentos vocales detectados:', segments.length);
+    segments.forEach((seg, idx) => {
+      console.log(`  Segmento ${idx + 1}: ${seg.samples.length} muestras, ${seg.durationSec.toFixed(2)}s`);
+    });
 
-    const rmsValues = this.samples.map((s) => s.rms);
-    const meanRmsDb = this.mean(rmsValues);
-    const rmsStd = this.std(rmsValues);
-    const dynamicRangeDb =
-      rmsValues.length > 0 ? Math.max(...rmsValues) - Math.min(...rmsValues) : null;
-
-    const rmsConsistency =
-      meanRmsDb !== null && rmsStd !== null
-        ? Math.max(0, Math.min(1, 1 - rmsStd / (Math.abs(meanRmsDb) + 1e-6)))
-        : null;
-
-    const midis = this.samples.map((s) => s.midi);
-    const centerMidi = this.median(midis);
-
-    let precisionCents: number | null = null;
-    let stabilityCents: number | null = null;
-    let attackLatencyMs: number | null = null;
-
-    if (centerMidi !== null) {
-      const errorsCents = midis.map((m) => (m - centerMidi) * 100); // 1 semitono = 100 cents aprox
-
-      const absErrors = errorsCents.map((e) => Math.abs(e));
-      precisionCents = this.mean(absErrors);
-
-      stabilityCents = this.std(errorsCents);
-
-      // Attack: primer momento donde |error| <= 25 cents y RMS suficiente
-      const threshold = 25;
-      const idx = errorsCents.findIndex(
-        (e, i) => Math.abs(e) <= threshold && rmsValues[i] > this.noiseFloorDb + 6,
-      );
-      if (idx >= 0) {
-        attackLatencyMs = this.samples[idx].timestamp - this.startTime;
-      }
+    if (segments.length === 0) {
+      return {
+        meanRmsDb: null,
+        rmsConsistency: null,
+        dynamicRangeDb: null,
+        durationSec: null,
+        precisionCents: null,
+        stabilityCents: null,
+        attackLatencyMs: null,
+      };
     }
 
+    // PASO 2: Calcular métricas para cada segmento
+    const segmentMetrics = segments.map(seg => this.calculateSegmentMetrics(seg));
+
+    // PASO 3: Promediar métricas de todos los segmentos
+    const validMeanRms = segmentMetrics.map(m => m.meanRmsDb).filter(v => v !== null) as number[];
+    const validRmsConsistency = segmentMetrics.map(m => m.rmsConsistency).filter(v => v !== null) as number[];
+    const validDynamicRange = segmentMetrics.map(m => m.dynamicRangeDb).filter(v => v !== null) as number[];
+    const validStability = segmentMetrics.map(m => m.stabilityCents).filter(v => v !== null) as number[];
+
+    // durationSec = el segmento MÁS LARGO (donde se mantuvo más tiempo)
+    const longestSegment = segments.reduce((max, seg) => 
+      seg.durationSec > max.durationSec ? seg : max
+    , segments[0]);
+
     return {
-      meanRmsDb,
-      rmsConsistency,
-      dynamicRangeDb,
-      durationSec,
-      precisionCents,
-      stabilityCents,
-      attackLatencyMs,
+      meanRmsDb: validMeanRms.length > 0 ? this.mean(validMeanRms) : null,
+      rmsConsistency: validRmsConsistency.length > 0 ? this.mean(validRmsConsistency) : null,
+      dynamicRangeDb: validDynamicRange.length > 0 ? this.mean(validDynamicRange) : null,
+      durationSec: longestSegment.durationSec,
+      precisionCents: null, // No se calcula en estabilidad
+      stabilityCents: validStability.length > 0 ? this.mean(validStability) : null,
+      attackLatencyMs: null, // No se calcula en estabilidad
     };
   }
 
@@ -304,6 +390,88 @@ export class StabilityService {
     };
   }
 
+  /**
+   * Segmenta las muestras en fragmentos vocales continuos
+   * Un fragmento se rompe si hay un gap > 300ms entre muestras
+   */
+  private segmentVocalPhrases(samples: StabilitySample[]): VocalSegment[] {
+    if (samples.length === 0) return [];
+
+    const segments: VocalSegment[] = [];
+    let currentSegment: StabilitySample[] = [samples[0]];
+    const MAX_GAP_MS = 300; // 300ms de silencio rompe el segmento
+
+    for (let i = 1; i < samples.length; i++) {
+      const gap = samples[i].timestamp - samples[i - 1].timestamp;
+      
+      if (gap > MAX_GAP_MS) {
+        // Gap detectado - finalizar segmento actual
+        if (currentSegment.length >= 5) { // Mínimo 5 muestras (500ms)
+          segments.push(this.createSegment(currentSegment));
+        }
+        currentSegment = [samples[i]];
+      } else {
+        currentSegment.push(samples[i]);
+      }
+    }
+
+    // Agregar último segmento
+    if (currentSegment.length >= 5) {
+      segments.push(this.createSegment(currentSegment));
+    }
+
+    return segments;
+  }
+
+  private createSegment(samples: StabilitySample[]): VocalSegment {
+    const startTime = samples[0].timestamp;
+    const endTime = samples[samples.length - 1].timestamp;
+    return {
+      samples,
+      startTime,
+      endTime,
+      durationSec: (endTime - startTime) / 1000,
+    };
+  }
+
+  /**
+   * Calcula métricas para un segmento vocal individual
+   */
+  private calculateSegmentMetrics(segment: VocalSegment): StabilityMetrics {
+    const { samples } = segment;
+    
+    const rmsValues = samples.map(s => s.rms);
+    const meanRmsDb = this.mean(rmsValues);
+    const rmsStd = this.std(rmsValues);
+    const dynamicRangeDb = rmsValues.length > 0 
+      ? Math.max(...rmsValues) - Math.min(...rmsValues) 
+      : null;
+
+    const rmsConsistency = meanRmsDb !== null && rmsStd !== null
+      ? Math.max(0, Math.min(1, 1 - rmsStd / (Math.abs(meanRmsDb) + 1e-6)))
+      : null;
+
+    const midis = samples.map(s => s.midi);
+    const centerMidi = this.median(midis);
+
+    let stabilityCents: number | null = null;
+
+    if (centerMidi !== null) {
+      const errorsCents = midis.map(m => (m - centerMidi) * 100);
+      stabilityCents = this.std(errorsCents);
+    }
+
+    return {
+      meanRmsDb,
+      rmsConsistency,
+      dynamicRangeDb,
+      durationSec: segment.durationSec,
+      precisionCents: null,
+      stabilityCents,
+      attackLatencyMs: null,
+    };
+  }
+
   // ─────────────────────────────
   //        HELPERS
   // ─────────────────────────────
@@ -332,8 +500,6 @@ export class StabilityService {
   }
 
   private log(event: string, data?: any) {
-    if (!environment.production) {
-      console.log('[stability]', event, data || '');
-    }
+    console.log('[stability]', event, data || '');
   }
 }

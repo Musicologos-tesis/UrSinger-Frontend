@@ -1,62 +1,31 @@
-.checkup-page {
-  max-width: 960px;
+// Use shared page-container styles from other checkup pages
+.page-container {
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 2rem 1.5rem 3rem;
-}
-
-.checkup-header {
-  margin-bottom: 1.25rem;
-}
-
-.breadcrumb {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  font-size: 0.85rem;
-  color: #6b7280;
-  margin-bottom: 0.25rem;
-}
-
-.app-name {
-  font-weight: 600;
-  color: #111827;
+  padding: 0 32px;
 }
 
 .title {
-  margin: 0;
-  font-size: 1.5rem;
+  font-family: 'Inter', sans-serif;
+  font-size: 40px;
   font-weight: 600;
-  color: #111827;
+  margin: 12px 0 12px 0;
+  color: #000;
 }
 
 .subtitle {
-  margin: 0.25rem 0 0;
-  font-size: 0.9rem;
-  color: #6b7280;
+  font-family: 'Inter', sans-serif;
+  font-size: 20px;
+  color: #828282;
+  margin-bottom: 24px;
 }
 
-/* Tabs / steps */
-.steps {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-bottom: 1.5rem;
-}
-
-.step-pill {
-  border-radius: 999px;
-  border: 1px solid #e5e7eb;
-  background: #f9fafb;
-  padding: 0.35rem 0.9rem;
-  font-size: 0.8rem;
-  color: #374151;
-  cursor: pointer;
-}
-
-.step-pill--active {
-  background: #4f46e5;
-  color: #f9fafb;
-  border-color: #4f46e5;
+.stepper-container {
+  background: #fff;
+  padding: 20px;
+  margin-bottom: 24px;
+  border-top: 1px solid #BDBDBD;
+  border-bottom: 1px solid #BDBDBD;
 }
 
 /* Layout principal */
@@ -106,72 +75,186 @@
   color: #111827;
 }
 
-/* Ruta recomendada */
-.route-card {
-  margin-top: 0.25rem;
-  padding: 1.1rem 1.2rem;
+/* Training Plan Section */
+.training-plan-section {
+  margin-top: 1rem;
+  padding: 1.5rem;
   border-radius: 1rem;
   border: 1px solid #e5e7eb;
   background: #ffffff;
   box-shadow: 0 10px 30px rgba(15, 23, 42, 0.03);
 }
 
-.route-header {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  align-items: flex-start;
-}
-
-.route-title {
-  margin: 0;
-  font-size: 0.95rem;
+.section-title {
+  margin: 0 0 1.25rem 0;
+  font-size: 1.1rem;
   font-weight: 600;
   color: #111827;
 }
 
-.route-text {
-  margin: 0.25rem 0 0;
+.loading-state,
+.error-state {
+  text-align: center;
+  padding: 2rem 1rem;
+  color: #6b7280;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  margin: 0 auto 1rem;
+  border: 3px solid #e5e7eb;
+  border-top-color: #4f46e5;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.retry-btn {
+  margin-top: 1rem;
+  padding: 0.5rem 1.5rem;
+  border-radius: 999px;
+  border: 1px solid #4f46e5;
+  background: #ffffff;
+  color: #4f46e5;
+  cursor: pointer;
   font-size: 0.9rem;
-  color: #4b5563;
 }
 
-.route-tag {
-  align-self: flex-start;
-  padding: 0.25rem 0.7rem;
-  border-radius: 999px;
-  background: #111827;
-  color: #f9fafb;
-  font-size: 0.75rem;
+.plan-header {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e5e7eb;
 }
 
-/* Estado del chequeo */
-.route-footer {
-  margin-top: 0.85rem;
-}
-
-.status-pill {
-  display: inline-flex;
+.focus-groups {
+  display: flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.25rem 0.8rem;
-  border-radius: 999px;
-  font-size: 0.8rem;
-  background: #f3f4f6;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.focus-label {
+  font-size: 0.85rem;
+  font-weight: 600;
   color: #374151;
 }
 
-.status-pill--complete {
+.focus-badge-header {
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #4338ca;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.plan-dates {
+  font-size: 0.9rem;
+  color: #6b7280;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}
+
+.plan-instructions {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #374151;
+  line-height: 1.5;
+}
+
+.week-plan {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.day-card {
+  padding: 1rem;
+  border-radius: 0.75rem;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+}
+
+.day-header {
+  margin-bottom: 0.75rem;
+}
+
+.day-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.exercises-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.exercise-item {
+  padding: 0.85rem;
+  border-radius: 0.5rem;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+}
+
+.exercise-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.35rem;
+}
+
+.exercise-name {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.exercise-level {
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.level-1 {
   background: #dcfce7;
   color: #166534;
 }
 
-.status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: #16a34a;
+.level-2 {
+  background: #fef3c7;
+  color: #92400e;
 }
+
+.level-3 {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.exercise-group {
+  margin: 0 0 0.35rem 0;
+  font-size: 0.8rem;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.exercise-description {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #4b5563;
+  line-height: 1.4;
+}
+
 
 /* Botón inferior */
 .bottom-actions {
@@ -202,7 +285,7 @@
     grid-template-columns: 1fr;
   }
 
-  .checkup-page {
+  .page-container {
     padding-inline: 1rem;
   }
 }

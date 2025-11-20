@@ -2,9 +2,6 @@ import { Component, OnDestroy, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { CalibrationService, CalibState, ValidationStatus } from '../../services/calibration.service';
 import { AudioAnalyzerService } from '../../services/audio.analyzer.service';
-import { HttpClient } from '@angular/common/http';
-import { environment } from '../../../../../environments/environment.development';
-import { firstValueFrom } from 'rxjs';
 import { StepperComponent } from '../../../../shared/components/stepper/stepper.component';
 import { AuthHeaderComponent } from '../../../auth/components/auth-header/auth-header.component';
 
@@ -18,7 +15,6 @@ export class CalibrationComponent implements OnDestroy {
   private router = inject(Router);
   private cal = inject(CalibrationService);
   private audio = inject(AudioAnalyzerService);
-  private http = inject(HttpClient);
 
   CalibState = CalibState;
   ValidationStatus = ValidationStatus;

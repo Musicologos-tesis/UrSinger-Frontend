@@ -1,9 +1,14 @@
-<h1>Chequeo rápido - Estabilidad</h1>
+<app-auth-header [pageTitle]="'Chequeo rápido'"></app-auth-header>
 
-<!-- Descripción -->
-<p>Vamos a medir qué tan estable puedes mantener una nota sostenida.</p>
+<div class="page-container">
+  <h1 class="title">Estabilidad vocal</h1>
 
-<app-stepper [currentStep]="'stability'"></app-stepper>
+  <!-- Descripción -->
+  <p class="subtitle">Vamos a medir qué tan estable puedes mantener una nota sostenida.</p>
+
+  <div class="stepper-container">
+    <app-stepper [currentStep]="'stability'"></app-stepper>
+  </div>
 
 <!-- 🔴 Bloque de error -->
 <div class="alert" *ngIf="errorMessage() as error">
@@ -53,6 +58,32 @@
           <div class="phase-title">Analizando estabilidad vocal…</div>
         </div>
 
+        <!-- Indicadores en tiempo real -->
+        <div class="live-indicators">
+          <div class="indicator-row">
+            <span class="label">Nota detectada:</span>
+            <span class="value">{{ currentNote() }} @if (currentMidi() > 0) { (MIDI {{ currentMidi() }}) }</span>
+          </div>
+          
+          <div class="indicator-row">
+            <span class="label">Confianza:</span>
+            <div class="confidence-bar">
+              <div class="confidence-fill" [style.width.%]="currentConfidence() * 100"></div>
+            </div>
+            <span class="value">{{ (currentConfidence() * 100).toFixed(0) }}%</span>
+          </div>
+          
+          <div class="indicator-row">
+            <span class="label">Volumen (RMS):</span>
+            <span class="value">{{ currentRms().toFixed(1) }} dB</span>
+          </div>
+          
+          <div class="indicator-row">
+            <span class="label">Muestras capturadas:</span>
+            <span class="value samples-count">{{ samplesCount() }}</span>
+          </div>
+        </div>
+
         <div class="phase-bar">
           <div
             class="phase-bar-fill"
@@ -64,6 +95,19 @@
           Mantén la misma nota y volumen. Tiempo restante:
           {{ remainingSeconds() }} segundos.
         </p>
+        
+        <!-- Advertencia si no se capturan muestras -->
+        @if (samplesCount() === 0 && remainingSeconds() < 8) {
+          <div class="warning-message">
+            ⚠️ No se están detectando notas. Intenta cantar más fuerte o acercarte al micrófono.
+          </div>
+        }
+        
+        @if (samplesCount() > 0 && samplesCount() < 10 && remainingSeconds() < 6) {
+          <div class="warning-message">
+            ⚠️ Pocas muestras capturadas ({{ samplesCount() }}). Continúa cantando de forma sostenida.
+          </div>
+        }
       </div>
 
       <div class="pill pill--info">
@@ -113,3 +157,4 @@
     Puedes repetir este chequeo en el futuro para ver tu progreso.
   </p>
 }
+</div>

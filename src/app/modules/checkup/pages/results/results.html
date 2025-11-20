@@ -1,28 +1,15 @@
-<div class="checkup-page">
-  <!-- Header -->
-  <header class="checkup-header">
-    <div class="breadcrumb">
-      <span class="app-name">UrSinger</span>
-      <span class="divider">/</span>
-      <span class="section">Chequeo rápido</span>
-    </div>
+<app-auth-header [pageTitle]="'Chequeo rápido'"></app-auth-header>
 
-    <h1 class="title">Chequeo rápido - Resultados</h1>
-    <p class="subtitle">
-      Los resultados de tu prueba inicial se muestran a continuación.
-    </p>
-  </header>
+<div class="page-container">
+  <h1 class="title">Resultados</h1>
 
-  <!-- Tabs -->
-  <nav class="steps">
-    <button class="step-pill" routerLink="../preparation">● Preparación</button>
-    <button class="step-pill" routerLink="../calibration">● Calibración</button>
-    <button class="step-pill" routerLink="../vocal-range">● Rango</button>
-    <button class="step-pill" routerLink="../stability">● Estabilidad</button>
-    <button class="step-pill step-pill--active" type="button">
-      ● Resultados
-    </button>
-  </nav>
+  <p class="subtitle">
+    Los resultados de tu prueba inicial se muestran a continuación.
+  </p>
+
+  <div class="stepper-container">
+    <app-stepper [currentStep]="'results'"></app-stepper>
+  </div>
 
   <!-- Contenido principal -->
   <main class="results-main">
@@ -66,28 +53,60 @@
       </article>
     </section>
 
-    <!-- Ruta recomendada -->
-    <section class="route-card">
-      <header class="route-header">
-        <div>
-          <h2 class="route-title">{{ recommendationTitle }}</h2>
-          <p class="route-text">
-            {{ recommendationText }}
-          </p>
-        </div>
-        <div class="route-tag">
-          {{ routeTag }}
-        </div>
-      </header>
+    <!-- Plan de entrenamiento -->
+    <section class="training-plan-section">
+      <h2 class="section-title">Plan de entrenamiento personalizado</h2>
 
-      <div class="route-footer">
-        <span
-          class="status-pill"
-          [class.status-pill--complete]="checkupCompleted"
-        >
-          <span class="status-dot"></span>
-          {{ checkupCompleted ? 'Chequeo completado' : 'Chequeo en progreso' }}
-        </span>
+      <!-- Loading state -->
+      <div *ngIf="isLoadingPlan" class="loading-state">
+        <div class="spinner"></div>
+        <p>Generando tu plan de entrenamiento...</p>
+      </div>
+
+      <!-- Error state -->
+      <div *ngIf="planError && !isLoadingPlan" class="error-state">
+        <p>{{ planError }}</p>
+        <button class="retry-btn" type="button" (click)="loadTrainingPlan()">
+          Reintentar
+        </button>
+      </div>
+
+      <!-- Plan content -->
+      <div *ngIf="trainingPlan && !isLoadingPlan && !planError" class="plan-content">
+        <!-- Plan header -->
+        <div class="plan-header">
+          <div *ngIf="trainingPlan.focusGroups && trainingPlan.focusGroups.length > 0" class="focus-groups">
+            <span class="focus-label">Grupos con carencia:</span>
+            <span *ngFor="let group of trainingPlan.focusGroups" class="focus-badge-header">{{ group }}</span>
+          </div>
+          <div class="plan-dates">
+            {{ formatDate(trainingPlan.startDate) }} - {{ formatDate(trainingPlan.endDate) }}
+          </div>
+          <p class="plan-instructions">{{ trainingPlan.instructions }}</p>
+        </div>
+
+        <!-- Week plan -->
+        <div class="week-plan">
+          <div *ngFor="let day of trainingPlan.weekPlan" class="day-card">
+            <div class="day-header">
+              <h3 class="day-title">{{ getDayName(day.day) }}</h3>
+            </div>
+
+            <!-- Exercises -->
+            <div class="exercises-list">
+              <div *ngFor="let exercise of day.exercises" class="exercise-item">
+                <div class="exercise-header">
+                  <h4 class="exercise-name">{{ exercise.exerciseName }}</h4>
+                  <span class="exercise-level level-{{ exercise.level }}">
+                    {{ exercise.level }}
+                  </span>
+                </div>
+                <p class="exercise-group">{{ exercise.groupName }}</p>
+                <p class="exercise-description">{{ exercise.description }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
 

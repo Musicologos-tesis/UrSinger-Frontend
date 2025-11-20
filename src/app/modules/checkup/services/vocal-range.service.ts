@@ -1,9 +1,8 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, firstValueFrom } from 'rxjs';
-import { environment } from '../../../../environments/environment.development';
+import { BehaviorSubject } from 'rxjs';
 import { AudioPitchService } from './audio-pitch.service';
 import { CalibrationService } from './calibration.service';
+import { MetricsService } from './metrics.service';
 
 export enum RangePhase {
     Idle = 'idle',
@@ -73,9 +72,9 @@ export interface ExerciseMetricsPayload {
 
 @Injectable({ providedIn: 'root' })
 export class VocalRangeService {
-    private http = inject(HttpClient);
     private pitchService: AudioPitchService = inject(AudioPitchService);
     private calibrationService = inject(CalibrationService);
+    private metricsService = inject(MetricsService);
 
     // Estado reactivo
     readonly phase$ = new BehaviorSubject<RangePhase>(RangePhase.Idle);
@@ -109,6 +108,16 @@ export class VocalRangeService {
     private confirmedMin: number = 0;
     private confirmedMax: number = 0;
     
+    // Muestras de confirmaciones (para calcular precisionCents y attackLatencyMs)
+    private confirmationSamples: PitchSample[] = [];
+    private confirmationMetrics: {
+        precisionCents: number[];
+        attackLatencyMs: number[];
+    } = {
+        precisionCents: [],
+        attackLatencyMs: []
+    };
+    
     // Métricas calculadas
     private calculatedMetrics?: RangeMetrics;
     
@@ -118,6 +127,19 @@ export class VocalRangeService {
     private extremeTarget: number = 0;
     private noiseFloorDb: number = -90;
     private extremeAttempts: number = 0; // Contador de intentos de ajuste
+    
+    // Continuidad de barrido (para evitar aceptar picos agudos aislados)
+    private highestMidiSoFar: number = 0; // Nota más aguda detectada hasta ahora
+    private readonly MAX_JUMP_SEMITONES = 5; // Salto máximo permitido (5 semitonos = 4ta justa)
+    
+    // Filtro de estabilidad temporal (para distinguir picos aislados de notas sostenidas)
+    private lastAcceptedMidi: number = 0;
+    private lastAcceptedCount: number = 0;
+    private readonly MIN_REPETITIONS = 3; // Una nota debe repetirse 3 veces (300ms) para ser válida
+    
+    // Rango de frecuencias de voz humana (para filtrar ruidos externos)
+    private readonly HUMAN_VOICE_MIN_HZ = 80;   // E2 (graves masculinos extremos)
+    private readonly HUMAN_VOICE_MAX_HZ = 880;  // A5 (agudas femeninas típicas) - Reducido de 1100
 
     /**
      * Inicia el ejercicio de rango vocal
@@ -146,6 +168,7 @@ export class VocalRangeService {
 
             // Reset
             this.samples = [];
+            this.highestMidiSoFar = 0; // Resetear continuidad de barrido
             this.sweepStartTime = performance.now();
             this.phase$.next(RangePhase.Sweep);
             this.errorMessage$.next(null);
@@ -174,50 +197,129 @@ export class VocalRangeService {
             const rms = this.pitchService.calculateRMS();
             const spectralCentroid = this.pitchService.calculateSpectralCentroid();
 
-            // VALIDACIÓN: Solo actualizar si hay señal vocal real
-            // Rechazar si RMS es muy bajo (probablemente ruido ambiente)
-            // SNR reducido a 6 dB para permitir voces suaves
-            const isVocalSignal = rms > (this.noiseFloorDb + 6); // 6 dB sobre ruido (antes 10)
+      // VALIDACIÓN: Filtros para voz humana
+            // 1. RMS > ruido ambiente (eliminar ruido de fondo)
+            const isAboveNoise = rms > this.noiseFloorDb;
             
-            // Actualizar confidence siempre (para la barra visual)
-            this.currentConfidence$.next(confidence);
-            this.currentRms$.next(rms);
-
-            // DEBUG: Log cada 20 capturas (~2 segundos)
-            if (Math.random() < 0.05) {
-                console.log('[VocalRange] Captura:', {
-                    freq: frequency.toFixed(1) + ' Hz',
-                    conf: (confidence * 100).toFixed(1) + '%',
-                    rms: rms.toFixed(1) + ' dB',
-                    isVocal: isVocalSignal,
-                    samples: this.samples.length
-                });
+            // 2. Frecuencia en rango vocal humano (80-880 Hz)
+            const isHumanVoiceRange = frequency >= this.HUMAN_VOICE_MIN_HZ && frequency <= this.HUMAN_VOICE_MAX_HZ;
+            
+            // 3. Confidence SOLO para frecuencias extremas (muy graves o muy agudas)
+            let passesConfidenceCheck = true;
+            if (frequency < 100 || frequency > 700) {
+                passesConfidenceCheck = confidence >= 0.15; // 15% mínimo para extremos
             }
-
-            // Actualizar nota SOLO si hay señal vocal real Y confidence suficiente
-            // Balance: No muy alto para graves, no muy bajo para evitar ruido
-            // Graves necesitan menos confidence porque CREPE es menos preciso con ellos
-            const confidenceThreshold = frequency < 150 ? 0.3 : 0.5;
             
-            if (isVocalSignal && confidence > confidenceThreshold && frequency > 0) {
-                const noteName = this.pitchService.midiToNoteName(midiNote);
-                this.currentNote$.next(noteName);
-                this.currentMidi$.next(midiNote);
+            // FASE DE BARRIDO: Filtros permisivos para capturar todo el rango
+            if (this.phase$.value === RangePhase.Sweep) {
+                // Solo validar: ruido, rango humano y confidence para extremos
+                // SIN filtros de continuidad ni estabilidad temporal
+                const isVocalSignal = isAboveNoise && isHumanVoiceRange && passesConfidenceCheck;
                 
-                // Guardar sample con el MISMO threshold que usamos para mostrar
-                // Esto asegura que si el usuario ve la nota, se está guardando
-                this.samples.push({
-                    midi: midiNote,
-                    frequency,
-                    confidence,
-                    rms,
-                    spectralCentroid,
-                    timestamp: performance.now()
-                });
-            } else {
-                // Mostrar guion en lugar de limpiar la nota (mejor UX)
-                this.currentNote$.next('-');
-                this.currentMidi$.next(0);
+                // Actualizar confidence siempre (para la barra visual)
+                this.currentConfidence$.next(confidence);
+                this.currentRms$.next(rms);
+
+                // DEBUG: Log cada 20 capturas
+                if (Math.random() < 0.05) {
+                    console.log('[VocalRange] Barrido:', {
+                        midi: midiNote,
+                        freq: frequency.toFixed(1) + ' Hz',
+                        conf: (confidence * 100).toFixed(1) + '%',
+                        rms: rms.toFixed(1) + ' dB',
+                        filters: {
+                            aboveNoise: isAboveNoise,
+                            inRange: isHumanVoiceRange,
+                            confCheck: passesConfidenceCheck
+                        },
+                        FINAL: isVocalSignal,
+                        samples: this.samples.length
+                    });
+                }
+
+                // Capturar si pasa los filtros básicos
+                if (isVocalSignal && frequency > 0 && midiNote > 0) {
+                    const noteName = this.pitchService.midiToNoteName(midiNote);
+                    this.currentNote$.next(noteName);
+                    this.currentMidi$.next(midiNote);
+                    
+                    this.samples.push({
+                        midi: midiNote,
+                        frequency,
+                        confidence,
+                        rms,
+                        spectralCentroid,
+                        timestamp: performance.now()
+                    });
+                } else {
+                    this.currentNote$.next('-');
+                    this.currentMidi$.next(0);
+                }
+            }
+            // FASE DE CONFIRMACIÓN: Filtros estrictos (continuidad + estabilidad temporal)
+            else if (this.phase$.value === RangePhase.ConfirmMin || this.phase$.value === RangePhase.ConfirmMax) {
+                // 4. Continuidad de barrido: evitar picos agudos aislados
+                let isContinuousSweep = true;
+                if (this.highestMidiSoFar > 0 && midiNote > 0) {
+                    const jump = midiNote - this.highestMidiSoFar;
+                    if (jump > this.MAX_JUMP_SEMITONES) {
+                        isContinuousSweep = false;
+                    }
+                }
+                if (this.highestMidiSoFar === 0 || midiNote <= this.highestMidiSoFar) {
+                    isContinuousSweep = true;
+                }
+                
+                // 5. Estabilidad temporal: una nota debe repetirse 3 veces seguidas
+                let isStableNote = false;
+                if (midiNote > 0) {
+                    if (Math.abs(midiNote - this.lastAcceptedMidi) <= 1) {
+                        this.lastAcceptedCount++;
+                    } else {
+                        this.lastAcceptedMidi = midiNote;
+                        this.lastAcceptedCount = 1;
+                    }
+                    isStableNote = this.lastAcceptedCount >= this.MIN_REPETITIONS;
+                }
+                
+                const isVocalSignal = isAboveNoise && isHumanVoiceRange && passesConfidenceCheck && isContinuousSweep && isStableNote;
+                
+                this.currentConfidence$.next(confidence);
+                this.currentRms$.next(rms);
+
+                // DEBUG: Log confirmaciones
+                if (Math.random() < 0.05) {
+                    const jump = this.highestMidiSoFar > 0 ? midiNote - this.highestMidiSoFar : 0;
+                    console.log('[VocalRange] Confirmación:', {
+                        midi: midiNote,
+                        freq: frequency.toFixed(1) + ' Hz',
+                        conf: (confidence * 100).toFixed(1) + '%',
+                        rms: rms.toFixed(1) + ' dB',
+                        filters: {
+                            aboveNoise: isAboveNoise,
+                            inRange: isHumanVoiceRange,
+                            confCheck: passesConfidenceCheck,
+                            continuous: isContinuousSweep,
+                            stable: isStableNote,
+                            reps: this.lastAcceptedCount
+                        },
+                        jumpSemitones: jump,
+                        FINAL: isVocalSignal
+                    });
+                }
+
+                if (isVocalSignal && frequency > 0 && midiNote > 0) {
+                    const noteName = this.pitchService.midiToNoteName(midiNote);
+                    this.currentNote$.next(noteName);
+                    this.currentMidi$.next(midiNote);
+                    
+                    if (midiNote > this.highestMidiSoFar) {
+                        this.highestMidiSoFar = midiNote;
+                    }
+                } else {
+                    this.currentNote$.next('-');
+                    this.currentMidi$.next(0);
+                }
             }
 
             // Actualizar progreso en fase de barrido
@@ -235,7 +337,7 @@ export class VocalRangeService {
 
             // Validación de extremos en fases de confirmación
             if (this.phase$.value === RangePhase.ConfirmMin || this.phase$.value === RangePhase.ConfirmMax) {
-                this.validateExtreme(midiNote, confidence, rms);
+                this.validateExtreme(midiNote, confidence, rms, frequency, spectralCentroid);
             }
 
         }, 100); // 100ms
@@ -259,11 +361,11 @@ export class VocalRangeService {
 
         console.log('[VocalRange] Sweep completado - Samples capturados:', this.samples.length);
 
-        // Reducido de 50 a 30 para ser más permisivo
+        // Reducido de 50 a 20 para ser más permisivo
         // 12 segundos a 100ms = 120 capturas máximas
-        // 30 samples = ~25% de coverage mínimo
-        if (this.samples.length < 30) {
-            this.handleError(`No hay suficientes datos (${this.samples.length}/30). Intenta cantando de forma continua.`);
+        // 20 samples = ~17% de coverage mínimo (muy permisivo)
+        if (this.samples.length < 20) {
+            this.handleError(`No hay suficientes datos (${this.samples.length}/20). Intenta cantando de forma continua y un poco más fuerte.`);
             return;
         }
 
@@ -349,8 +451,9 @@ export class VocalRangeService {
     /**
      * Valida que el extremo esté sostenido correctamente
      * Incluye timeout de 15s y auto-ajuste de medio tono
+     * CAPTURA MUESTRAS para calcular precisionCents y attackLatencyMs
      */
-    private validateExtreme(midi: number, confidence: number, rms: number): void {
+    private validateExtreme(midi: number, confidence: number, rms: number, frequency: number, spectralCentroid: number): void {
         // No validar si el ejercicio no ha empezado
         if (!this.extremeStarted$.value) return;
         
@@ -368,23 +471,10 @@ export class VocalRangeService {
         // Check 1: Pitch dentro de ±100 cents (1 semitono)
         const pitchOk = Math.abs(centsFromTarget) <= 100;
         
-        // Check 2: Confianza adaptativa según frecuencia
-        // Graves son muy difíciles para CREPE, bajar threshold dramáticamente
-        const targetFreq = this.pitchService.midiToFrequency(this.extremeTarget);
-        let confidenceThreshold = 0.3; // Default
-        
-        if (targetFreq < 100) {
-            confidenceThreshold = 0.15; // Muy grave (< 100 Hz) → 15%
-        } else if (targetFreq < 150) {
-            confidenceThreshold = 0.20; // Grave (100-150 Hz) → 20%
-        } else if (targetFreq < 200) {
-            confidenceThreshold = 0.25; // Medio-grave (150-200 Hz) → 25%
-        }
-        
-        const confidenceOk = confidence > confidenceThreshold;
-        
-        // Check 3: RMS > ruido + 6dB
-        const rmsOk = rms > (this.noiseFloorDb + 6);
+        // SIN filtros de confidence ni SNR - SOLO validar pitch
+        // El ruido ya se filtró antes (isVocalSignal en captura principal)
+        const confidenceOk = true; // Aceptar cualquier confidence
+        const rmsOk = true; // Ya validado en captura principal
         
         // DEBUG: Log validación cada 2 segundos
         if (Math.random() < 0.05) {
@@ -394,9 +484,7 @@ export class VocalRangeService {
                 centsOff: centsFromTarget.toFixed(1),
                 pitchOk,
                 confidence: (confidence * 100).toFixed(1) + '%',
-                confidenceOk,
                 rms: rms.toFixed(1) + ' dB',
-                rmsOk,
                 phaseElapsed: phaseElapsed.toFixed(1) + 's / 15s'
             });
         }
@@ -410,18 +498,32 @@ export class VocalRangeService {
             rmsOk
         });
 
-        // Si los 3 checks están ok, iniciar timer
+        // Si los 3 checks están ok, iniciar timer Y CAPTURAR MUESTRAS
         if (pitchOk && confidenceOk && rmsOk) {
             if (this.extremeValidationStartTime === 0) {
                 this.extremeValidationStartTime = performance.now();
+                this.confirmationSamples = []; // Resetear samples para esta confirmación
             }
+            
+            // CAPTURAR MUESTRA para calcular précisionCents y attackLatencyMs
+            this.confirmationSamples.push({
+                midi,
+                frequency,
+                confidence,
+                rms,
+                spectralCentroid,
+                timestamp: performance.now()
+            });
 
             const elapsed = (performance.now() - this.extremeValidationStartTime) / 1000;
             const requiredDuration = 1.0; // 1 segundo sostenido
             this.progress$.next(Math.min(1, elapsed / requiredDuration));
 
-            // Check 4: Sostenido ≥ 1.0s → AUTO-AVANZAR
+            // Check 4: Sostenido ≥ 1.0s → Calcular métricas y AUTO-AVANZAR
             if (elapsed >= requiredDuration) {
+                // Calcular métricas de esta confirmación
+                this.calculateConfirmationMetrics();
+                
                 this.extremeValidation$.next({
                     pitchOk: true,
                     confidenceOk: true,
@@ -435,6 +537,7 @@ export class VocalRangeService {
         } else {
             // Reset timer si se pierde algún check
             this.extremeValidationStartTime = 0;
+            this.confirmationSamples = []; // Limpiar muestras
             this.progress$.next(0);
             this.extremeValidation$.next({
                 pitchOk,
@@ -521,10 +624,35 @@ export class VocalRangeService {
             // Calcular todas las métricas
             this.calculatedMetrics = this.calculateMetrics();
             
-            // Enviar al backend
-            // await this.submitMetrics(this.calculatedMetrics);
-            const payload = this.buildExercisePayload(this.calculatedMetrics);
-            console.log('[vocal-range] payload listo para backend:', payload);
+            // Calcular promedios de las confirmaciones
+            const avgPrecisionCents = this.confirmationMetrics.precisionCents.length > 0
+                ? this.confirmationMetrics.precisionCents.reduce((a, b) => a + b, 0) / this.confirmationMetrics.precisionCents.length
+                : undefined;
+            
+            const avgAttackLatencyMs = this.confirmationMetrics.attackLatencyMs.length > 0
+                ? this.confirmationMetrics.attackLatencyMs.reduce((a, b) => a + b, 0) / this.confirmationMetrics.attackLatencyMs.length
+                : undefined;
+            
+            console.log('[VocalRange] Métricas finales de confirmaciones:', {
+                precisionCents: avgPrecisionCents,
+                attackLatencyMs: avgAttackLatencyMs,
+                confirmaciones: this.confirmationMetrics.precisionCents.length
+            });
+            
+            // Guardar métricas parciales en localStorage
+            this.metricsService.savePartialMetrics('range', {
+                rangeMinMidi: this.calculatedMetrics.rangeMinMidi,
+                rangeMaxMidi: this.calculatedMetrics.rangeMaxMidi,
+                rangeSpanSemitones: this.calculatedMetrics.rangeSpanSemitones,
+                meanRmsDb: this.calculatedMetrics.meanRmsDb,
+                rmsConsistency: this.calculatedMetrics.rmsConsistency,
+                dynamicRangeDb: this.calculatedMetrics.dynamicRangeDb,
+                durationSec: this.calculatedMetrics.durationSec,
+                precisionCents: avgPrecisionCents, // ← Agregado
+                attackLatencyMs: avgAttackLatencyMs // ← Agregado
+            });
+            
+            console.log('[vocal-range] métricas guardadas en localStorage');
 
             this.tip$.next('¡Ejercicio completado exitosamente!');
             this.log('exercise_complete', this.calculatedMetrics);
@@ -564,6 +692,45 @@ export class VocalRangeService {
         metricsData: data,
     };
 }
+
+    /**
+     * Calcula métricas de una confirmación de extremo (precisionCents y attackLatencyMs)
+     */
+    private calculateConfirmationMetrics(): void {
+        if (this.confirmationSamples.length === 0) return;
+        
+        const midis = this.confirmationSamples.map(s => s.midi);
+        const rmsValues = this.confirmationSamples.map(s => s.rms);
+        
+        // precisionCents: desviación promedio del target en cents
+        const targetMidi = this.extremeTarget;
+        const errorsCents = midis.map(m => Math.abs((m - targetMidi) * 100));
+        const precisionCents = this.calculateMean(errorsCents);
+        
+        // attackLatencyMs: tiempo hasta que se alcanza el target (±50 cents)
+        // SIN filtro de RMS - solo validar precisión de pitch
+        const attackSampleIdx = this.confirmationSamples.findIndex((sample, idx) => {
+            const error = Math.abs((sample.midi - targetMidi) * 100);
+            return error <= 50; // ±50 cents
+        });
+        
+        const attackLatencyMs = attackSampleIdx >= 0
+            ? this.confirmationSamples[attackSampleIdx].timestamp - this.extremePhaseStartTime
+            : null;
+        
+        // Guardar métricas de esta confirmación
+        this.confirmationMetrics.precisionCents.push(precisionCents);
+        if (attackLatencyMs !== null) {
+            this.confirmationMetrics.attackLatencyMs.push(attackLatencyMs);
+        }
+        
+        console.log('[VocalRange] Métricas de confirmación:', {
+            target: this.pitchService.midiToNoteName(targetMidi),
+            samples: this.confirmationSamples.length,
+            precisionCents: precisionCents.toFixed(2),
+            attackLatencyMs: attackLatencyMs ? attackLatencyMs.toFixed(0) : 'N/A'
+        });
+    }
 
 
     /**
@@ -615,20 +782,6 @@ export class VocalRangeService {
         };
     }
 
-    /**
-     * Envía las métricas al backend
-     */
-    private async submitMetrics(metrics: RangeMetrics): Promise<void> {
-        const response = await firstValueFrom(
-            this.http.post<any>(
-                environment.API_BASE_URL + '/metrics/range',
-                metrics
-            )
-        );
-
-        this.log('metrics_sent', { exerciseType: response.exerciseType });
-    }
-
     // === FUNCIONES DE CÁLCULO ===
 
     private movingAverage(data: number[], windowSize: number): number[] {
@@ -666,7 +819,9 @@ export class VocalRangeService {
             sum + Math.pow(val - mean, 2), 0
         ) / values.length;
         const stdDev = Math.sqrt(variance);
-        return 1 - (stdDev / Math.abs(mean));
+        // Coeficiente de variación invertido, acotado a [0, 1]
+        const cv = Math.abs(mean) < 1e-6 ? 1 : stdDev / Math.abs(mean);
+        return Math.max(0, Math.min(1, 1 - cv));
     }
 
     private detectRegisterShifts(smoothedPitches: number[]): number {
@@ -811,9 +966,7 @@ export class VocalRangeService {
     }
 
     private log(event: string, data?: any): void {
-        if (!environment.production) {
-            console.log('[vocal-range]', { event, ...data });
-        }
+        console.log('[vocal-range]', { event, ...data });
     }
 
     ngOnDestroy(): void {

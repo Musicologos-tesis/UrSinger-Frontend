@@ -13,7 +13,7 @@ interface StepConfig {
   standalone: true,
   imports: [CommonModule],
   templateUrl: './stepper.component.html',
-  styleUrls: ['./stepper.component.scss']
+  styleUrl: './stepper.component.scss'
 })
 export class StepperComponent {
   @Input() currentStep: CheckupStep = 'preparation';

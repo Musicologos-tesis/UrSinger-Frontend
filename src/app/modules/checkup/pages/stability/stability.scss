@@ -1,6 +1,35 @@
 @import '../../../../shared/styles/variables';
 @import '../../../../shared/styles/mixins';
 
+.page-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 32px;
+}
+
+.title {
+  font-family: 'Inter', sans-serif;
+  font-size: 40px;
+  font-weight: 600;
+  margin: 12px 0 12px 0;
+  color: #000;
+}
+
+.subtitle {
+  font-family: 'Inter', sans-serif;
+  font-size: 20px;
+  color: #828282;
+  margin-bottom: 24px;
+}
+
+.stepper-container {
+  background: #fff;
+  padding: 20px;
+  margin-bottom: 24px;
+  border-top: 1px solid #BDBDBD;
+  border-bottom: 1px solid #BDBDBD;
+}
+
 /* Panel principal */
 .panel {
   @include card;
@@ -78,6 +107,79 @@
   font-size: $font-size-sm;
   color: $gray-500;
   margin: 0;
+}
+
+/* Texto de resultado */
+.result-line {
+  font-size: $font-size-base;
+  color: $gray-700;
+  margin: $spacing-md 0;
+  line-height: 1.6;
+}
+
+/* Indicadores en tiempo real */
+.live-indicators {
+  margin: 12px 0;
+  padding: 10px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+}
+
+.indicator-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.indicator-row:last-child {
+  margin-bottom: 0;
+}
+
+.indicator-row .label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  min-width: 140px;
+}
+
+.indicator-row .value {
+  font-size: 13px;
+  font-weight: 700;
+  color: #374151;
+}
+
+.indicator-row .value.samples-count {
+  font-size: 16px;
+  color: #059669;
+}
+
+.confidence-bar {
+  flex: 1;
+  height: 6px;
+  background: #e5e7eb;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.confidence-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #10b981, #059669);
+  transition: width 0.3s ease;
+}
+
+/* Mensaje de advertencia durante grabación */
+.warning-message {
+  margin-top: 12px;
+  padding: 10px 14px;
+  background: #fef3c7;
+  border: 2px solid #f59e0b;
+  border-radius: 6px;
+  color: #92400e;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
 }
 
 /* Pill de "Analizando…" */
