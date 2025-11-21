@@ -21,6 +21,24 @@ export interface Exercise {
   isCompletedThisWeek: boolean;
 }
 
+export interface ExerciseDetail {
+  planExerciseId: string;
+  exerciseLevelId: number;
+  exerciseId: number;
+  exerciseName: string;
+  groupNumber: number;
+  groupName: string;
+  level: number;
+  description: string;
+  instructions: string;
+  videoUrl: string | null;
+  cvtDescription: string | null;
+  evmDescription: string | null;
+  completionCount: number;
+  completedDates: string[];
+  isCompletedThisWeek: boolean;
+}
+
 export interface DayExercises {
   day: number;
   dayName: string;
@@ -48,6 +66,25 @@ export class TrainingService {
     return await firstValueFrom(
       this.http.get<ActiveTrainingPlan>(
         `${environment.API_BASE_URL}/training-plans/active/${profileId}`
+      )
+    );
+  }
+
+  async getExerciseDetail(planExerciseId: string): Promise<ExerciseDetail> {
+    console.log('[TrainingService] 🎯 Obteniendo detalle de ejercicio:', planExerciseId);
+    return await firstValueFrom(
+      this.http.get<ExerciseDetail>(
+        `${environment.API_BASE_URL}/training-plans/exercise/${planExerciseId}`
+      )
+    );
+  }
+
+  async completeExercise(planExerciseId: string): Promise<void> {
+    console.log('[TrainingService] ✅ Marcando ejercicio como completado:', planExerciseId);
+    await firstValueFrom(
+      this.http.put(
+        `${environment.API_BASE_URL}/training-plans/exercise/complete`,
+        { planExerciseId }
       )
     );
   }

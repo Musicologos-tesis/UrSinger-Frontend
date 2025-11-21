@@ -72,10 +72,11 @@ export class PreparationComponent implements OnInit, OnDestroy {
   }
 
   goToProfile(): void {
-    console.log('[Preparation] Ir a perfil');
+    this.router.navigate(['/profile']);
   }
 
   logout(): void {
     this.authService.logout();
+    this.router.navigate(['/auth/login']);
   }
 }

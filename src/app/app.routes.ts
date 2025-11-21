@@ -20,4 +20,10 @@ export const routes: Routes = [
         import('./modules/training/training.routes').then(m => m.TRAINING_ROUTES),
         canActivate: [authGuard],
     },
+    {
+        path: 'profile',
+        loadChildren: () =>
+        import('./modules/profile/profile.routes').then(m => m.PROFILE_ROUTES),
+        canActivate: [authGuard],
+    },
 ];

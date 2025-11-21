@@ -11,4 +11,14 @@ export const TRAINING_ROUTES: Routes = [
     loadComponent: () =>
       import('./pages/dashboard/dashboard').then(m => m.TrainingDashboardComponent),
   },
+  {
+    path: 'exercise/:id',
+    loadComponent: () =>
+      import('./pages/exercise/exercise').then(m => m.ExerciseComponent),
+  },
+  {
+    path: 'practice/:id',
+    loadComponent: () =>
+      import('./pages/practice/practice').then(m => m.PracticeComponent),
+  },
 ];

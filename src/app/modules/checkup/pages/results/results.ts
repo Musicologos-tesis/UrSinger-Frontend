@@ -196,11 +196,12 @@ export class CheckupResultsComponent implements OnInit {
   }
 
   goToProfile(): void {
-    console.log('[Results] Ir a perfil');
+    this.router.navigate(['/profile']);
   }
 
   logout(): void {
     this.authService.logout();
+    this.router.navigate(['/auth/login']);
   }
 
   finishCheckup() {

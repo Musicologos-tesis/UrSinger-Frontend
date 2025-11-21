@@ -1,0 +1,222 @@
+.exercise-page {
+  min-height: 100vh;
+  background: #E0E0E0;
+  padding-bottom: 40px;
+}
+
+.exercise-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 32px;
+}
+
+.page-title {
+  font-size: 40px;
+  font-weight: 600;
+  margin: 0 0 12px 0;
+  color: #000;
+}
+
+.page-subtitle {
+  font-size: 20px;
+  color: #828282;
+  margin: 0 0 32px 0;
+}
+
+.loading,
+.error {
+  text-align: center;
+  padding: 60px 20px;
+  color: #333;
+  font-size: 16px;
+}
+
+.btn-back {
+  margin-top: 20px;
+  padding: 12px 24px;
+  background: #6366f1;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+
+  &:hover {
+    background: #4f46e5;
+  }
+}
+
+// Header del ejercicio
+.exercise-header {
+  background: white;
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.exercise-icon {
+  width: 48px;
+  height: 48px;
+  background: #E8EAFF;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  svg {
+    color: #6366f1;
+    width: 24px;
+    height: 24px;
+  }
+}
+
+.exercise-description {
+  font-size: 16px;
+  line-height: 1.6;
+  color: #333;
+  margin: 0;
+  flex: 1;
+}
+
+// Secciones
+.section {
+  margin-bottom: 32px;
+}
+
+.section-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #333;
+  margin: 0 0 16px 0;
+}
+
+.section-text {
+  font-size: 15px;
+  line-height: 1.7;
+  color: #555;
+  margin: 0;
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+// Grid de información
+.info-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+.info-card {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+
+  &--cvt,
+  &--evm {
+    grid-column: 1 / -1;
+  }
+}
+
+.info-icon {
+  width: 40px;
+  height: 40px;
+  background: #F3F4F6;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  svg {
+    color: #6B7280;
+    width: 20px;
+    height: 20px;
+  }
+
+  &--cvt {
+    background: #DBEAFE;
+    color: #3b82f6;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  &--evm {
+    background: #FED7AA;
+    color: #f97316;
+    font-size: 12px;
+    font-weight: 700;
+  }
+}
+
+.info-content {
+  flex: 1;
+}
+
+.info-label {
+  font-size: 13px;
+  color: #6B7280;
+  margin: 0 0 4px 0;
+}
+
+.info-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+  margin: 0;
+}
+
+// Acción
+.action-section {
+  text-align: center;
+  margin-top: 40px;
+}
+
+.btn-start {
+  background: #6366f1;
+  color: white;
+  border: none;
+  border-radius: 100px;
+  padding: 16px 48px;
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+
+  svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  &:hover {
+    background: #4f46e5;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(99, 102, 241, 0.4);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+}
+
+.repeat-hint {
+  font-size: 14px;
+  color: #6B7280;
+  margin: 16px 0 0 0;
+}

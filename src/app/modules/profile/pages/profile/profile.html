@@ -1,0 +1,134 @@
+<div class="profile-page">
+  <!-- Header con navegación -->
+  <app-auth-header
+    pageTitle="Mi Perfil"
+    [showNavigation]="true"
+    activeNav="profile"
+    (navTraining)="goToTraining()"
+    (navCheckup)="goToCheckup()"
+    (navProfile)="goToProfile()"
+    (navLogout)="logout()"
+  ></app-auth-header>
+
+  <div class="content">
+    <!-- Loading State -->
+    @if (isLoading()) {
+      <div class="loading-container">
+        <div class="spinner"></div>
+        <p>Cargando perfil...</p>
+      </div>
+    }
+
+    <!-- Profile Form -->
+    @if (!isLoading()) {
+      <div>
+        <h1 class="page-title">Información Personal</h1>
+        <p class="page-subtitle">Actualiza tu información de perfil</p>
+
+        <div class="profile-container">
+          <!-- Success/Error Messages -->
+          @if (successMessage()) {
+            <div class="alert alert-success">
+              {{ successMessage() }}
+            </div>
+          }
+
+          @if (errorMessage()) {
+            <div class="alert alert-error">
+              {{ errorMessage() }}
+            </div>
+          }
+
+          <!-- Form -->
+          <form [formGroup]="profileForm" (ngSubmit)="onSubmit()" class="profile-form">
+            <div class="form-row">
+              <!-- Name -->
+              <div class="form-group">
+                <label for="name">Nombre completo</label>
+                <input
+                  id="name"
+                  type="text"
+                  formControlName="name"
+                  placeholder="Ej: Juan Pérez"
+                  [class.error]="nameError"
+                />
+                @if (nameError) {
+                  <span class="error-message">{{ nameError }}</span>
+                }
+              </div>
+
+              <!-- Age -->
+              <div class="form-group">
+                <label for="age">Edad</label>
+                <input
+                  id="age"
+                  type="number"
+                  formControlName="age"
+                  placeholder="Ej: 25"
+                  min="10"
+                  max="100"
+                  [class.error]="ageError"
+                />
+                @if (ageError) {
+                  <span class="error-message">{{ ageError }}</span>
+                }
+              </div>
+            </div>
+
+            <div class="form-row">
+              <!-- Gender -->
+              <div class="form-group">
+                <label for="gender">Género</label>
+                <select
+                  id="gender"
+                  formControlName="gender"
+                  [class.error]="genderError"
+                >
+                  <option value="" disabled>Selecciona tu género</option>
+                  <option value="male">Masculino</option>
+                  <option value="female">Femenino</option>
+                  <option value="other">Otro</option>
+                </select>
+                @if (genderError) {
+                  <span class="error-message">{{ genderError }}</span>
+                }
+              </div>
+
+              <!-- Empty space for grid alignment -->
+              <div></div>
+            </div>
+
+            <!-- Weekly Training Frequency (readonly) -->
+            <div class="form-group">
+              <label for="weeklyTrainingFreq">Frecuencia de entrenamiento semanal</label>
+              <input
+                id="weeklyTrainingFreq"
+                type="text"
+                value="3 días por semana"
+                readonly
+                class="readonly"
+              />
+              <span class="helper-text">La frecuencia de entrenamiento está establecida en 3 días por semana</span>
+            </div>
+
+            <!-- Submit Button -->
+            <div class="form-actions">
+              <button
+                type="submit"
+                class="btn-primary"
+                [disabled]="profileForm.invalid || isSaving()"
+              >
+                @if (isSaving()) {
+                  <span class="spinner-small"></span>
+                  Guardando...
+                } @else {
+                  Guardar cambios
+                }
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    }
+  </div>
+</div>

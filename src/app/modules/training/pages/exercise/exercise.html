@@ -1,0 +1,103 @@
+<app-auth-header 
+  [pageTitle]="'Aprendizaje'"
+  [showNavigation]="true" 
+  [activeNav]="'training'"
+  (navTraining)="goToTraining()"
+  (navCheckup)="goToCheckup()"
+  (navProfile)="goToProfile()"
+  (navLogout)="logout()"
+></app-auth-header>
+
+<div class="exercise-page">
+  <div class="exercise-content">
+    @if (isLoading()) {
+      <div class="loading">
+        <p>Cargando ejercicio...</p>
+      </div>
+    } @else if (error()) {
+      <div class="error">
+        <p>{{ error() }}</p>
+        <button class="btn-back" (click)="goToTraining()">Volver al dashboard</button>
+      </div>
+    } @else if (exercise()) {
+      <!-- Título y descripción -->
+      <h1 class="page-title">{{ exercise()!.exerciseName }}</h1>
+      <p class="page-subtitle">{{ exercise()!.description }}</p>
+
+      <!-- Header del ejercicio -->
+      <div class="exercise-header">
+        <div class="exercise-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 18V5l12-2v13"></path>
+            <circle cx="6" cy="18" r="3"></circle>
+            <circle cx="18" cy="16" r="3"></circle>
+          </svg>
+        </div>
+        <p class="exercise-description">{{ exercise()!.groupName }}</p>
+      </div>
+
+      <!-- Secciones -->
+      <div class="section">
+        <h2 class="section-title">Indicaciones</h2>
+        <p class="section-text">{{ exercise()!.instructions }}</p>
+      </div>
+
+      <div class="section">
+        <h2 class="section-title">Información</h2>
+        
+        <div class="info-grid">
+          <!-- Card 1: Dificultad -->
+          <div class="info-card">
+            <div class="info-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
+            </div>
+            <div class="info-content">
+              <p class="info-label">Dificultad</p>
+              <p class="info-value">{{ getDifficultyLabel(exercise()!.level) }}</p>
+            </div>
+          </div>
+
+          <!-- Card 2: CVT (si existe) -->
+          @if (exercise()!.cvtDescription) {
+            <div class="info-card info-card--cvt">
+              <div class="info-icon info-icon--cvt">
+                <span>CVT</span>
+              </div>
+              <div class="info-content">
+                <p class="info-label">Complete Vocal Technique</p>
+                <p class="info-value">{{ exercise()!.cvtDescription }}</p>
+              </div>
+            </div>
+          }
+
+          <!-- Card 3: EVM (si existe) -->
+          @if (exercise()!.evmDescription) {
+            <div class="info-card info-card--evm">
+              <div class="info-icon info-icon--evm">
+                <span>EVM</span>
+              </div>
+              <div class="info-content">
+                <p class="info-label">Estill Voice Model</p>
+                <p class="info-value">{{ exercise()!.evmDescription }}</p>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+
+      <!-- Botón de acción -->
+      <div class="action-section">
+        <button class="btn-start" (click)="startChallenge()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+          </svg>
+          Comenzar práctica
+        </button>
+        <p class="repeat-hint">Podrás repetir este desafío todas las veces que necesites.</p>
+      </div>
+    }
+  </div>
+</div>

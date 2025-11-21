@@ -217,11 +217,12 @@ export class VocalRangeComponent implements OnInit, OnDestroy {
   }
 
   goToProfile(): void {
-    console.log('[VocalRange] Ir a perfil');
+    this.router.navigate(['/profile']);
   }
 
   logout(): void {
     this.authService.logout();
+    this.router.navigate(['/auth/login']);
   }
 
   ngOnDestroy(): void {

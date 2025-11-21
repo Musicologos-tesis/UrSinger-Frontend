@@ -73,8 +73,14 @@ export class TrainingDashboardComponent implements OnInit {
     if (!this.canStartExercise(exercise, this.getExercisesForDay(exercise))) {
       return;
     }
+    
+    // Si ya está completado, no hacer nada
+    if (exercise.isCompletedThisWeek) {
+      return;
+    }
+    
     console.log('[TrainingDashboard] Iniciando ejercicio:', exercise.exerciseName);
-    // TODO: Navegar a la vista del ejercicio
+    this.router.navigate(['/training/exercise', exercise.planExerciseId]);
   }
 
   private getExercisesForDay(exercise: Exercise): Exercise[] {
@@ -90,8 +96,7 @@ export class TrainingDashboardComponent implements OnInit {
   }
 
   goToProfile(): void {
-    // TODO: Implementar navegación a perfil
-    console.log('[TrainingDashboard] Ir a perfil');
+    this.router.navigate(['/profile']);
   }
 
   logout(): void {

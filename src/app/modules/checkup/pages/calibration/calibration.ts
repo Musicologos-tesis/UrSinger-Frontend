@@ -139,11 +139,12 @@ export class CalibrationComponent implements OnInit, OnDestroy {
   }
 
   goToProfile(): void {
-    console.log('[Calibration] Ir a perfil');
+    this.router.navigate(['/profile']);
   }
 
   logout(): void {
     this.authService.logout();
+    this.router.navigate(['/auth/login']);
   }
 
   ngOnDestroy() {
