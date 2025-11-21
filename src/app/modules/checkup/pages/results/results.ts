@@ -5,6 +5,7 @@ import { VocalRangeService, RangeMetrics } from '../../services/vocal-range.serv
 import { StabilityService, StabilityMetrics } from '../../services/stability.service';
 import { AudioPitchService } from '../../services/audio-pitch.service';
 import { MetricsService, FullMetrics } from '../../services/metrics.service';
+import { AuthService } from '../../../../services/auth.service';
 import { StepperComponent } from '../../../../shared/components/stepper/stepper.component';
 import { AuthHeaderComponent } from '../../../auth/components/auth-header/auth-header.component';
 
@@ -45,21 +46,29 @@ export class CheckupResultsComponent implements OnInit {
   private stability = inject(StabilityService);
   private pitch = inject(AudioPitchService);
   private metricsService = inject(MetricsService);
+  private authService = inject(AuthService);
 
   // Datos que va a mostrar la UI
   rangeLabel = '---';
   precisionPercent: number | null = null;
-  stabilityPercent: number | null = null;
+  stabilityPercent: number | null = null;                                             
   
   trainingPlan: TrainingPlan | null = null;
   isLoadingPlan = false;
   planError: string | null = null;
+  hasActivePlan = false;
   
   fullMetrics: FullMetrics | null = null;
 
   checkupCompleted = false;
 
   async ngOnInit(): Promise<void> {
+    // Verificar si tiene plan activo
+    const profileId = localStorage.getItem('profile_id');
+    if (profileId) {
+      this.hasActivePlan = await this.authService.checkActiveTrainingPlan(profileId);
+    }
+
     // Obtener sessionId
     const sessionId = localStorage.getItem('ursinger.checkup.sessionId');
     
@@ -178,10 +187,26 @@ export class CheckupResultsComponent implements OnInit {
     return Math.max(0, Math.min(100, Math.round(raw)));
   }
 
+  goToTraining(): void {
+    this.router.navigate(['/training/dashboard']);
+  }
+
+  reloadCheckup(): void {
+    this.router.navigate(['/checkup/preparation']);
+  }
+
+  goToProfile(): void {
+    console.log('[Results] Ir a perfil');
+  }
+
+  logout(): void {
+    this.authService.logout();
+  }
+
   finishCheckup() {
     localStorage.removeItem('ursinger.checkup.sessionId');
     localStorage.removeItem('ursinger.metrics.partial');
     console.log('[Results] Checkup finalizado - SessionId y métricas limpiadas');
-    this.router.navigate(['/']);
+    this.router.navigate(['/training/dashboard']);
   }
 }

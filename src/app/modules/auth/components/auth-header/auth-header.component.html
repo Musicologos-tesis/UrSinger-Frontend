@@ -3,7 +3,37 @@
     <div class="logo-section">
       <img src="/assets/ursinger-icon.png" alt="UrSinger" class="logo-icon" />
       <span class="brand-name">UrSinger</span>
-      <span class="page-title">{{ pageTitle }}</span>
+      <span class="page-title" *ngIf="!showNavigation">{{ pageTitle }}</span>
     </div>
+    
+    <nav class="main-nav" *ngIf="showNavigation">
+      <button 
+        class="nav-btn" 
+        [class.nav-btn--active]="activeNav === 'training'"
+        (click)="navTraining.emit()"
+      >
+        Aprendizaje
+      </button>
+      <button 
+        class="nav-btn" 
+        [class.nav-btn--active]="activeNav === 'checkup'"
+        (click)="navCheckup.emit()"
+      >
+        Chequeo rápido
+      </button>
+      <button 
+        class="nav-btn" 
+        [class.nav-btn--active]="activeNav === 'profile'"
+        (click)="navProfile.emit()"
+      >
+        Perfil
+      </button>
+      <button 
+        class="nav-btn nav-btn--logout"
+        (click)="navLogout.emit()"
+      >
+        Cerrar sesión
+      </button>
+    </nav>
   </div>
 </header>

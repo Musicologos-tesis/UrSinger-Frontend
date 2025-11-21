@@ -1,4 +1,12 @@
-<app-auth-header [pageTitle]="'Chequeo rápido'"></app-auth-header>
+<app-auth-header 
+  [pageTitle]="'Chequeo rápido'"
+  [showNavigation]="hasActivePlan()" 
+  [activeNav]="'checkup'"
+  (navTraining)="goToTraining()"
+  (navCheckup)="reloadCheckup()"
+  (navProfile)="goToProfile()"
+  (navLogout)="logout()"
+></app-auth-header>
 
 <div class="page-container">
   <h1 class="title">Calibración</h1>

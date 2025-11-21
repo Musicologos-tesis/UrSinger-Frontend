@@ -99,6 +99,9 @@ export class AuthService {
   logout(): void {
     localStorage.removeItem(this.TOKEN_KEY);
     localStorage.removeItem(this.USER_KEY);
+    localStorage.removeItem('profile_id');
+    localStorage.removeItem('ursinger.checkup.sessionId');
+    localStorage.removeItem('ursinger.metrics.partial');
     this.isAuthenticated.set(false);
     this.router.navigate(['/auth/login']);
   }
@@ -119,5 +122,21 @@ export class AuthService {
 
   private hasToken(): boolean {
     return !!this.getToken();
+  }
+
+  async checkActiveTrainingPlan(profileId: string): Promise<boolean> {
+    try {
+      const token = this.getToken();
+      const headers = new HttpHeaders({
+        'Authorization': `Bearer ${token}`
+      });
+      await this.http.get(
+        `${environment.API_BASE_URL}/training-plans/active/${profileId}`,
+        { headers }
+      ).toPromise();
+      return true;
+    } catch (error) {
+      return false;
+    }
   }
 }

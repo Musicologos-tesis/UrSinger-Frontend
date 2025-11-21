@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, inject, signal } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import {
   AudioAnalyzerService
@@ -9,6 +9,7 @@ import {
   StabilityMetrics
 } from '../../services/stability.service';
 import { MetricsService } from '../../services/metrics.service';
+import { AuthService } from '../../../../services/auth.service';
 import { StepperComponent } from '../../../../shared/components/stepper/stepper.component';
 import { AuthHeaderComponent } from '../../../auth/components/auth-header/auth-header.component';
 
@@ -21,11 +22,12 @@ type UiState = 'intro' | 'recording' | 'done';
   templateUrl: './stability.html',
   styleUrl: './stability.scss',
 })
-export class StabilityComponent implements OnDestroy {
+export class StabilityComponent implements OnInit, OnDestroy {
   private router = inject(Router);
   private audio = inject(AudioAnalyzerService);
   private stabilityService = inject(StabilityService);
   private metricsService = inject(MetricsService);
+  private authService = inject(AuthService);
 
   state = signal<UiState>('intro');
   remainingSeconds = signal(10);
@@ -37,10 +39,18 @@ export class StabilityComponent implements OnDestroy {
   currentConfidence = signal<number>(0);
   currentRms = signal<number>(-90);
   samplesCount = signal<number>(0);
+  hasActivePlan = signal(false);
 
   stabilityPercent: number | null = null;
 
   private timerId: any = null;
+
+  async ngOnInit(): Promise<void> {
+    const profileId = localStorage.getItem('profile_id');
+    if (profileId) {
+      this.hasActivePlan.set(await this.authService.checkActiveTrainingPlan(profileId));
+    }
+  }
 
   async startTest() {
     // limpiar estado anterior
@@ -160,6 +170,22 @@ export class StabilityComponent implements OnDestroy {
         this.router.navigate(['/checkup/results']);
       }
     }
+  }
+
+  goToTraining(): void {
+    this.router.navigate(['/training/dashboard']);
+  }
+
+  reloadCheckup(): void {
+    this.router.navigate(['/checkup/preparation']);
+  }
+
+  goToProfile(): void {
+    console.log('[Stability] Ir a perfil');
+  }
+
+  logout(): void {
+    this.authService.logout();
   }
 
   ngOnDestroy(): void {

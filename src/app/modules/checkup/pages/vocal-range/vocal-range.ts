@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { VocalRangeService, RangePhase } from '../../services/vocal-range.service';
 import { AudioAnalyzerService } from '../../services/audio.analyzer.service';
+import { AuthService } from '../../../../services/auth.service';
 import { StepperComponent } from '../../../../shared/components/stepper/stepper.component';
 import { AuthHeaderComponent } from '../../../auth/components/auth-header/auth-header.component';
 
@@ -17,6 +18,7 @@ export class VocalRangeComponent implements OnInit, OnDestroy {
   private router = inject(Router);
   protected rangeService = inject(VocalRangeService); // protected para usar en template
   private audioService = inject(AudioAnalyzerService);
+  private authService = inject(AuthService);
 
   // Signals reactivos (desde el servicio)
   phase = this.rangeService.phase$;
@@ -31,11 +33,16 @@ export class VocalRangeComponent implements OnInit, OnDestroy {
 
   // Estados locales
   isLoading = signal(false);
+  hasActivePlan = signal(false);
   RangePhase = RangePhase; // Para usar en el template
   Math = Math; // Para usar Math.round en el template
 
-  ngOnInit(): void {
+  async ngOnInit(): Promise<void> {
     console.log('[VocalRange] Componente inicializado');
+    const profileId = localStorage.getItem('profile_id');
+    if (profileId) {
+      this.hasActivePlan.set(await this.authService.checkActiveTrainingPlan(profileId));
+    }
     // El analyser se inicializará cuando el usuario haga clic en "Comenzar Ejercicio"
   }
 
@@ -199,6 +206,22 @@ export class VocalRangeComponent implements OnInit, OnDestroy {
     if (!noteName) return '-';
     
     return `${noteName}${octave}`;
+  }
+
+  goToTraining(): void {
+    this.router.navigate(['/training/dashboard']);
+  }
+
+  reloadCheckup(): void {
+    this.router.navigate(['/checkup/preparation']);
+  }
+
+  goToProfile(): void {
+    console.log('[VocalRange] Ir a perfil');
+  }
+
+  logout(): void {
+    this.authService.logout();
   }
 
   ngOnDestroy(): void {

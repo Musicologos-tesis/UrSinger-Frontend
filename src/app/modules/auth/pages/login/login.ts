@@ -43,9 +43,29 @@ export class LoginComponent {
       email: this.email(),
       password: this.password()
     }).subscribe({
-      next: () => {
-        this.isLoading.set(false);
-        this.router.navigate(['/checkup/preparation']);
+      next: async (response) => {
+        // Esperar a que se obtenga el profile
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        const profileId = localStorage.getItem('profile_id');
+        
+        if (profileId) {
+          // Verificar si tiene un plan de entrenamiento activo
+          const hasActivePlan = await this.authService.checkActiveTrainingPlan(profileId);
+          
+          this.isLoading.set(false);
+          
+          if (hasActivePlan) {
+            // Si tiene plan activo, ir al dashboard de entrenamiento
+            this.router.navigate(['/training/dashboard']);
+          } else {
+            // Si no tiene plan, ir al checkup
+            this.router.navigate(['/checkup/preparation']);
+          }
+        } else {
+          this.isLoading.set(false);
+          this.router.navigate(['/checkup/preparation']);
+        }
       },
       error: (error) => {
         this.isLoading.set(false);

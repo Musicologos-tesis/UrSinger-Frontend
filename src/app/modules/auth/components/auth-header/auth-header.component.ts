@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { Component, Input, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 @Component({
@@ -10,4 +10,11 @@ import { CommonModule } from '@angular/common';
 })
 export class AuthHeaderComponent {
   @Input() pageTitle: string = '';
+  @Input() showNavigation: boolean = false;
+  @Input() activeNav: 'training' | 'checkup' | 'profile' | null = null;
+  
+  @Output() navTraining = new EventEmitter<void>();
+  @Output() navCheckup = new EventEmitter<void>();
+  @Output() navProfile = new EventEmitter<void>();
+  @Output() navLogout = new EventEmitter<void>();
 }
