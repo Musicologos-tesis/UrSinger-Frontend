@@ -1,0 +1,220 @@
+@import '../../../../shared/styles/variables';
+@import '../../../../shared/styles/mixins';
+
+.page-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 32px;
+}
+
+.title {
+  font-family: 'Inter', sans-serif;
+  font-size: 40px;
+  font-weight: 600;
+  margin: 12px 0 12px 0;
+  color: #000;
+}
+
+.subtitle {
+  font-family: 'Inter', sans-serif;
+  font-size: 20px;
+  color: #828282;
+  margin-bottom: 24px;
+}
+
+.stepper-container {
+  background: #fff;
+  padding: 20px;
+  margin-bottom: 24px;
+  border-top: 1px solid #BDBDBD;
+  border-bottom: 1px solid #BDBDBD;
+}
+
+/* Panel principal */
+.panel {
+  @include card;
+  display: flex;
+  gap: $spacing-xl;
+  align-items: flex-start;
+}
+
+/* Caja del micrófono */
+.mic-box {
+  @include mic-box;
+}
+
+.mic-circle {
+  @include mic-circle;
+}
+
+.mic-circle.pulse {
+  @include pulse-animation;
+}
+
+/* Columna derecha */
+.right {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Texto de instrucciones */
+.instruction {
+  font-size: $font-size-base;
+  color: $gray-600;
+  margin: $spacing-md 0 $spacing-xl;
+  line-height: 1.5;
+}
+
+/* Bloque de fase */
+.phase-container {
+  margin-bottom: $spacing-xl;
+  padding: $spacing-lg;
+  border: 1px solid $gray-200;
+  border-radius: $radius-md;
+  background: $gray-50;
+}
+
+.phase-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: $spacing-md;
+}
+
+.phase-title {
+  font-weight: $font-weight-semibold;
+  font-size: $font-size-base;
+}
+
+/* Barra de progreso de la prueba */
+.phase-bar {
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: $gray-200;
+  overflow: hidden;
+  margin: $spacing-md 0;
+}
+
+.phase-bar-fill {
+  height: 100%;
+  background: $primary;
+  transition: width $transition-base;
+}
+
+/* Texto de ayuda bajo la fase */
+.phase-foot {
+  font-size: $font-size-sm;
+  color: $gray-500;
+  margin: 0;
+}
+
+/* Texto de resultado */
+.result-line {
+  font-size: $font-size-base;
+  color: $gray-700;
+  margin: $spacing-md 0;
+  line-height: 1.6;
+}
+
+/* Indicadores en tiempo real */
+.live-indicators {
+  margin: 12px 0;
+  padding: 10px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+}
+
+.indicator-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.indicator-row:last-child {
+  margin-bottom: 0;
+}
+
+.indicator-row .label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  min-width: 140px;
+}
+
+.indicator-row .value {
+  font-size: 13px;
+  font-weight: 700;
+  color: #374151;
+}
+
+.indicator-row .value.samples-count {
+  font-size: 16px;
+  color: #059669;
+}
+
+.confidence-bar {
+  flex: 1;
+  height: 6px;
+  background: #e5e7eb;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.confidence-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #10b981, #059669);
+  transition: width 0.3s ease;
+}
+
+/* Mensaje de advertencia durante grabación */
+.warning-message {
+  margin-top: 12px;
+  padding: 10px 14px;
+  background: #fef3c7;
+  border: 2px solid #f59e0b;
+  border-radius: 6px;
+  color: #92400e;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* Pill de "Analizando…" */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: $spacing-sm $spacing-lg;
+  border-radius: 999px;
+  font-size: $font-size-sm;
+  margin-top: $spacing-md;
+}
+
+.pill--info {
+  background: $primary-light;
+  color: $primary-text;
+}
+
+/* Botón primario */
+.primary {
+  @include button-primary;
+  margin-top: $spacing-md;
+  padding: $spacing-md $spacing-xl;
+  border-radius: 999px;
+}
+
+/* Texto de pie de página */
+.foot {
+  margin-top: $spacing-lg;
+  font-size: $font-size-sm;
+  color: $gray-500;
+}
+
+.alert {
+  @include error-banner;
+  margin: 10px 0 $spacing-lg;
+  font-size: $font-size-sm;
+}

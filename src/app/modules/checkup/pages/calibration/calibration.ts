@@ -1,22 +1,22 @@
-import { Component, OnDestroy, inject, signal } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { CalibrationService, CalibState, ValidationStatus } from '../../services/calibration.service';
 import { AudioAnalyzerService } from '../../services/audio.analyzer.service';
-import { HttpClient } from '@angular/common/http';
-import { environment } from '../../../../../environments/environment.development';
-import { firstValueFrom } from 'rxjs';
+import { AuthService } from '../../../../services/auth.service';
+import { StepperComponent } from '../../../../shared/components/stepper/stepper.component';
+import { AuthHeaderComponent } from '../../../auth/components/auth-header/auth-header.component';
 
 @Component({
   selector: 'app-calibration',
-  imports: [],
+  imports: [StepperComponent, AuthHeaderComponent],
   templateUrl: './calibration.html',
   styleUrl: './calibration.scss',
 })
-export class CalibrationComponent implements OnDestroy {
+export class CalibrationComponent implements OnInit, OnDestroy {
   private router = inject(Router);
   private cal = inject(CalibrationService);
   private audio = inject(AudioAnalyzerService);
-  private http = inject(HttpClient);
+  private authService = inject(AuthService);
 
   CalibState = CalibState;
   ValidationStatus = ValidationStatus;
@@ -30,6 +30,14 @@ export class CalibrationComponent implements OnDestroy {
   inputStatus = signal<ValidationStatus>(ValidationStatus.Pending);
   noiseMessage = signal<string>('');
   inputMessage = signal<string>('');
+  hasActivePlan = signal(false);
+
+  async ngOnInit(): Promise<void> {
+    const profileId = localStorage.getItem('profile_id');
+    if (profileId) {
+      this.hasActivePlan.set(await this.authService.checkActiveTrainingPlan(profileId));
+    }
+  }
 
   constructor() {
     this.cal.state$.subscribe(s => this.state.set(s));
@@ -44,8 +52,10 @@ export class CalibrationComponent implements OnDestroy {
   }
 
   async onCalibrate() {
+    // Si ya está calibrado, navegar a vocal-range
     if (this.state() === CalibState.Done) {
-      this.router.navigate(['/checkup/range']);
+      console.log('[Calibration] Estado Done, navegando a vocal-range');
+      await this.router.navigate(['/checkup/vocal-range']);
       return;
     }
 
@@ -89,6 +99,15 @@ export class CalibrationComponent implements OnDestroy {
     this.cal.reset();
   }
   
+  onContinueToVocalRange() {
+    console.log('[Calibration] Navegando a /checkup/vocal-range');
+    this.router.navigate(['/checkup/vocal-range']).then(success => {
+      console.log('[Calibration] Navegación exitosa:', success);
+    }).catch(error => {
+      console.error('[Calibration] Error en navegación:', error);
+    });
+  }
+  
   canConfirmNoise(): boolean {
     return this.state() === CalibState.NoiseMeasuring && 
            this.noiseStatus() === ValidationStatus.Valid;
@@ -109,6 +128,23 @@ export class CalibrationComponent implements OnDestroy {
     return this.state() === CalibState.InputMeasuring &&
            this.progress() >= 1 &&
            this.inputStatus() === ValidationStatus.Invalid;
+  }
+
+  goToTraining(): void {
+    this.router.navigate(['/training/dashboard']);
+  }
+
+  reloadCheckup(): void {
+    this.router.navigate(['/checkup/preparation']);
+  }
+
+  goToProfile(): void {
+    this.router.navigate(['/profile']);
+  }
+
+  logout(): void {
+    this.authService.logout();
+    this.router.navigate(['/auth/login']);
   }
 
   ngOnDestroy() {

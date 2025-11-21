@@ -1,0 +1,131 @@
+<app-auth-header 
+  [pageTitle]="'Chequeo rápido'"
+  [showNavigation]="hasActivePlan" 
+  [activeNav]="'checkup'"
+  (navTraining)="goToTraining()"
+  (navCheckup)="reloadCheckup()"
+  (navProfile)="goToProfile()"
+  (navLogout)="logout()"
+></app-auth-header>
+
+<div class="page-container">
+  <h1 class="title">Resultados</h1>
+
+  <p class="subtitle">
+    Los resultados de tu prueba inicial se muestran a continuación.
+  </p>
+
+  <div class="stepper-container">
+    <app-stepper [currentStep]="'results'"></app-stepper>
+  </div>
+
+  <!-- Contenido principal -->
+  <main class="results-main">
+    <!-- Cards superiores -->
+    <section class="summary-row">
+      <!-- Rango vocal -->
+      <article class="summary-card">
+        <div class="summary-icon">🎤</div>
+        <div class="summary-body">
+          <div class="summary-label">Rango vocal</div>
+          <div class="summary-value">{{ rangeLabel }}</div>
+        </div>
+      </article>
+
+      <!-- Precisión tonal -->
+      <article class="summary-card">
+        <div class="summary-icon">📍</div>
+        <div class="summary-body">
+          <div class="summary-label">Precisión tonal</div>
+          <div class="summary-value">
+            <ng-container *ngIf="precisionPercent !== null; else noPrecision">
+              {{ precisionPercent }}%
+            </ng-container>
+            <ng-template #noPrecision>---</ng-template>
+          </div>
+        </div>
+      </article>
+
+      <!-- Estabilidad -->
+      <article class="summary-card">
+        <div class="summary-icon">📈</div>
+        <div class="summary-body">
+          <div class="summary-label">Estabilidad</div>
+          <div class="summary-value">
+            <ng-container *ngIf="stabilityPercent !== null; else noStab">
+              {{ stabilityPercent }}%
+            </ng-container>
+            <ng-template #noStab>---</ng-template>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <!-- Plan de entrenamiento -->
+    <section class="training-plan-section">
+      <h2 class="section-title">Plan de entrenamiento personalizado</h2>
+
+      <!-- Loading state -->
+      <div *ngIf="isLoadingPlan" class="loading-state">
+        <div class="spinner"></div>
+        <p>Generando tu plan de entrenamiento...</p>
+      </div>
+
+      <!-- Error state -->
+      <div *ngIf="planError && !isLoadingPlan" class="error-state">
+        <p>{{ planError }}</p>
+        <button class="retry-btn" type="button" (click)="loadTrainingPlan()">
+          Reintentar
+        </button>
+      </div>
+
+      <!-- Plan content -->
+      <div *ngIf="trainingPlan && !isLoadingPlan && !planError" class="plan-content">
+        <!-- Plan header -->
+        <div class="plan-header">
+          <div *ngIf="trainingPlan.focusGroups && trainingPlan.focusGroups.length > 0" class="focus-groups">
+            <span class="focus-label">Grupos con carencia:</span>
+            <span *ngFor="let group of trainingPlan.focusGroups" class="focus-badge-header">{{ group }}</span>
+          </div>
+          <div class="plan-dates">
+            {{ formatDate(trainingPlan.startDate) }} - {{ formatDate(trainingPlan.endDate) }}
+          </div>
+          <p class="plan-instructions">{{ trainingPlan.instructions }}</p>
+        </div>
+
+        <!-- Week plan -->
+        <div class="week-plan">
+          <div *ngFor="let day of trainingPlan.weekPlan" class="day-card">
+            <div class="day-header">
+              <h3 class="day-title">{{ getDayName(day.day) }}</h3>
+            </div>
+
+            <!-- Exercises -->
+            <div class="exercises-list">
+              <div *ngFor="let exercise of day.exercises" class="exercise-item">
+                <div class="exercise-header">
+                  <h4 class="exercise-name">{{ exercise.exerciseName }}</h4>
+                  <span class="exercise-level level-{{ exercise.level }}">
+                    {{ exercise.level }}
+                  </span>
+                </div>
+                <p class="exercise-group">{{ exercise.groupName }}</p>
+                <p class="exercise-description">{{ exercise.description }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Botón final -->
+    <section class="bottom-actions">
+      <button class="finish-btn" type="button" (click)="finishCheckup()">
+        Finalizar chequeo
+      </button>
+      <p class="bottom-note">
+        Podrás repetir el chequeo cuando lo desees desde tu perfil.
+      </p>
+    </section>
+  </main>
+</div>

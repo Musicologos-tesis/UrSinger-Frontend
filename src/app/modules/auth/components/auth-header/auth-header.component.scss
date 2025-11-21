@@ -1,0 +1,87 @@
+.auth-header {
+  background: #E0E0E0;
+  border-bottom: 1px solid #BDBDBD;
+  padding: 16px 0;
+  margin-bottom: 12px;
+}
+
+.header-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.logo-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo-icon {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
+
+.brand-name {
+  font-family: 'Inter', sans-serif;
+  font-size: 24px;
+  font-weight: 600;
+  color: #000;
+}
+
+.page-title {
+  font-family: 'Inter', sans-serif;
+  font-size: 24px;
+  font-weight: 600;
+  color: #828282;
+}
+
+/* Navigation */
+.main-nav {
+  display: flex;
+  gap: 8px;
+}
+
+.nav-btn {
+  padding: 8px 20px;
+  border: 1px solid #828282;
+  background: transparent;
+  color: #828282;
+  font-size: 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-weight: 600;
+}
+
+.nav-btn:hover {
+  background: #d1d5db;
+  color: #111827;
+  border-color: #111827;
+}
+
+.nav-btn--active {
+  background: #6366f1;
+  color: #ffffff;
+  border-color: #6366f1;
+}
+
+.nav-btn--active:hover {
+  background: #4f46e5;
+  border-color: #4f46e5;
+}
+
+.nav-btn--logout {
+  background: #ef4444;
+  color: #ffffff;
+  border-color: #ef4444;
+}
+
+.nav-btn--logout:hover {
+  background: #dc2626;
+  border-color: #dc2626;
+}

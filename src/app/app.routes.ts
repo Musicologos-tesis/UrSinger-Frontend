@@ -1,10 +1,29 @@
 import { Routes } from '@angular/router';
+import { authGuard } from './guards/auth.guard';
 
 export const routes: Routes = [
-    { path: '', redirectTo: 'checkup', pathMatch: 'full' },
+    { path: '', redirectTo: 'training', pathMatch: 'full' },
+    {
+        path: 'auth',
+        loadChildren: () =>
+        import('./modules/auth/auth.routes').then(m => m.AUTH_ROUTES),
+    },
     {
         path: 'checkup',
         loadChildren: () =>
         import('./modules/checkup/checkup.routes').then(m => m.CHECKUP_ROUTES),
+        canActivate: [authGuard],
+    },
+    {
+        path: 'training',
+        loadChildren: () =>
+        import('./modules/training/training.routes').then(m => m.TRAINING_ROUTES),
+        canActivate: [authGuard],
+    },
+    {
+        path: 'profile',
+        loadChildren: () =>
+        import('./modules/profile/profile.routes').then(m => m.PROFILE_ROUTES),
+        canActivate: [authGuard],
     },
 ];

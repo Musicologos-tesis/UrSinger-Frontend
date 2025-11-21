@@ -1,0 +1,381 @@
+@import '../../../../shared/styles/variables';
+@import '../../../../shared/styles/mixins';
+
+.page-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 32px;
+  min-height: 100vh;
+  background: #E0E0E0;
+}
+
+.practice-content {
+  padding: 40px 0;
+}
+
+.title {
+  font-family: 'Inter', sans-serif;
+  font-size: 40px;
+  font-weight: 600;
+  margin: 12px 0 12px 0;
+  color: #000;
+}
+
+.subtitle {
+  font-family: 'Inter', sans-serif;
+  font-size: 20px;
+  color: #828282;
+  margin-bottom: 32px;
+}
+
+.loading,
+.error {
+  text-align: center;
+  padding: 60px 20px;
+  color: #333;
+  font-size: 16px;
+}
+
+.btn-back {
+  margin-top: 20px;
+  padding: 12px 24px;
+  background: #6366f1;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+
+  &:hover {
+    background: #4f46e5;
+  }
+}
+
+/* Panel principal */
+.panel { 
+  @include card;
+  display: flex; 
+  gap: $spacing-xl; 
+  align-items: flex-start; 
+}
+
+.mic-box { 
+  @include mic-box;
+}
+
+.mic-circle { 
+  @include mic-circle;
+}
+
+.mic-circle.pulse { 
+  @include pulse-animation;
+}
+
+.right { 
+  flex: 1; 
+  min-width: 0; 
+}
+
+/* Instrucciones */
+.instruction {
+  font-size: $font-size-sm;
+  color: $gray-500;
+  margin: $spacing-md 0;
+  line-height: 1.5;
+
+  &.result-message {
+    font-size: 16px;
+    font-weight: 600;
+    padding: 16px;
+    border-radius: 8px;
+    text-align: center;
+
+    &.error {
+      background: #fef3c7;
+      color: #92400e;
+      border: 1px solid #fbbf24;
+    }
+
+    &.success {
+      background: #d1fae5;
+      color: #065f46;
+      border: 1px solid #10b981;
+    }
+  }
+}
+
+.highlight {
+  color: #6366f1;
+  font-weight: 700;
+}
+
+/* Contenedor de fase */
+.phase-container {
+  margin-bottom: $spacing-xl;
+  padding: $spacing-lg;
+  border: 1px solid $gray-200;
+  border-radius: $radius-md;
+  background: $gray-50;
+}
+
+.phase-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: $spacing-md;
+}
+
+.phase-label {
+  font-weight: $font-weight-semibold;
+  color: $gray-700;
+  font-size: $font-size-base;
+}
+
+.status-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: $radius-full;
+  font-weight: $font-weight-bold;
+  font-size: $font-size-base;
+}
+
+.status-indicator.pending {
+  background: $warning-light;
+  color: $warning-dark;
+}
+
+.status-indicator.valid {
+  background: $success-light;
+  color: $success-dark;
+}
+
+/* Nota objetivo */
+.target-note-display {
+  margin: 16px 0;
+  padding: 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 12px;
+  text-align: center;
+  color: white;
+}
+
+.target-label {
+  font-size: 13px;
+  font-weight: 600;
+  opacity: 0.9;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.target-note {
+  font-size: 48px;
+  font-weight: 700;
+  margin: 8px 0;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.play-note-btn {
+  margin-top: 12px;
+  padding: 10px 20px;
+  background: rgba(255, 255, 255, 0.2);
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-radius: 24px;
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  backdrop-filter: blur(10px);
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.6);
+    transform: scale(1.05);
+  }
+
+  &:active {
+    transform: scale(0.98);
+  }
+}
+
+/* Timeout indicator */
+.timeout-indicator {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  background: #fef3c7;
+  border: 1px solid #fbbf24;
+  border-radius: 8px;
+  margin: 12px 0;
+}
+
+.timeout-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #92400e;
+}
+
+.timeout-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: #b45309;
+}
+
+/* Validation checks */
+.validation-checks {
+  margin: 16px 0;
+  padding: 12px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.check-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  padding: 8px;
+  border-radius: 6px;
+  transition: all 0.2s;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+
+  &.valid {
+    background: #d1fae5;
+    border: 1px solid #10b981;
+
+    .check-icon {
+      color: #059669;
+    }
+
+    .check-label {
+      color: #065f46;
+    }
+  }
+}
+
+.check-icon {
+  font-size: 18px;
+  font-weight: 700;
+  color: #9ca3af;
+  min-width: 24px;
+  text-align: center;
+}
+
+.check-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #6b7280;
+}
+
+/* Botón empezar ejercicio */
+.btn-start-exercise {
+  width: 100%;
+  padding: 14px 24px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 16px;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+
+  &.success {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+
+    &:hover {
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+    }
+  }
+}
+
+/* Indicadores en tiempo real */
+.live-indicators {
+  margin: 12px 0;
+  padding: 10px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+}
+
+.indicator-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.indicator-row .label {
+  font-size: 12px;
+  color: #6b7280;
+  min-width: 120px;
+}
+
+.indicator-row .value {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+
+  &.correct {
+    color: #10b981;
+  }
+}
+
+.confidence-bar {
+  flex: 1;
+  height: 8px;
+  background: #e5e7eb;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.confidence-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #6366f1 0%, #818cf8 100%);
+  border-radius: 999px;
+  transition: width 0.2s;
+}
+
+/* Barra de progreso */
+.progress-bar {
+  @include progress-bar;
+  margin-top: $spacing-md;
+}
+
+.progress-fill {
+  @include progress-fill;
+}
+
+.progress-text {
+  font-size: $font-size-xs;
+  color: $gray-500;
+  margin-top: $spacing-xs;
+  text-align: center;
+  font-weight: $font-weight-semibold;
+}
+

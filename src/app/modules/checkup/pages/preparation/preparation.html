@@ -1,13 +1,20 @@
-<h1 class="title">Chequeo rápido — Preparación</h1>
-<p class="subtitle">Antes de comenzar, te ayudaremos a configurar tu micrófono.</p>
+<app-auth-header 
+  [pageTitle]="'Chequeo rápido'"
+  [showNavigation]="hasActivePlan()" 
+  [activeNav]="'checkup'"
+  (navTraining)="goToTraining()"
+  (navCheckup)="reloadCheckup()"
+  (navProfile)="goToProfile()"
+  (navLogout)="logout()"
+></app-auth-header>
 
-<div class="tabs">
-  <span class="tab active">● Preparación</span>
-  <span class="tab">● Calibración</span>
-  <span class="tab">● Rango</span>
-  <span class="tab">● Estabilidad</span>
-  <span class="tab">● Resultados</span>
-</div>
+<div class="page-container">
+  <h1 class="title">Preparación</h1>
+  <p class="subtitle">Antes de comenzar, te ayudaremos a configurar tu micrófono.</p>
+
+  <div class="stepper-container">
+    <app-stepper [currentStep]="'preparation'"></app-stepper>
+  </div>
 
 <div class="card">
   <div class="mic-box" (click)="state() === 'idle' ? activateMic() : null">
@@ -38,3 +45,4 @@
     No pudimos acceder al micrófono. Revisa los permisos del navegador o usa HTTPS.
   </p>
 }
+</div>

@@ -1,0 +1,291 @@
+// Use shared page-container styles from other checkup pages
+.page-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 32px;
+}
+
+.title {
+  font-family: 'Inter', sans-serif;
+  font-size: 40px;
+  font-weight: 600;
+  margin: 12px 0 12px 0;
+  color: #000;
+}
+
+.subtitle {
+  font-family: 'Inter', sans-serif;
+  font-size: 20px;
+  color: #828282;
+  margin-bottom: 24px;
+}
+
+.stepper-container {
+  background: #fff;
+  padding: 20px;
+  margin-bottom: 24px;
+  border-top: 1px solid #BDBDBD;
+  border-bottom: 1px solid #BDBDBD;
+}
+
+/* Layout principal */
+.results-main {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+/* Cards superiores */
+.summary-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.summary-card {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.9rem 1rem;
+  border-radius: 0.9rem;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.03);
+}
+
+.summary-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: #eef2ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+}
+
+.summary-label {
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+.summary-value {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+/* Training Plan Section */
+.training-plan-section {
+  margin-top: 1rem;
+  padding: 1.5rem;
+  border-radius: 1rem;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.03);
+}
+
+.section-title {
+  margin: 0 0 1.25rem 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.loading-state,
+.error-state {
+  text-align: center;
+  padding: 2rem 1rem;
+  color: #6b7280;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  margin: 0 auto 1rem;
+  border: 3px solid #e5e7eb;
+  border-top-color: #4f46e5;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.retry-btn {
+  margin-top: 1rem;
+  padding: 0.5rem 1.5rem;
+  border-radius: 999px;
+  border: 1px solid #4f46e5;
+  background: #ffffff;
+  color: #4f46e5;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.plan-header {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.focus-groups {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.focus-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.focus-badge-header {
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #4338ca;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.plan-dates {
+  font-size: 0.9rem;
+  color: #6b7280;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}
+
+.plan-instructions {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #374151;
+  line-height: 1.5;
+}
+
+.week-plan {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.day-card {
+  padding: 1rem;
+  border-radius: 0.75rem;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+}
+
+.day-header {
+  margin-bottom: 0.75rem;
+}
+
+.day-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.exercises-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.exercise-item {
+  padding: 0.85rem;
+  border-radius: 0.5rem;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+}
+
+.exercise-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.35rem;
+}
+
+.exercise-name {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.exercise-level {
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.level-1 {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.level-2 {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.level-3 {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.exercise-group {
+  margin: 0 0 0.35rem 0;
+  font-size: 0.8rem;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.exercise-description {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #4b5563;
+  line-height: 1.4;
+}
+
+
+/* Botón inferior */
+.bottom-actions {
+  text-align: center;
+  margin-top: 0.5rem;
+}
+
+.finish-btn {
+  margin-top: 0.5rem;
+  border-radius: 999px;
+  padding: 0.7rem 2.6rem;
+  border: none;
+  cursor: pointer;
+  background: #4f46e5;
+  color: #f9fafb;
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.bottom-note {
+  margin-top: 0.6rem;
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+@media (max-width: 768px) {
+  .summary-row {
+    grid-template-columns: 1fr;
+  }
+
+  .page-container {
+    padding-inline: 1rem;
+  }
+}

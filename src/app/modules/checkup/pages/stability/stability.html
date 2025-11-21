@@ -1,0 +1,168 @@
+<app-auth-header 
+  [pageTitle]="'Chequeo rápido'"
+  [showNavigation]="hasActivePlan()" 
+  [activeNav]="'checkup'"
+  (navTraining)="goToTraining()"
+  (navCheckup)="reloadCheckup()"
+  (navProfile)="goToProfile()"
+  (navLogout)="logout()"
+></app-auth-header>
+
+<div class="page-container">
+  <h1 class="title">Estabilidad vocal</h1>
+
+  <!-- Descripción -->
+  <p class="subtitle">Vamos a medir qué tan estable puedes mantener una nota sostenida.</p>
+
+  <div class="stepper-container">
+    <app-stepper [currentStep]="'stability'"></app-stepper>
+  </div>
+
+<!-- 🔴 Bloque de error -->
+<div class="alert" *ngIf="errorMessage() as error">
+  {{ error }}
+</div>
+
+<!-- Panel principal -->
+<div class="panel">
+  <!-- Caja del micrófono a la izquierda -->
+  <div class="mic-box">
+    <div
+      class="mic-circle"
+      [class.pulse]="state() === 'recording'"
+    >
+      🎤
+    </div>
+  </div>
+
+  <!-- Contenido derecho -->
+  <div class="right">
+
+    <!-- ESTADO: INTRODUCCIÓN -->
+    @if (state() === 'intro') {
+      <p class="instruction">
+        Durante esta prueba mantendrás una vocal “ahh” en un tono cómodo durante unos segundos.<br />
+        No necesitas alcanzar una nota exacta, solo mantenerla lo más estable posible.
+      </p>
+
+      <div class="phase-container">
+        <div class="phase-header">
+          <div class="phase-title">Prueba de estabilidad</div>
+        </div>
+        <p class="phase-foot">
+          Cuando estés listo, presiona el botón y sostén tu voz hasta que el contador llegue a cero.
+        </p>
+      </div>
+
+      <button class="primary" (click)="startTest()">
+        Comenzar prueba de estabilidad
+      </button>
+    }
+
+    <!-- ESTADO: ANALIZANDO -->
+    @if (state() === 'recording') {
+      <div class="phase-container">
+        <div class="phase-header">
+          <div class="phase-title">Analizando estabilidad vocal…</div>
+        </div>
+
+        <!-- Indicadores en tiempo real -->
+        <div class="live-indicators">
+          <div class="indicator-row">
+            <span class="label">Nota detectada:</span>
+            <span class="value">{{ currentNote() }} @if (currentMidi() > 0) { (MIDI {{ currentMidi() }}) }</span>
+          </div>
+          
+          <div class="indicator-row">
+            <span class="label">Confianza:</span>
+            <div class="confidence-bar">
+              <div class="confidence-fill" [style.width.%]="currentConfidence() * 100"></div>
+            </div>
+            <span class="value">{{ (currentConfidence() * 100).toFixed(0) }}%</span>
+          </div>
+          
+          <div class="indicator-row">
+            <span class="label">Volumen (RMS):</span>
+            <span class="value">{{ currentRms().toFixed(1) }} dB</span>
+          </div>
+          
+          <div class="indicator-row">
+            <span class="label">Muestras capturadas:</span>
+            <span class="value samples-count">{{ samplesCount() }}</span>
+          </div>
+        </div>
+
+        <div class="phase-bar">
+          <div
+            class="phase-bar-fill"
+            [style.width.%]="(10 - remainingSeconds()) * 10"
+          ></div>
+        </div>
+
+        <p class="phase-foot">
+          Mantén la misma nota y volumen. Tiempo restante:
+          {{ remainingSeconds() }} segundos.
+        </p>
+        
+        <!-- Advertencia si no se capturan muestras -->
+        @if (samplesCount() === 0 && remainingSeconds() < 8) {
+          <div class="warning-message">
+            ⚠️ No se están detectando notas. Intenta cantar más fuerte o acercarte al micrófono.
+          </div>
+        }
+        
+        @if (samplesCount() > 0 && samplesCount() < 10 && remainingSeconds() < 6) {
+          <div class="warning-message">
+            ⚠️ Pocas muestras capturadas ({{ samplesCount() }}). Continúa cantando de forma sostenida.
+          </div>
+        }
+      </div>
+
+      <div class="pill pill--info">
+        Analizando…
+      </div>
+    }
+
+    <!-- ESTADO: RESULTADO -->
+    @if (state() === 'done') {
+      <div class="phase-container">
+        <div class="phase-header">
+          <div class="phase-title">Análisis completado</div>
+        </div>
+
+        <p class="result-line" *ngIf="stabilityPercent !== null">
+          Promedio de estabilidad:
+          {{ stabilityPercent | number : '1.0-0' }}%.
+          Tu control vocal es
+          <strong *ngIf="stabilityPercent >= 80">bueno</strong>
+          <strong *ngIf="stabilityPercent < 80 && stabilityPercent >= 50">
+            intermedio
+          </strong>
+          <strong *ngIf="stabilityPercent < 50">mejorable</strong>.
+        </p>
+
+        <p class="phase-foot">
+          Puedes repetir esta prueba cuando lo desees para mejorar tu estabilidad.
+        </p>
+      </div>
+
+      <button class="primary" (click)="goToResults()">
+        Ver resultados finales
+      </button>
+    }
+  </div>
+</div>
+
+<!-- Mensajes de pie de página -->
+@if (state() === 'intro') {
+  <p class="foot">
+    Asegúrate de estar en un lugar tranquilo antes de comenzar.
+  </p>
+}
+
+@if (state() === 'done') {
+  <p class="foot">
+    Puedes repetir este chequeo en el futuro para ver tu progreso.
+  </p>
+}
+</div>

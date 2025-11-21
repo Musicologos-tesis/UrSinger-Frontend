@@ -1,9 +1,20 @@
-<h1>Chequeo rápido - Calibración</h1>
+<app-auth-header 
+  [pageTitle]="'Chequeo rápido'"
+  [showNavigation]="hasActivePlan()" 
+  [activeNav]="'checkup'"
+  (navTraining)="goToTraining()"
+  (navCheckup)="reloadCheckup()"
+  (navProfile)="goToProfile()"
+  (navLogout)="logout()"
+></app-auth-header>
 
-<!-- Estado: Inicial -->
-@if (state() === CalibState.Idle) {
-  <p>Estamos calibrando tu micrófono. Guarda silencio mientras medimos el nivel de ruido del entorno.</p>
-}
+<div class="page-container">
+  <h1 class="title">Calibración</h1>
+
+  <!-- Estado: Inicial -->
+  @if (state() === CalibState.Idle) {
+    <p class="subtitle">Estamos calibrando tu micrófono. Guarda silencio mientras medimos el nivel de ruido del entorno.</p>
+  }
 
 <!-- Estado: Error -->
 @if (state() === CalibState.Error) {
@@ -15,20 +26,14 @@
 }
 
 <!-- Estado: Completado -->
-@if (state() === CalibState.Done) {
-  <p>✅ ¡Micrófono calibrado correctamente!</p>
-  <p><small>Ahora puedes continuar con el rango vocal.</small></p>
-}
+  @if (state() === CalibState.Done) {
+    <p class="subtitle">✅ ¡Micrófono calibrado correctamente!</p>
+    <p class="subtitle"><small>Ahora puedes continuar con el rango vocal.</small></p>
+  }
 
-<div class="tabs">
-  <span>● Preparación</span>
-  <span class="active">● Calibración</span>
-  <span>● Rango</span>
-  <span>● Estabilidad</span>
-  <span>● Resultados</span>
-</div>
-
-<div class="panel">
+  <div class="stepper-container">
+    <app-stepper [currentStep]="'calibration'"></app-stepper>
+  </div><div class="panel">
   <div class="mic-box">
     <div class="mic-circle" 
          [class.pulse]="state() === CalibState.NoiseMeasuring || state() === CalibState.InputMeasuring">
@@ -172,8 +177,8 @@
   
   <!-- Estado final: continuar al siguiente paso -->
   @if (state() === CalibState.Done) {
-    <button class="primary" (click)="onCalibrate()">
-      Continuar con el rango vocal
+    <button class="primary" (click)="onContinueToVocalRange()">
+      Continuar al Ejercicio de Rango Vocal
     </button>
   }
   
@@ -194,5 +199,8 @@
 }
 
 @if (state() === CalibState.Done) {
-  <p class="foot">Podrás volver a calibrar tu micrófono más adelante si es necesario.</p>
+  <p class="foot">
+    Calibración completada. Ahora continuaremos con el ejercicio de rango vocal.
+  </p>
 }
+</div>
