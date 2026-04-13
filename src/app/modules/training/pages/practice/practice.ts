@@ -6,6 +6,8 @@ import { TrainingService, ExerciseDetail } from '../../services/training.service
 import { AuthService } from '../../../../services/auth.service';
 import { AudioAnalyzerService } from '../../../checkup/services/audio.analyzer.service';
 import { AudioPitchService } from '../../../checkup/services/audio-pitch.service';
+import { ExerciseEngineService } from '../../services/exercise-engine.service';
+import { ExerciseDefinition, ExerciseFrameChecks, ExerciseRuntimeState } from '../../services/exercise-engine.models';
 
 type PracticeState = 'idle' | 'practicing' | 'success' | 'retry';
 
@@ -23,6 +25,7 @@ export class PracticeComponent implements OnInit, OnDestroy {
   private authService = inject(AuthService);
   private audioService = inject(AudioAnalyzerService);
   private pitchService = inject(AudioPitchService);
+  private exerciseEngine = inject(ExerciseEngineService);
 
   exercise = signal<ExerciseDetail | null>(null);
   isLoading = signal(true);
@@ -33,14 +36,27 @@ export class PracticeComponent implements OnInit, OnDestroy {
   targetNote = signal<string>('');
   targetMidi = signal<number>(0);
   remainingSeconds = signal(3);
+  durationSec = signal(3);
+  requiredFrames = signal(20);
+  primaryCheckLabel = signal('Afinación correcta (±50 cents)');
+  practicePrompt = signal('Sostén la nota objetivo');
+  showTargetReference = signal(true);
+  targetReferenceLabel = signal('');
   currentNote = signal<string>('-');
   currentMidi = signal<number>(0);
   currentConfidence = signal<number>(0);
+  frameChecks = signal<ExerciseFrameChecks>({
+    voiceDetected: false,
+    edgeConfidenceOk: false,
+    primaryOk: false,
+  });
   
   private timerId: any = null;
   private animationFrameId: any = null;
   samples: number[] = []; // Público para el template
   private planExerciseId: string = '';
+  private definition?: ExerciseDefinition;
+  private runtimeState: ExerciseRuntimeState = this.exerciseEngine.createRuntimeState();
   
   Math = Math; // Para usar en el template
 
@@ -58,7 +74,7 @@ export class PracticeComponent implements OnInit, OnDestroy {
     try {
       const exerciseData = await this.trainingService.getExerciseDetail(id);
       this.exercise.set(exerciseData);
-      this.generateRandomNote();
+      this.generateRandomNote(exerciseData);
     } catch (err: any) {
       console.error('[Practice] Error al cargar ejercicio:', err);
       this.error.set('No se pudo cargar el ejercicio');
@@ -67,7 +83,7 @@ export class PracticeComponent implements OnInit, OnDestroy {
     }
   }
 
-  private generateRandomNote(): void {
+  private generateRandomNote(exercise?: ExerciseDetail): void {
     // Obtener rango vocal del usuario desde localStorage
     const metricsStr = localStorage.getItem('ursinger.metrics.partial');
     let minMidi = 48; // C3 por defecto
@@ -86,9 +102,19 @@ export class PracticeComponent implements OnInit, OnDestroy {
     }
 
     // Generar nota aleatoria dentro del rango (evitando extremos)
+    // Para Pitch Steps, reservamos espacio hacia arriba para el intervalo del nivel.
+    const exerciseName = (exercise?.exerciseName ?? '').toLowerCase();
+    const isPitchSteps = exerciseName.includes('pitch steps');
+    const isPitchGlide = exerciseName.includes('pitch glide') || exerciseName.includes('vocal glide');
+    const intervalSemitones = isPitchSteps
+      ? ((exercise?.level ?? 1) >= 2 ? 5 : 2)
+      : isPitchGlide
+      ? ((exercise?.level ?? 1) >= 2 ? 6 : 3)
+      : 0;
+
     const margin = 3; // Evitar 3 semitonos de los extremos
     const safeMin = minMidi + margin;
-    const safeMax = maxMidi - margin;
+    const safeMax = Math.max(safeMin, maxMidi - margin - intervalSemitones);
     const randomMidi = Math.floor(Math.random() * (safeMax - safeMin + 1)) + safeMin;
 
     this.targetMidi.set(randomMidi);
@@ -96,9 +122,49 @@ export class PracticeComponent implements OnInit, OnDestroy {
   }
 
   async startPractice(): Promise<void> {
+    this.error.set(null);
+
+    const exercise = this.exercise();
+    try {
+      this.definition = this.exerciseEngine.createDefinitionFromExercise({
+        id: exercise?.planExerciseId ?? this.planExerciseId,
+        exerciseName: exercise?.exerciseName ?? 'Pitch Target',
+        level: exercise?.level ?? 1,
+        targetMidi: this.targetMidi(),
+      });
+    } catch (err: any) {
+      this.error.set(err?.message || 'Este tipo de ejercicio aún no está implementado.');
+      this.state.set('idle');
+      return;
+    }
+
+    this.durationSec.set(this.definition.durationSec);
+    this.requiredFrames.set(this.definition.rules.minSamples);
+    this.primaryCheckLabel.set(this.exerciseEngine.getPrimaryCheckLabel(this.definition));
+    this.showTargetReference.set(this.exerciseEngine.shouldShowTargetReference(this.definition));
+    this.runtimeState = this.exerciseEngine.createRuntimeState();
+
+    const targetReference = this.exerciseEngine.getTargetReferenceLabel(this.definition, this.runtimeState);
+    this.targetReferenceLabel.set(targetReference ?? '');
+
+    const currentTargetMidi = this.exerciseEngine.getCurrentTargetMidi(this.definition, this.runtimeState);
+    if (currentTargetMidi) {
+      this.targetMidi.set(currentTargetMidi);
+      this.targetNote.set(this.pitchService.midiToNoteName(currentTargetMidi));
+    }
+
+    this.practicePrompt.set(
+      this.exerciseEngine.getPracticePrompt(this.definition, this.targetNote(), this.runtimeState)
+    );
+
     this.state.set('practicing');
-    this.remainingSeconds.set(3);
+    this.remainingSeconds.set(this.definition.durationSec);
     this.samples = [];
+    this.frameChecks.set({
+      voiceDetected: false,
+      edgeConfidenceOk: false,
+      primaryOk: false,
+    });
 
     try {
       // Verificar/inicializar micrófono
@@ -153,26 +219,37 @@ export class PracticeComponent implements OnInit, OnDestroy {
           this.currentConfidence.set(0);
         }
         
-        // Validación: usar la misma lógica que vocal-range
-        // 1. RMS > ruido ambiente (típicamente -60 dB)
-        const isAboveNoise = rms > -60;
-        
-        // 2. Frecuencia en rango vocal humano (80-880 Hz)
-        const isHumanVoiceRange = frequency >= 80 && frequency <= 880;
-        
-        // 3. Confidence SOLO para frecuencias extremas
-        let passesConfidenceCheck = true;
-        if (frequency < 100 || frequency > 700) {
-          passesConfidenceCheck = confidence >= 0.15; // 15% mínimo para extremos
+        if (!this.definition) {
+          return;
         }
-        
-        // 4. Nota correcta (±1 semitono)
-        const isCorrectPitch = Math.abs(midiNote - this.targetMidi()) <= 1;
-        
-        // Validar todos los filtros
-        const isValid = isAboveNoise && isHumanVoiceRange && passesConfidenceCheck && isCorrectPitch && midiNote > 0;
-        
-        if (isValid) {
+
+        const evaluation = this.exerciseEngine.evaluateFrame(
+          {
+            timestamp: performance.now(),
+            midiNote,
+            frequency,
+            confidence,
+            rms,
+          },
+          this.definition,
+          this.runtimeState
+        );
+
+        this.frameChecks.set(evaluation.checks);
+
+        const activeTargetMidi = this.exerciseEngine.getCurrentTargetMidi(this.definition, this.runtimeState);
+        if (activeTargetMidi) {
+          this.targetMidi.set(activeTargetMidi);
+          this.targetNote.set(this.pitchService.midiToNoteName(activeTargetMidi));
+        }
+
+        const targetReference = this.exerciseEngine.getTargetReferenceLabel(this.definition, this.runtimeState);
+        this.targetReferenceLabel.set(targetReference ?? '');
+        this.practicePrompt.set(
+          this.exerciseEngine.getPracticePrompt(this.definition, this.targetNote(), this.runtimeState)
+        );
+
+        if (evaluation.isValidFrame) {
           this.samples.push(midiNote);
         }
       }
@@ -209,22 +286,38 @@ export class PracticeComponent implements OnInit, OnDestroy {
   private finishPractice(): void {
     this.clearTimer();
 
-    // Evaluar desempeño
-    const minSamples = 20; // Al menos 20 muestras buenas en 3 segundos
-    const success = this.samples.length >= minSamples;
+    const result = this.definition
+      ? this.exerciseEngine.buildResult(this.samples.length, this.definition, this.runtimeState)
+      : {
+          passed: false,
+          validFrames: this.samples.length,
+          requiredFrames: this.requiredFrames(),
+          completionRatio: 0,
+          score: 0,
+        };
 
-    console.log('[Practice] Muestras capturadas:', this.samples.length);
+    const success = result.passed;
+
+    console.log('[Practice] Muestras válidas:', result.validFrames, '/', result.requiredFrames);
+    console.log('[Practice] Score:', result.score + '%');
     console.log('[Practice] Resultado:', success ? 'ÉXITO' : 'REINTENTAR');
 
     this.state.set(success ? 'success' : 'retry');
   }
 
   retryPractice(): void {
+    this.error.set(null);
     this.state.set('idle');
     this.samples = [];
     this.currentNote.set('-');
     this.currentMidi.set(0);
     this.currentConfidence.set(0);
+    this.targetReferenceLabel.set('');
+    this.frameChecks.set({
+      voiceDetected: false,
+      edgeConfidenceOk: false,
+      primaryOk: false,
+    });
   }
 
   async finishExercise(): Promise<void> {

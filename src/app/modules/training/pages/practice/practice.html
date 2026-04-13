@@ -41,15 +41,15 @@
               <div class="phase-header">
                 <span class="phase-label">
                   @if (state() === 'idle') { Prepárate para empezar el desafío }
-                  @if (state() === 'practicing') { Sosteniendo nota {{ targetNote() }}... }
+                  @if (state() === 'practicing') { {{ practicePrompt() }} }
                 </span>
                 @if (state() === 'idle') {
                   <span class="status-indicator pending">⏳</span>
                 }
-                @if (state() === 'practicing' && samples.length < 20) {
+                @if (state() === 'practicing' && samples.length < requiredFrames()) {
                   <span class="status-indicator pending">⏳</span>
                 }
-                @if (state() === 'practicing' && samples.length >= 20) {
+                @if (state() === 'practicing' && samples.length >= requiredFrames()) {
                   <span class="status-indicator valid">✓</span>
                 }
               </div>
@@ -58,7 +58,11 @@
             <!-- Instrucción según estado -->
             @if (state() === 'idle') {
               <p class="instruction">
-                Presiona "Empezar" cuando estés listo para cantar {{ targetNote() }}
+                @if (showTargetReference()) {
+                  Presiona "Empezar" cuando estés listo para cantar {{ targetNote() }}
+                } @else {
+                  Presiona "Empezar" cuando estés listo para sostener una nota cómoda
+                }
               </p>
             }
             @if (state() === 'practicing') {
@@ -76,10 +80,10 @@
             }
             
             <!-- NOTA OBJETIVO (siempre visible excepto en resultados) -->
-            @if (state() === 'idle' || state() === 'practicing') {
+            @if ((state() === 'idle' || state() === 'practicing') && showTargetReference()) {
               <div class="target-note-display">
                 <div class="target-label">NOTA OBJETIVO:</div>
-                <div class="target-note">{{ targetNote() }}</div>
+                <div class="target-note">{{ targetReferenceLabel() || targetNote() }}</div>
                 @if (state() === 'idle') {
                   <button class="play-note-btn" (click)="playTargetNote()" title="Escuchar nota">
                     🔊 Reproducir nota
@@ -111,28 +115,28 @@
               
               <!-- Validaciones en tiempo real -->
               <div class="validation-checks">
-                <div class="check-item" [class.valid]="Math.abs(currentMidi() - targetMidi()) <= 1 && currentMidi() > 0">
-                  <span class="check-icon">{{ Math.abs(currentMidi() - targetMidi()) <= 1 && currentMidi() > 0 ? '✓' : '○' }}</span>
-                  <span class="check-label">Afinación correcta (±1 semitono)</span>
+                <div class="check-item" [class.valid]="frameChecks().primaryOk">
+                  <span class="check-icon">{{ frameChecks().primaryOk ? '✓' : '○' }}</span>
+                  <span class="check-label">{{ primaryCheckLabel() }}</span>
                 </div>
                 
-                <div class="check-item" [class.valid]="currentNote() !== '-'">
-                  <span class="check-icon">{{ currentNote() !== '-' ? '✓' : '○' }}</span>
+                <div class="check-item" [class.valid]="frameChecks().voiceDetected">
+                  <span class="check-icon">{{ frameChecks().voiceDetected ? '✓' : '○' }}</span>
                   <span class="check-label">Voz detectada</span>
                 </div>
                 
-                <div class="check-item" [class.valid]="samples.length >= 20">
-                  <span class="check-icon">{{ samples.length >= 20 ? '✓' : '○' }}</span>
-                  <span class="check-label">Duración suficiente (3 segundos)</span>
+                <div class="check-item" [class.valid]="samples.length >= requiredFrames()">
+                  <span class="check-icon">{{ samples.length >= requiredFrames() ? '✓' : '○' }}</span>
+                  <span class="check-label">Duración suficiente ({{ durationSec() }} segundos)</span>
                 </div>
               </div>
               
               <!-- Barra de progreso -->
-              @if (Math.abs(currentMidi() - targetMidi()) <= 1 && currentMidi() > 0) {
+              @if (frameChecks().primaryOk && frameChecks().voiceDetected && frameChecks().edgeConfidenceOk) {
                 <div class="progress-bar">
-                  <div class="progress-fill" [style.width.%]="Math.min(100, (samples.length / 20) * 100)"></div>
+                  <div class="progress-fill" [style.width.%]="Math.min(100, (samples.length / requiredFrames()) * 100)"></div>
                 </div>
-                <p class="progress-text">Sosteniendo... {{ Math.min(100, Math.round((samples.length / 20) * 100)) }}%</p>
+                <p class="progress-text">Sosteniendo... {{ Math.min(100, Math.round((samples.length / requiredFrames()) * 100)) }}%</p>
               }
             }
             

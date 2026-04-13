@@ -239,7 +239,7 @@ export class VocalRangeService {
 
             // Validación de extremos en fases de confirmación
             if (this.phase$.value === RangePhase.ConfirmMin || this.phase$.value === RangePhase.ConfirmMax) {
-                this.validateExtreme(midiNote, confidence, rms);
+                this.validateExtreme(midiNote, confidence, rms, isVocalSignal);
             }
 
         }, 100); // 100ms
@@ -344,7 +344,7 @@ export class VocalRangeService {
      * Incluye timeout de 15s y auto-ajuste de medio tono
      * CAPTURA MUESTRAS para calcular precisionCents y attackLatencyMs
      */
-    private validateExtreme(midi: number, confidence: number, rms: number): void {
+    private validateExtreme(midi: number, confidence: number, rms: number, isVocalSignal: boolean): void {
         // No validar si el ejercicio no ha empezado
         if (!this.extremeStarted$.value) return;
         
@@ -357,6 +357,21 @@ export class VocalRangeService {
             return; // Salir y reintentar con nueva nota
         }
         
+        // Usar el MISMO criterio que la UI de "nota actual":
+        // si no hay señal vocal válida, no debe marcar afinación como correcta.
+        if (!isVocalSignal) {
+            this.extremeValidationStartTime = 0;
+            this.confirmationSamples = [];
+            this.progress$.next(0);
+            this.extremeValidation$.next({
+                pitchOk: false,
+                confidenceOk: false,
+                rmsOk: false,
+                sustained: false
+            });
+            return;
+        }
+
         const centsFromTarget = (midi - this.extremeTarget) * 100;
         
         // Check 1: Pitch dentro de ±100 cents (1 semitono)

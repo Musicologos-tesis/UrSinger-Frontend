@@ -1,0 +1,183 @@
+import { Injectable, inject } from '@angular/core';
+import { VoiceDetectionService } from '../../../services/voice-detection.service';
+import { AudioPitchService } from '../../checkup/services/audio-pitch.service';
+import { resolveExerciseKindFromName } from './exercise-engine.config';
+import { PitchTargetStrategy } from './strategies/pitch-target.strategy';
+import { SteadyToneStrategy } from './strategies/steady-tone.strategy';
+import { PitchStepsStrategy } from './strategies/pitch-steps.strategy';
+import { PitchGlideStrategy } from './strategies/pitch-glide.strategy';
+import { BreathFlowHoldStrategy } from './strategies/breath-flow-hold.strategy';
+import { SZBalanceStrategy } from './strategies/s-z-balance.strategy';
+import { DynamicWaveStrategy } from './strategies/dynamic-wave.strategy';
+import {
+  ExerciseDescriptor,
+  ExerciseDefinition,
+  ExerciseFrameEvaluation,
+  ExerciseKind,
+  ExerciseRuntimeState,
+  ExerciseResult,
+  VoiceFrame,
+} from './exercise-engine.models';
+import { ExerciseStrategy } from './exercise-engine.strategy';
+
+@Injectable({ providedIn: 'root' })
+export class ExerciseEngineService {
+  private voiceDetection = inject(VoiceDetectionService);
+  private pitchService = inject(AudioPitchService);
+  private strategies: Record<ExerciseKind, ExerciseStrategy>;
+
+  constructor() {
+    const pitchTargetStrategy = new PitchTargetStrategy(this.voiceDetection, this.pitchService);
+    const steadyToneStrategy = new SteadyToneStrategy(this.voiceDetection);
+    const pitchStepsStrategy = new PitchStepsStrategy(this.voiceDetection, this.pitchService);
+    const pitchGlideStrategy = new PitchGlideStrategy(this.voiceDetection, this.pitchService);
+    const breathFlowHoldStrategy = new BreathFlowHoldStrategy(this.voiceDetection);
+    const szBalanceStrategy = new SZBalanceStrategy(this.voiceDetection);
+    const dynamicWaveStrategy = new DynamicWaveStrategy(this.voiceDetection);
+
+    this.strategies = {
+      'pitch-target': pitchTargetStrategy,
+      'steady-tone': steadyToneStrategy,
+      'pitch-steps': pitchStepsStrategy,
+      'pitch-glide': pitchGlideStrategy,
+      'breath-flow-hold': breathFlowHoldStrategy,
+      's-z-balance': szBalanceStrategy,
+      'dynamic-wave': dynamicWaveStrategy,
+    };
+  }
+
+  createRuntimeState(): ExerciseRuntimeState {
+    return {
+      anchorFrequencyHz: null,
+      anchorFrameCount: 0,
+      currentStepIndex: 0,
+      stepValidFrames: [0, 0],
+      previousMidi: null,
+      glidePhase: 'up',
+      glidePeakReached: false,
+      glideReturnedStart: false,
+      rmsAnchorDb: null,
+      rmsAnchorFrameCount: 0,
+      szPhase: 's',
+      szSamplesS: 0,
+      szSamplesZ: 0,
+      dynamicPhase: 'rise',
+      dynamicAnchorDb: null,
+      dynamicAnchorFrameCount: 0,
+      dynamicPeakDb: null,
+      dynamicPeakReached: false,
+      dynamicReturned: false,
+    };
+  }
+
+  createDefinitionFromExercise(exercise: ExerciseDescriptor): ExerciseDefinition {
+    const kind = resolveExerciseKindFromName(exercise.exerciseName);
+    if (!kind) {
+      throw new Error(`Tipo de ejercicio aún no implementado: ${exercise.exerciseName}`);
+    }
+
+    return this.strategies[kind].buildDefinition(exercise);
+  }
+
+  getPrimaryCheckLabel(definition: ExerciseDefinition): string {
+    if (definition.kind === 'steady-tone') {
+      return `Estabilidad tonal (±${definition.rules.toleranceCents} cents)`;
+    }
+    if (definition.kind === 'pitch-steps') {
+      return `Paso tonal correcto (±${definition.rules.toleranceCents} cents)`;
+    }
+    if (definition.kind === 'pitch-glide') {
+      return `Deslizamiento continuo (${definition.rules.glideSpanSemitones} semitonos)`;
+    }
+    if (definition.kind === 'breath-flow-hold') {
+      return `Flujo de aire estable (±${definition.rules.rmsStabilityToleranceDb} dB)`;
+    }
+    if (definition.kind === 's-z-balance') {
+      return 'Fase correcta (S/Z)';
+    }
+    if (definition.kind === 'dynamic-wave') {
+      return 'Control dinámico suave→fuerte→suave';
+    }
+    return `Afinación correcta (±${definition.rules.toleranceCents} cents)`;
+  }
+
+  shouldShowTargetReference(definition: ExerciseDefinition): boolean {
+    return definition.kind === 'pitch-target' || definition.kind === 'pitch-steps' || definition.kind === 'pitch-glide';
+  }
+
+  getPracticePrompt(definition: ExerciseDefinition, targetNote?: string, runtime?: ExerciseRuntimeState): string {
+    if (definition.kind === 'steady-tone') {
+      return 'Sostén una nota cómoda y mantenla estable';
+    }
+    if (definition.kind === 'breath-flow-hold') {
+      return 'Sostén una vocal con volumen parejo y flujo constante';
+    }
+    if (definition.kind === 's-z-balance') {
+      const phase = runtime?.szPhase ?? 's';
+      if (phase === 's') return 'Fase S: emite "ssss" (aire sin voz)';
+      if (phase === 'z') return 'Fase Z: emite "zzzz" (aire con voz)';
+      return '¡Fases S y Z completadas!';
+    }
+    if (definition.kind === 'dynamic-wave') {
+      const phase = runtime?.dynamicPhase ?? 'rise';
+      if (phase === 'rise') return 'Comienza suave y sube gradualmente el volumen';
+      if (phase === 'fall') return 'Ahora baja gradualmente al volumen inicial';
+      return '¡Ciclo dinámico completado!';
+    }
+    if (definition.kind === 'pitch-steps') {
+      const step = (runtime?.currentStepIndex ?? 0) + 1;
+      return `Paso ${Math.min(2, step)}/2: canta ${targetNote ?? 'la nota objetivo'}`;
+    }
+    if (definition.kind === 'pitch-glide') {
+      const phase = runtime?.glidePhase ?? 'up';
+      return phase === 'down'
+        ? `Ahora desliza de vuelta hacia ${targetNote ?? 'la nota base'}`
+        : `Desliza suavemente hacia ${targetNote ?? 'la nota alta'}`;
+    }
+    return `Sosteniendo nota ${targetNote ?? ''}...`;
+  }
+
+  getTargetReferenceLabel(definition: ExerciseDefinition, runtime: ExerciseRuntimeState): string | null {
+    if (definition.kind === 'steady-tone' || definition.kind === 'breath-flow-hold' || definition.kind === 's-z-balance') return null;
+
+    if (definition.kind === 'pitch-target') {
+      return this.pitchService.midiToNoteName(definition.rules.targetMidi);
+    }
+
+    if (definition.kind === 'pitch-steps') {
+      const midi = runtime.currentStepIndex === 0 ? definition.rules.startMidi : definition.rules.endMidi;
+      return this.pitchService.midiToNoteName(midi);
+    }
+
+    if (definition.kind === 'pitch-glide') {
+      const start = this.pitchService.midiToNoteName(definition.rules.startMidi);
+      const end = this.pitchService.midiToNoteName(definition.rules.endMidi);
+      return `${start} → ${end} → ${start}`;
+    }
+
+    return null;
+  }
+
+  getCurrentTargetMidi(definition: ExerciseDefinition, runtime: ExerciseRuntimeState): number | null {
+    if (definition.kind === 'pitch-target') return definition.rules.targetMidi;
+    if (definition.kind === 'pitch-steps') {
+      return runtime.currentStepIndex === 0 ? definition.rules.startMidi : definition.rules.endMidi;
+    }
+    if (definition.kind === 'pitch-glide') {
+      return runtime.glidePhase === 'down' ? definition.rules.startMidi : definition.rules.endMidi;
+    }
+    return null;
+  }
+
+  evaluateFrame(
+    frame: VoiceFrame,
+    definition: ExerciseDefinition,
+    runtime: ExerciseRuntimeState
+  ): ExerciseFrameEvaluation {
+    return this.strategies[definition.kind].evaluateFrame(frame, definition, runtime);
+  }
+
+  buildResult(validFrames: number, definition: ExerciseDefinition, runtime?: ExerciseRuntimeState): ExerciseResult {
+    return this.strategies[definition.kind].buildResult(validFrames, definition, runtime);
+  }
+}
