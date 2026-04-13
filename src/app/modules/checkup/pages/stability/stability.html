@@ -1,5 +1,5 @@
 <app-auth-header 
-  [pageTitle]="'Chequeo rápido'"
+  [pageTitle]="'Evaluación'"
   [showNavigation]="hasActivePlan()" 
   [activeNav]="'checkup'"
   (navTraining)="goToTraining()"
@@ -41,21 +41,28 @@
     <!-- ESTADO: INTRODUCCIÓN -->
     @if (state() === 'intro') {
       <p class="instruction">
-        Durante esta prueba mantendrás una vocal “ahh” en un tono cómodo durante unos segundos.<br />
-        No necesitas alcanzar una nota exacta, solo mantenerla lo más estable posible.
+        Sostén la nota objetivo durante el tiempo indicado para medir tu estabilidad vocal.
       </p>
+
+      <div class="target-note-display">
+        <div class="target-label">Nota objetivo:</div>
+        <div class="target-note">{{ targetNote() }}</div>
+        <button class="play-note-btn" (click)="playTargetNote()" title="Escuchar nota">
+          🔊 Reproducir nota
+        </button>
+      </div>
 
       <div class="phase-container">
         <div class="phase-header">
-          <div class="phase-title">Prueba de estabilidad</div>
+          <span class="phase-label">Prueba de estabilidad</span>
         </div>
-        <p class="phase-foot">
-          Cuando estés listo, presiona el botón y sostén tu voz hasta que el contador llegue a cero.
+        <p class="instruction">
+          Presiona el botón y mantén la nota objetivo hasta que el contador llegue a cero.
         </p>
       </div>
 
-      <button class="primary" (click)="startTest()">
-        Comenzar prueba de estabilidad
+      <button class="btn-start-exercise" (click)="startTest()">
+        ▶ Comenzar prueba de estabilidad
       </button>
     }
 
@@ -63,45 +70,56 @@
     @if (state() === 'recording') {
       <div class="phase-container">
         <div class="phase-header">
-          <div class="phase-title">Analizando estabilidad vocal…</div>
+          <span class="phase-label">Analizando estabilidad vocal…</span>
+        </div>
+
+        <div class="target-note-display">
+          <div class="target-label">Nota objetivo:</div>
+          <div class="target-note">{{ targetNote() }}</div>
+          <button class="play-note-btn" (click)="playTargetNote()" title="Escuchar nota">
+            🔊 Reproducir nota
+          </button>
+        </div>
+
+        <!-- Tiempo restante -->
+        <div class="timeout-indicator">
+          <span class="timeout-label">Tiempo restante:</span>
+          <span class="timeout-value">{{ remainingSeconds() }}s</span>
         </div>
 
         <!-- Indicadores en tiempo real -->
         <div class="live-indicators">
           <div class="indicator-row">
-            <span class="label">Nota detectada:</span>
+            <span class="label">Nota</span>
             <span class="value">{{ currentNote() }} @if (currentMidi() > 0) { (MIDI {{ currentMidi() }}) }</span>
           </div>
           
           <div class="indicator-row">
-            <span class="label">Confianza:</span>
-            <div class="confidence-bar">
-              <div class="confidence-fill" [style.width.%]="currentConfidence() * 100"></div>
-            </div>
+            <span class="label">Confianza</span>
             <span class="value">{{ (currentConfidence() * 100).toFixed(0) }}%</span>
           </div>
           
           <div class="indicator-row">
-            <span class="label">Volumen (RMS):</span>
+            <span class="label">RMS</span>
             <span class="value">{{ currentRms().toFixed(1) }} dB</span>
           </div>
           
           <div class="indicator-row">
-            <span class="label">Muestras capturadas:</span>
-            <span class="value samples-count">{{ samplesCount() }}</span>
+            <span class="label">Muestras</span>
+            <span class="value">{{ samplesCount() }}</span>
           </div>
         </div>
 
-        <div class="phase-bar">
+        <div class="progress-bar">
           <div
-            class="phase-bar-fill"
+            class="progress-fill"
             [style.width.%]="(10 - remainingSeconds()) * 10"
           ></div>
         </div>
+        <p class="progress-text">Sosteniendo... {{ ((10 - remainingSeconds()) * 10).toFixed(0) }}%</p>
 
-        <p class="phase-foot">
-          Mantén la misma nota y volumen. Tiempo restante:
-          {{ remainingSeconds() }} segundos.
+        <p class="instruction">
+          Mantén la misma nota y volumen.
         </p>
         
         <!-- Advertencia si no se capturan muestras -->
@@ -118,16 +136,13 @@
         }
       </div>
 
-      <div class="pill pill--info">
-        Analizando…
-      </div>
     }
 
     <!-- ESTADO: RESULTADO -->
     @if (state() === 'done') {
       <div class="phase-container">
         <div class="phase-header">
-          <div class="phase-title">Análisis completado</div>
+          <span class="phase-label">Análisis completado</span>
         </div>
 
         <p class="result-line" *ngIf="stabilityPercent !== null">

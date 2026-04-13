@@ -17,7 +17,6 @@ export class AudioPitchService {
     private crepeModel?: tf.LayersModel;
     private isModelLoaded = false;
     private timeDataArray?: Float32Array;
-    private frequencyDataArray?: Uint8Array;
 
     // CREPE config
     private readonly MODEL_URL = 'https://cdn.jsdelivr.net/gh/ml5js/ml5-data-and-models/models/pitch-detection/crepe/model.json';
@@ -46,7 +45,6 @@ export class AudioPitchService {
         // Configurar buffers
         const bufferSize = 2048;
         this.timeDataArray = new Float32Array(bufferSize);
-        this.frequencyDataArray = new Uint8Array(this.analyser.frequencyBinCount);
 
         // Cargar modelo CREPE si no está cargado
         if (!this.isModelLoaded) {
@@ -418,30 +416,6 @@ export class AudioPitchService {
         return rms > 0 ? 20 * Math.log10(rms) : -90;
     }
 
-    /**
-     * Calcula centroide espectral
-     */
-    calculateSpectralCentroid(): number {
-        if (!this.analyser || !this.frequencyDataArray) return 0;
-
-        // @ts-ignore - ArrayBuffer type issue
-        this.analyser.getByteFrequencyData(this.frequencyDataArray);
-
-        let numerator = 0;
-        let denominator = 0;
-        const nyquist = this.audioContext!.sampleRate / 2;
-        const binWidth = nyquist / this.frequencyDataArray.length;
-
-        for (let i = 0; i < this.frequencyDataArray.length; i++) {
-            const frequency = i * binWidth;
-            const magnitude = this.frequencyDataArray[i] / 255;
-
-            numerator += frequency * magnitude;
-            denominator += magnitude;
-        }
-
-        return denominator > 0 ? numerator / denominator : 0;
-    }
 
     /**
      * Convierte frecuencia a MIDI
@@ -495,7 +469,6 @@ export class AudioPitchService {
         this.crepeModel = undefined;
         this.analyser = undefined;
         this.timeDataArray = undefined;
-        this.frequencyDataArray = undefined;
         this.isModelLoaded = false;
     }
 

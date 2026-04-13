@@ -109,8 +109,8 @@ export class CalibrationComponent implements OnInit, OnDestroy {
   }
   
   canConfirmNoise(): boolean {
-    return this.state() === CalibState.NoiseMeasuring && 
-           this.noiseStatus() === ValidationStatus.Valid;
+      return this.state() === CalibState.NoiseMeasuring && 
+        this.progress() >= 1;
   }
   
   isInputComplete(): boolean {

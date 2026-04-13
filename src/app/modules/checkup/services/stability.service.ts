@@ -3,6 +3,7 @@ import { BehaviorSubject } from 'rxjs';
 import { AudioPitchService } from './audio-pitch.service';
 import { CalibrationService } from './calibration.service';
 import { MetricsService } from './metrics.service';
+import { VoiceDetectionService } from '../../../services/voice-detection.service';
 
 export enum StabilityPhase {
   Idle = 'idle',
@@ -36,41 +37,13 @@ export interface StabilityMetrics {
   attackLatencyMs: number | null;
 }
 
-/**
- * MISMO contrato que en vocal-range.service.ts
- * (si quieres, luego lo mueves a un archivo compartido)
- */
-export interface MetricsData {
-  meanRmsDb: number | null;
-  rmsConsistency: number | null;
-  dynamicRangeDb: number | null;
-  durationSec: number | null;
-
-  precisionCents: number | null;
-  stabilityCents: number | null;
-
-  rangeMinMidi: number | null;
-  rangeMaxMidi: number | null;
-  rangeSpanSemitones: number | null;
-
-  vibratoRateHz: number | null;
-  vibratoDepthCents: number | null;
-
-  attackLatencyMs: number | null;
-}
-
-export interface ExerciseMetricsPayload {
-  sessionId: string;
-  exerciseId: string;
-  attemptNumber: number;
-  metricsData: MetricsData;
-}
 
 @Injectable({ providedIn: 'root' })
 export class StabilityService {
   private pitch = inject(AudioPitchService);
   private calibration = inject(CalibrationService);
   private metricsService = inject(MetricsService);
+  private voiceDetection = inject(VoiceDetectionService);
 
   readonly phase$ = new BehaviorSubject<StabilityPhase>(StabilityPhase.Idle);
   readonly currentMidi$ = new BehaviorSubject<number>(0);
@@ -86,18 +59,9 @@ export class StabilityService {
   private startTime = 0;
   private targetDurationSec = 10;
   private noiseFloorDb: number = -90;
-  
-  // Filtro de estabilidad temporal (para distinguir picos aislados de notas sostenidas)
-  private lastAcceptedMidi: number = 0;
-  private lastAcceptedCount: number = 0;
-  private readonly MIN_REPETITIONS = 3; // Una nota debe repetirse 3 veces (300ms) para ser válida
-  
-  // Rango de frecuencias de voz humana (para filtrar ruidos externos)
-  private readonly HUMAN_VOICE_MIN_HZ = 80;   // E2 (graves masculinos extremos)
-  private readonly HUMAN_VOICE_MAX_HZ = 880;  // A5 (agudas femeninas típicas) - Reducido de 1100
+  private minVoiceRmsDb: number = -40;
 
   lastMetrics?: StabilityMetrics;
-  lastPayload?: ExerciseMetricsPayload;
 
   /**
    * Inicia la captura para la prueba de estabilidad
@@ -114,7 +78,6 @@ export class StabilityService {
     this.progress$.next(0);
     this.errorMessage$.next(null);
     this.lastMetrics = undefined;
-    this.lastPayload = undefined;
 
     // Inicializar CREPE
     await this.pitch.initialize(analyser);
@@ -122,8 +85,14 @@ export class StabilityService {
     // Aplicar calibración de ruido/nivel como en VocalRange
     const noiseFloorDb = this.calibration.getNoiseFloorDbfs();
     const avgRmsDb = this.calibration.getAverageRmsDb();
+    const voiceProfile = this.voiceDetection.readVoiceProfile();
     this.pitch.calibrateFromMetrics(avgRmsDb, noiseFloorDb);
     this.noiseFloorDb = noiseFloorDb;
+    this.minVoiceRmsDb = this.voiceDetection.buildMinVoiceRmsDb(
+      noiseFloorDb,
+      avgRmsDb,
+      voiceProfile
+    );
 
     this.startTime = performance.now();
     this.phase$.next(StabilityPhase.Recording);
@@ -170,10 +139,7 @@ export class StabilityService {
       durationSec: metrics.durationSec ?? undefined
     });
 
-    // Construir payload estándar para el backend / modelo
-    const payload = this.buildExercisePayload(metrics);
-    this.lastPayload = payload;
-    this.log('metrics_computed', { metrics, payload });
+    this.log('metrics_computed', { metrics });
     console.log('[stability] métricas guardadas en localStorage');
 
     this.phase$.next(StabilityPhase.Complete);
@@ -191,7 +157,6 @@ export class StabilityService {
     this.currentNote$.next('-');
     this.samplesCount$.next(0);
     this.lastMetrics = undefined;
-    this.lastPayload = undefined;
     this.errorMessage$.next(null);
   }
 
@@ -230,57 +195,20 @@ export class StabilityService {
         this.currentNote$.next('-');
       }
 
-      // VALIDACIÓN: Filtros para voz humana (igual que vocal-range)
-      // 1. RMS > ruido ambiente (eliminar ruido de fondo)
-      const isAboveNoise = rms > this.noiseFloorDb;
-      
-      // 2. Frecuencia en rango vocal humano (80-880 Hz)
-      const isHumanVoiceRange = frequency >= this.HUMAN_VOICE_MIN_HZ && frequency <= this.HUMAN_VOICE_MAX_HZ;
-      
-      // 3. Confidence SOLO para frecuencias extremas (muy graves o muy agudas)
-      // Graves < 100 Hz o agudas > 700 Hz requieren mínima confidence (15%)
-      let passesConfidenceCheck = true;
-      if (frequency < 100 || frequency > 700) {
-        passesConfidenceCheck = confidence >= 0.15; // 15% mínimo para extremos
-      }
-      
-      // 4. Estabilidad temporal: una nota debe repetirse 3 veces seguidas (300ms)
-      // Esto filtra picos instantáneos vs notas sostenidas
-      let isStableNote = false;
-      if (midiNote > 0) {
-        if (Math.abs(midiNote - this.lastAcceptedMidi) <= 1) { // Misma nota (±1 semitono por vibrato)
-          this.lastAcceptedCount++;
-        } else {
-          this.lastAcceptedMidi = midiNote;
-          this.lastAcceptedCount = 1;
-        }
-        isStableNote = this.lastAcceptedCount >= this.MIN_REPETITIONS;
-      }
-      
-      const isVocalSignal = isAboveNoise && isHumanVoiceRange && passesConfidenceCheck && isStableNote;
+      const isVocalSignal = this.voiceDetection.isValidVocalSample(
+        {
+          frequency,
+          confidence,
+          midiNote,
+          rms,
+        },
+        { minVoiceRmsDb: this.minVoiceRmsDb }
+      );
 
-      // DEBUG: Log cada 20 capturas (~2 segundos)
-      if (Math.random() < 0.05) {
-        console.log('[Stability] Captura:', {
-          midi: midiNote,
-          freq: frequency.toFixed(1) + ' Hz',
-          conf: (confidence * 100).toFixed(1) + '%',
-          rms: rms.toFixed(1) + ' dB',
-          filters: {
-            aboveNoise: isAboveNoise,
-            inRange: isHumanVoiceRange,
-            confCheck: passesConfidenceCheck,
-            stable: isStableNote,
-            reps: this.lastAcceptedCount
-          },
-          FINAL: isVocalSignal,
-          samples: this.samples.length
-        });
-      }
+      // Log deshabilitado: mantener captura limpia
 
-      // Capturar muestra si hay señal vocal (RMS > ruido) y CREPE detectó algo
-      // SIN filtros de confidence - capturar hasta lo más mínimo
-      if (midiNote > 0 && isVocalSignal) {
+      // Capturar muestra si hay señal vocal
+      if (isVocalSignal) {
         this.samples.push({
           midi: midiNote,
           rms,
@@ -352,41 +280,6 @@ export class StabilityService {
       precisionCents: null, // No se calcula en estabilidad
       stabilityCents: validStability.length > 0 ? this.mean(validStability) : null,
       attackLatencyMs: null, // No se calcula en estabilidad
-    };
-  }
-
-  /**
-   * Construye el payload estándar para ExerciseMetric.metricsData
-   */
-  private buildExercisePayload(metrics: StabilityMetrics): ExerciseMetricsPayload {
-    const sessionId = this.calibration.getSessionId() ?? 'unknown';
-
-    const data: MetricsData = {
-      // Métricas generales que este ejercicio SÍ produce
-      meanRmsDb: metrics.meanRmsDb,
-      rmsConsistency: metrics.rmsConsistency,
-      dynamicRangeDb: metrics.dynamicRangeDb,
-      durationSec: metrics.durationSec,
-
-      // Métricas específicas de estabilidad
-      precisionCents: metrics.precisionCents,
-      stabilityCents: metrics.stabilityCents,
-      attackLatencyMs: metrics.attackLatencyMs,
-
-      // Este ejercicio NO calcula rango ni vibrato (por ahora)
-      rangeMinMidi: null,
-      rangeMaxMidi: null,
-      rangeSpanSemitones: null,
-
-      vibratoRateHz: null,
-      vibratoDepthCents: null,
-    };
-
-    return {
-      sessionId,
-      exerciseId: 'stability',
-      attemptNumber: 1,
-      metricsData: data,
     };
   }
 

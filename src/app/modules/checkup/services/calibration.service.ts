@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../../environments/environment.development';
 import { AudioAnalyzerService } from './audio.analyzer.service';
+import { AudioPitchService } from './audio-pitch.service';
 import { BehaviorSubject } from 'rxjs';
 import { firstValueFrom } from 'rxjs';
 
@@ -32,6 +33,7 @@ interface CalibrationPayload {
 export class CalibrationService {
     private http = inject(HttpClient);
     private audio = inject(AudioAnalyzerService);
+    private pitch = inject(AudioPitchService);
     private sessionId?: string;
     private noiseFloorDbfs: number = -90;
     private signalRmsDb: number = -30;
@@ -51,6 +53,10 @@ export class CalibrationService {
     readonly inputStatus$ = new BehaviorSubject<ValidationStatus>(ValidationStatus.Pending);
     readonly noiseMessage$ = new BehaviorSubject<string>('');
     readonly inputMessage$ = new BehaviorSubject<string>('');
+
+    private readonly MIN_PITCH_CONFIDENCE = 0.15;
+    private readonly MIN_PITCH_VALID_RATE = 0.6;
+    private readonly MAX_PITCH_STD_SEMITONES = 8;
 
     async startCalibration() {
         try {
@@ -93,21 +99,18 @@ export class CalibrationService {
         const analyser = this.audio.getAnalyser();
         if (!analyser) return;
 
-        const tickIntervalSec = 3;
+        const durationSec = 10;
         const td = new Uint8Array(analyser.fftSize);
-        let tickStart = performance.now();
+        const start = performance.now();
         let sumDbfs = 0;
         let frameCount = 0;
-        
-        this.noiseStatus$.next(ValidationStatus.Pending);
-        this.noiseMessage$.next('');
 
         const loop = () => {
             if (this.state$.value !== CalibState.NoiseMeasuring) return;
 
             const now = performance.now();
-            const elapsedSinceTick = (now - tickStart) / 1000;
-            const progress = Math.min(1, elapsedSinceTick / tickIntervalSec);
+            const elapsedSec = (now - start) / 1000;
+            const progress = Math.min(1, elapsedSec / durationSec);
             this.progress$.next(progress);
 
             analyser.getByteTimeDomainData(td);
@@ -118,19 +121,16 @@ export class CalibrationService {
             frameCount++;
             this.noiseDbfs$.next(dbfs);
 
-            if (elapsedSinceTick >= tickIntervalSec) {
-                const avgNoiseFloorDbfs = frameCount > 0 ? sumDbfs / frameCount : -90;
-                this.noiseFloorDbfs = avgNoiseFloorDbfs;
-                
-                this.validateNoiseLevel(avgNoiseFloorDbfs);
-                
-                sumDbfs = 0;
-                frameCount = 0;
-                tickStart = now;
-                this.progress$.next(0);
+            if (elapsedSec < durationSec) {
+                requestAnimationFrame(loop);
+                return;
             }
 
-            requestAnimationFrame(loop);
+            const avgNoiseFloorDbfs = frameCount > 0 ? sumDbfs / frameCount : -90;
+            this.noiseFloorDbfs = avgNoiseFloorDbfs;
+            this.noiseStatus$.next(ValidationStatus.Valid);
+            this.noiseMessage$.next('');
+            this.progress$.next(1);
         };
         
         loop();
@@ -148,23 +148,25 @@ export class CalibrationService {
     
     confirmNoiseCheck() {
         if (this.state$.value !== CalibState.NoiseMeasuring) return;
-        if (this.noiseStatus$.value !== ValidationStatus.Valid) return;
+        if (this.progress$.value < 1) return;
         // Solo confirmación local, sin envío a backend aún
     }
     
-    startInputMeasurement() {
+    async startInputMeasurement() {
         if (this.state$.value !== CalibState.NoiseMeasuring) return;
         this.inputStatus$.next(ValidationStatus.Pending);
         this.inputMessage$.next('');
-        this.startGainCheck();
+        await this.startGainCheck();
     }
 
-    private startGainCheck() {
+    private async startGainCheck() {
         this.state$.next(CalibState.InputMeasuring);
         this.progress$.next(0);
         
         const analyser = this.audio.getAnalyser();
         if (!analyser) return;
+
+        await this.pitch.initialize(analyser);
 
         const durationSec = 5;
         const td = new Uint8Array(analyser.fftSize);
@@ -172,7 +174,27 @@ export class CalibrationService {
         let sumRms = 0;
         let frameCount = 0;
 
-        const loop = () => {
+        const voiceThresholdDb = this.RMS_MIN_DB;
+        const minSilenceMs = 150;
+        const minSegmentMs = 200;
+
+        let voiceActive = false;
+        let segmentStartMs = 0;
+        let lastVoiceMs = 0;
+        let segmentRmsSum = 0;
+        let segmentFrames = 0;
+        let segmentMinRms = Number.POSITIVE_INFINITY;
+        const segments: { durationMs: number; avgRmsDb: number; minRmsDb: number }[] = [];
+
+        let lastPitchCheckMs = 0;
+        const pitchSampleIntervalMs = 100;
+        let pitchFrameCount = 0;
+        let pitchValidCount = 0;
+        let confidenceSum = 0;
+        let confidenceCount = 0;
+        const pitchValues: number[] = [];
+
+        const loop = async () => {
             const elapsed = (performance.now() - start) / 1000;
             const progress = Math.min(1, elapsed / durationSec);
             this.progress$.next(progress);
@@ -187,13 +209,99 @@ export class CalibrationService {
             this.inputRmsDb$.next(dbfs);
             this.showInputFeedback(dbfs);
 
+            if (performance.now() - lastPitchCheckMs >= pitchSampleIntervalMs) {
+                lastPitchCheckMs = performance.now();
+                const pitchResult = await this.pitch.detectPitch();
+                if (pitchResult.frequency > 0) {
+                    pitchFrameCount += 1;
+                    confidenceSum += pitchResult.confidence;
+                    confidenceCount += 1;
+
+                    const isVoiceFrame =
+                        pitchResult.midiNote > 0 &&
+                        pitchResult.confidence >= this.MIN_PITCH_CONFIDENCE &&
+                        dbfs >= voiceThresholdDb;
+
+                    if (isVoiceFrame) {
+                        pitchValidCount += 1;
+                        pitchValues.push(pitchResult.midiNote);
+                    }
+                }
+            }
+
+            const now = performance.now();
+            if (dbfs >= voiceThresholdDb) {
+                if (!voiceActive) {
+                    voiceActive = true;
+                    segmentStartMs = now;
+                    segmentRmsSum = 0;
+                    segmentFrames = 0;
+                    segmentMinRms = Number.POSITIVE_INFINITY;
+                }
+                lastVoiceMs = now;
+                segmentRmsSum += dbfs;
+                segmentFrames += 1;
+                if (dbfs < segmentMinRms) {
+                    segmentMinRms = dbfs;
+                }
+            } else if (voiceActive && now - lastVoiceMs >= minSilenceMs) {
+                const durationMs = now - segmentStartMs;
+                if (durationMs >= minSegmentMs && segmentFrames > 0) {
+                    const segment = {
+                        durationMs,
+                        avgRmsDb: segmentRmsSum / segmentFrames,
+                        minRmsDb: Number.isFinite(segmentMinRms) ? segmentMinRms : segmentRmsSum / segmentFrames
+                    };
+                    segments.push(segment);
+                    console.log('[Calibration] Probando detectado:', segment);
+                }
+                voiceActive = false;
+            }
+
             if (elapsed < durationSec) {
                 requestAnimationFrame(loop);
             } else {
+                if (voiceActive) {
+                    const durationMs = performance.now() - segmentStartMs;
+                    if (durationMs >= minSegmentMs && segmentFrames > 0) {
+                        const segment = {
+                            durationMs,
+                            avgRmsDb: segmentRmsSum / segmentFrames,
+                            minRmsDb: Number.isFinite(segmentMinRms) ? segmentMinRms : segmentRmsSum / segmentFrames
+                        };
+                        segments.push(segment);
+                        console.log('[Calibration] Probando detectado:', segment);
+                    }
+                    voiceActive = false;
+                }
+
                 const avgRmsDb = frameCount > 0 ? sumRms / frameCount : -90;
                 this.signalRmsDb = avgRmsDb;
-                
-                this.validateInputLevel(avgRmsDb);
+
+                const pitchValidRate = pitchFrameCount > 0 ? pitchValidCount / pitchFrameCount : 0;
+                const avgConfidence = confidenceCount > 0 ? confidenceSum / confidenceCount : 0;
+                const medianPitch = this.calculateMedian(pitchValues);
+                const pitchStd = this.calculateStd(pitchValues, medianPitch);
+
+                const minRmsValues = segments.map(segment => segment.minRmsDb);
+                const avgMinRmsDb = minRmsValues.length
+                    ? (minRmsValues.reduce((sum, value) => sum + value, 0) / minRmsValues.length) - 3
+                    : avgRmsDb - 3;
+
+                this.persistVoiceProfile({
+                    avgRmsDb,
+                    noiseFloorDbfs: this.noiseFloorDbfs,
+                    snrDb: Math.abs(this.noiseFloorDbfs - avgRmsDb),
+                    pitchValidRate,
+                    avgConfidence,
+                    medianPitch,
+                    pitchStd,
+                    avgMinRmsDb
+                });
+
+                console.log('[Calibration] RMS mínimo promedio (Probando):', avgMinRmsDb.toFixed(2), 'dB');
+
+                this.validateProbandoSegments(segments, pitchValidRate, avgConfidence, pitchStd);
                 this.progress$.next(1);
             }
         };
@@ -211,27 +319,77 @@ export class CalibrationService {
         }
     }
     
-    private validateInputLevel(rmsDb: number) {
-        if (rmsDb >= this.RMS_MIN_DB && rmsDb <= this.RMS_MAX_DB) {
-            this.inputStatus$.next(ValidationStatus.Valid);
-            this.inputMessage$.next('Buen nivel de entrada. Tu voz se escucha perfectamente.');
-            this.tip$.next(null);
-        } else if (rmsDb < this.RMS_MIN_DB) {
+    private validateProbandoSegments(
+        segments: { durationMs: number; avgRmsDb: number }[],
+        pitchValidRate: number,
+        avgConfidence: number,
+        pitchStd: number
+    ) {
+        if (segments.length !== 3) {
             this.inputStatus$.next(ValidationStatus.Invalid);
-            this.inputMessage$.next('Tu voz está muy baja.');
-            this.tip$.next('Intenta hablar más fuerte o acércate al micrófono');
+            this.inputMessage$.next('Debes decir “Probando” exactamente 3 veces.');
+            this.tip$.next('Intenta mantener un volumen parecido en cada repetición.');
+            return;
+        }
+
+        const avgDuration = segments.reduce((sum, s) => sum + s.durationMs, 0) / segments.length;
+        const avgRmsDb = segments.reduce((sum, s) => sum + s.avgRmsDb, 0) / segments.length;
+
+        const maxDurationDelta = avgDuration * 0.4;
+        const maxRmsDelta = 6;
+
+        const durationOk = segments.every(s => Math.abs(s.durationMs - avgDuration) <= maxDurationDelta);
+        const rmsOk = segments.every(s => Math.abs(s.avgRmsDb - avgRmsDb) <= maxRmsDelta);
+
+        console.log('[Calibration] Probando validación:', {
+            segments: segments.length,
+            durationOk,
+            rmsOk
+        });
+
+        if (durationOk && rmsOk) {
+            this.inputStatus$.next(ValidationStatus.Valid);
+            this.inputMessage$.next('Patrón de voz detectado correctamente.');
+            this.tip$.next(null);
         } else {
             this.inputStatus$.next(ValidationStatus.Invalid);
-            this.inputMessage$.next('Tu voz está muy alta.');
-            this.tip$.next('Baja el volumen o aléjate del micrófono');
+            this.inputMessage$.next('Las 3 repeticiones deben ser similares y con voz clara.');
+            this.tip$.next('Di “Probando” con ritmo y volumen parecidos.');
         }
+    }
+
+    private calculateMedian(values: number[]): number {
+        if (!values.length) return 0;
+        const sorted = [...values].sort((a, b) => a - b);
+        const mid = Math.floor(sorted.length / 2);
+        return sorted.length % 2 === 0
+            ? (sorted[mid - 1] + sorted[mid]) / 2
+            : sorted[mid];
+    }
+
+    private calculateStd(values: number[], mean: number): number {
+        if (values.length < 2) return 0;
+        const variance = values.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / values.length;
+        return Math.sqrt(variance);
+    }
+
+    private persistVoiceProfile(profile: {
+        avgRmsDb: number;
+        noiseFloorDbfs: number;
+        snrDb: number;
+        pitchValidRate: number;
+        avgConfidence: number;
+        medianPitch: number;
+        pitchStd: number;
+        avgMinRmsDb: number;
+    }) {
+        localStorage.setItem('ursinger.calibration.voiceProfile', JSON.stringify(profile));
     }
     
     async confirmInputAndFinish() {
         if (this.state$.value !== CalibState.InputMeasuring) return;
         
         if (this.inputStatus$.value !== ValidationStatus.Valid) {
-            // Reintentar
             this.inputStatus$.next(ValidationStatus.Pending);
             this.inputMessage$.next('');
             this.tip$.next(null);

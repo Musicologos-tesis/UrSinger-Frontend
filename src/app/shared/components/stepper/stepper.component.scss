@@ -12,6 +12,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 8px;
   padding: 10px 22px;
   border: 1px solid $gray-200;
   border-radius: $radius-md;
@@ -19,6 +20,76 @@
   font-size: 20px;
   transition: all $transition-base;
   text-align: center;
+}
+
+.step-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.step-info {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: $gray-100;
+  color: $gray-600;
+  font-size: 12px;
+  font-weight: $font-weight-semibold;
+  cursor: help;
+  outline: none;
+}
+
+.step-info:focus-visible {
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+}
+
+.step-info-icon {
+  line-height: 1;
+}
+
+.step-tooltip {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 10px);
+  transform: translateX(-50%);
+  min-width: 180px;
+  max-width: 240px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #111827;
+  color: #ffffff;
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: left;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  transform-origin: bottom center;
+}
+
+.step-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 6px;
+  border-style: solid;
+  border-color: #111827 transparent transparent transparent;
+}
+
+.step-info:hover .step-tooltip,
+.step-info:focus-visible .step-tooltip,
+.step-info:focus .step-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(-2px);
 }
 
 .step.active {

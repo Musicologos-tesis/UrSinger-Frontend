@@ -59,10 +59,60 @@
 
 /* Texto de instrucciones */
 .instruction {
-  font-size: $font-size-base;
-  color: $gray-600;
-  margin: $spacing-md 0 $spacing-xl;
+  font-size: $font-size-sm;
+  color: $gray-500;
+  margin: $spacing-md 0;
   line-height: 1.5;
+}
+
+/* Nota objetivo (fases de confirmación) */
+.target-note-display {
+  margin: 16px 0;
+  padding: 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 12px;
+  text-align: center;
+  color: white;
+}
+
+.target-label {
+  font-size: 13px;
+  font-weight: 600;
+  opacity: 0.9;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.target-note {
+  font-size: 48px;
+  font-weight: 700;
+  margin: 8px 0;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.play-note-btn {
+  margin-top: 12px;
+  padding: 10px 20px;
+  background: rgba(255, 255, 255, 0.2);
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-radius: 24px;
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  backdrop-filter: blur(10px);
+}
+
+.play-note-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.6);
+  transform: scale(1.05);
+}
+
+.play-note-btn:active {
+  transform: scale(0.98);
 }
 
 /* Bloque de fase */
@@ -76,37 +126,33 @@
 
 .phase-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   margin-bottom: $spacing-md;
 }
 
-.phase-title {
+.phase-label {
   font-weight: $font-weight-semibold;
+  color: $gray-700;
   font-size: $font-size-base;
 }
 
-/* Barra de progreso de la prueba */
-.phase-bar {
-  width: 100%;
-  height: 8px;
-  border-radius: 999px;
-  background: $gray-200;
-  overflow: hidden;
-  margin: $spacing-md 0;
+/* Barra de progreso */
+.progress-bar {
+  @include progress-bar;
+  margin-top: $spacing-md;
 }
 
-.phase-bar-fill {
-  height: 100%;
-  background: $primary;
-  transition: width $transition-base;
+.progress-fill {
+  @include progress-fill;
 }
 
-/* Texto de ayuda bajo la fase */
-.phase-foot {
-  font-size: $font-size-sm;
+.progress-text {
+  font-size: $font-size-xs;
   color: $gray-500;
-  margin: 0;
+  margin-top: $spacing-xs;
+  text-align: center;
+  font-weight: $font-weight-semibold;
 }
 
 /* Texto de resultado */
@@ -118,55 +164,63 @@
 }
 
 /* Indicadores en tiempo real */
+/* Indicadores en tiempo real (fases de confirmación) */
 .live-indicators {
   margin: 12px 0;
-  padding: 10px;
-  background: #ffffff;
+  padding: 12px;
+  background: #f9fafb;
   border: 1px solid #e5e7eb;
-  border-radius: 6px;
-}
-
-.indicator-row {
+  border-radius: 8px;
   display: flex;
+  justify-content: space-around;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.live-indicators .indicator-row {
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 8px;
+  gap: 4px;
+  min-width: 120px;
 }
 
-.indicator-row:last-child {
-  margin-bottom: 0;
-}
-
-.indicator-row .label {
-  font-size: 12px;
-  font-weight: 600;
+.live-indicators .label {
+  font-size: 11px;
   color: #6b7280;
-  min-width: 140px;
+  font-weight: 600;
+  text-transform: uppercase;
 }
 
-.indicator-row .value {
-  font-size: 13px;
+.live-indicators .value {
+  font-size: 20px;
   font-weight: 700;
-  color: #374151;
+  color: #111827;
+  text-align: center;
 }
 
-.indicator-row .value.samples-count {
-  font-size: 16px;
-  color: #059669;
+/* Indicador de timeout */
+.timeout-indicator {
+  margin: 12px 0;
+  padding: 12px;
+  background: #fef3c7;
+  border: 2px solid #f59e0b;
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
-.confidence-bar {
-  flex: 1;
-  height: 6px;
-  background: #e5e7eb;
-  border-radius: 3px;
-  overflow: hidden;
+.timeout-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #92400e;
 }
 
-.confidence-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #10b981, #059669);
-  transition: width 0.3s ease;
+.timeout-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: #b45309;
 }
 
 /* Mensaje de advertencia durante grabación */
@@ -182,28 +236,56 @@
   text-align: center;
 }
 
-/* Pill de "Analizando…" */
-.pill {
-  display: inline-flex;
+/* Botón Empezar (para ejercicios) */
+.btn-start-exercise {
+  width: 100%;
+  padding: 16px 24px;
+  margin: 16px 0;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  border-radius: 12px;
+  color: white;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  display: flex;
   align-items: center;
   justify-content: center;
-  padding: $spacing-sm $spacing-lg;
-  border-radius: 999px;
-  font-size: $font-size-sm;
-  margin-top: $spacing-md;
+  gap: 8px;
 }
 
-.pill--info {
-  background: $primary-light;
-  color: $primary-text;
+.btn-start-exercise:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.5);
+}
+
+.btn-start-exercise:active {
+  transform: translateY(0);
 }
 
 /* Botón primario */
 .primary {
-  @include button-primary;
-  margin-top: $spacing-md;
-  padding: $spacing-md $spacing-xl;
-  border-radius: 999px;
+  background:#6366f1;
+  color:#fff;
+  border:0;
+  padding:12px 24px;
+  border-radius:8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 15px;
+  transition: background 0.2s;
+}
+
+.primary:hover:not(:disabled) {
+  background:#4f46e5;
+}
+
+.primary:disabled {
+  background:#9ca3af;
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 /* Texto de pie de página */
