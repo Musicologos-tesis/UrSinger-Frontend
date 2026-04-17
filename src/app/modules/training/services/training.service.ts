@@ -57,6 +57,20 @@ export interface ActiveTrainingPlan {
   weekPlan: DayExercises[];
 }
 
+export interface LatestVocalRangeResponse {
+  profileId: string;
+  evaluationId: string;
+  sessionId: string;
+  evaluatedAt: string;
+  vocalRange: {
+    minMidi: number;
+    maxMidi: number;
+    spanSemitones: number;
+    minNote: string;
+    maxNote: string;
+  };
+}
+
 @Injectable({ providedIn: 'root' })
 export class TrainingService {
   private http = inject(HttpClient);
@@ -85,6 +99,15 @@ export class TrainingService {
       this.http.put(
         `${environment.API_BASE_URL}/training-plans/exercise/complete`,
         { planExerciseId }
+      )
+    );
+  }
+
+  async getLatestVocalRange(profileId: string): Promise<LatestVocalRangeResponse> {
+    console.log('[TrainingService] 🎵 Obteniendo rango vocal más reciente para profileId:', profileId);
+    return await firstValueFrom(
+      this.http.get<LatestVocalRangeResponse>(
+        `${environment.API_BASE_URL}/profiles/${profileId}/vocal-range/latest`
       )
     );
   }

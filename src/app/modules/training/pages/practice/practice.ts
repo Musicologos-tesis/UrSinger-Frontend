@@ -7,7 +7,7 @@ import { AuthService } from '../../../../services/auth.service';
 import { AudioAnalyzerService } from '../../../checkup/services/audio.analyzer.service';
 import { AudioPitchService } from '../../../checkup/services/audio-pitch.service';
 import { ExerciseEngineService } from '../../services/exercise-engine.service';
-import { ExerciseDefinition, ExerciseFrameChecks, ExerciseRuntimeState } from '../../services/exercise-engine.models';
+import { BreathFlowHoldRules, ExerciseDefinition, ExerciseFrameChecks, ExerciseRuntimeState } from '../../services/exercise-engine.models';
 
 type PracticeState = 'idle' | 'practicing' | 'success' | 'retry';
 
@@ -50,6 +50,7 @@ export class PracticeComponent implements OnInit, OnDestroy {
     edgeConfidenceOk: false,
     primaryOk: false,
   });
+  breathHoldProgressPercent = signal(0);
   
   private timerId: any = null;
   private animationFrameId: any = null;
@@ -61,6 +62,25 @@ export class PracticeComponent implements OnInit, OnDestroy {
   Math = Math; // Para usar en el template
 
   async ngOnInit(): Promise<void> {
+    const labExerciseKey = this.route.snapshot.paramMap.get('exerciseKey');
+    const labLevelParam = this.route.snapshot.paramMap.get('level');
+
+    if (labExerciseKey && labLevelParam) {
+      const level = Number(labLevelParam);
+      const exerciseData = this.createLabExercise(labExerciseKey, level);
+      if (!exerciseData) {
+        this.error.set('Ejercicio de laboratorio no válido');
+        this.isLoading.set(false);
+        return;
+      }
+
+      this.planExerciseId = exerciseData.planExerciseId;
+      this.exercise.set(exerciseData);
+      await this.generateRandomNote(exerciseData);
+      this.isLoading.set(false);
+      return;
+    }
+
     const id = this.route.snapshot.paramMap.get('id');
     
     if (!id) {
@@ -74,7 +94,7 @@ export class PracticeComponent implements OnInit, OnDestroy {
     try {
       const exerciseData = await this.trainingService.getExerciseDetail(id);
       this.exercise.set(exerciseData);
-      this.generateRandomNote(exerciseData);
+      await this.generateRandomNote(exerciseData);
     } catch (err: any) {
       console.error('[Practice] Error al cargar ejercicio:', err);
       this.error.set('No se pudo cargar el ejercicio');
@@ -83,31 +103,160 @@ export class PracticeComponent implements OnInit, OnDestroy {
     }
   }
 
-  private generateRandomNote(exercise?: ExerciseDetail): void {
-    // Obtener rango vocal del usuario desde localStorage
-    const metricsStr = localStorage.getItem('ursinger.metrics.partial');
+  private createLabExercise(exerciseKey: string, level: number): ExerciseDetail | null {
+    const normalizedLevel = level >= 2 ? 2 : 1;
+    const catalog: Record<string, { exerciseName: string; groupName: string; description: string; instructions: string }> = {
+      'breath-flow-hold': {
+        exerciseName: 'Breath Flow Hold',
+        groupName: 'Soporte respiratorio y control del aire',
+        description: 'Mantener una nota sostenida a volumen estable',
+        instructions: 'Sostén una vocal cómoda intentando mantener flujo y volumen constantes.',
+      },
+      's-z-balance': {
+        exerciseName: 'S–Z Balance',
+        groupName: 'Soporte respiratorio y control del aire',
+        description: 'Controlar el flujo de aire comparando S y Z',
+        instructions: 'Emite "ssss" y luego "zzzz" buscando duración y consistencia similares.',
+      },
+      'dynamic-wave': {
+        exerciseName: 'Dynamic Wave',
+        groupName: 'Soporte respiratorio y control del aire',
+        description: 'Control dinámico suave→fuerte→suave',
+        instructions: 'Canta una vocal, sube ligeramente volumen y vuelve al volumen inicial.',
+      },
+      'pitch-target': {
+        exerciseName: 'Pitch Target',
+        groupName: 'Afinación y oído tonal',
+        description: 'Coincidir la nota emitida con una referencia',
+        instructions: 'Escucha la nota guía y cántala intentando igualarla.',
+      },
+      'pitch-steps': {
+        exerciseName: 'Pitch Steps',
+        groupName: 'Afinación y oído tonal',
+        description: 'Mejorar precisión entre notas consecutivas',
+        instructions: 'Canta dos notas en secuencia manteniendo el intervalo indicado.',
+      },
+      'pitch-glide': {
+        exerciseName: 'Pitch Glide',
+        groupName: 'Afinación y oído tonal',
+        description: 'Deslizamientos suaves sin saltos bruscos',
+        instructions: 'Desliza la voz de grave a agudo y regresa de forma continua.',
+      },
+      'steady-tone': {
+        exerciseName: 'Steady Tone',
+        groupName: 'Estabilidad y vibrato controlado',
+        description: 'Mantener una nota estable',
+        instructions: 'Sostén una nota cómoda evitando fluctuaciones.',
+      },
+      'controlled-vibrato': {
+        exerciseName: 'Controlled vibrato',
+        groupName: 'Estabilidad y vibrato controlado',
+        description: 'Generar vibrato controlado y regular',
+        instructions: 'Sostén una nota y aplica vibrato suave y uniforme.',
+      },
+      'clean-onset': {
+        exerciseName: 'Clean onset',
+        groupName: 'Estabilidad y vibrato controlado',
+        description: 'Iniciar la nota con precisión',
+        instructions: 'Inicia directamente en la afinación objetivo sin ataque brusco.',
+      },
+      'single-burst': {
+        exerciseName: 'Single Burst',
+        groupName: 'Potencia y control dinámico',
+        description: 'Ataque energético controlado',
+        instructions: 'Realiza una emisión firme manteniendo estabilidad de tono.',
+      },
+      'volume-rise': {
+        exerciseName: 'Volume Rise',
+        groupName: 'Potencia y control dinámico',
+        description: 'Subir volumen sin perder tono',
+        instructions: 'Comienza suave y aumenta gradualmente volumen manteniendo afinación.',
+      },
+      'loud-soft-alternance': {
+        exerciseName: 'Loud–Soft Alternance',
+        groupName: 'Potencia y control dinámico',
+        description: 'Alternar suave y fuerte',
+        instructions: 'Alterna intensidad sin cambiar la nota base.',
+      },
+      'vocal-glide': {
+        exerciseName: 'Vocal glide',
+        groupName: 'Rango y flexibilidad vocal',
+        description: 'Sirena vocal para transición de registros',
+        instructions: 'Desliza de grave a agudo y vuelve, sin forzar.',
+      },
+      'step-expansion': {
+        exerciseName: 'Step Expansion',
+        groupName: 'Rango y flexibilidad vocal',
+        description: 'Secuencia ascendente y descendente',
+        instructions: 'Canta la escala corta manteniendo color y volumen.',
+      },
+      'mix-coordination': {
+        exerciseName: 'Mix coordination',
+        groupName: 'Rango y flexibilidad vocal',
+        description: 'Coordinar transición de pecho a cabeza',
+        instructions: 'Cruza zona mixta con una sirena corta manteniendo homogeneidad.',
+      },
+    };
+
+    const selected = catalog[exerciseKey];
+    if (!selected) {
+      return null;
+    }
+
+    return {
+      planExerciseId: `lab-${exerciseKey}-l${normalizedLevel}`,
+      exerciseLevelId: 0,
+      exerciseId: 0,
+      exerciseName: selected.exerciseName,
+      groupNumber: 0,
+      groupName: selected.groupName,
+      level: normalizedLevel,
+      description: selected.description,
+      instructions: selected.instructions,
+      videoUrl: null,
+      cvtDescription: null,
+      evmDescription: null,
+      completionCount: 0,
+      completedDates: [],
+      isCompletedThisWeek: false,
+    };
+  }
+
+  private async generateRandomNote(exercise?: ExerciseDetail): Promise<void> {
+    // Obtener rango vocal del usuario desde backend
     let minMidi = 48; // C3 por defecto
     let maxMidi = 72; // C5 por defecto
 
-    if (metricsStr) {
+    const profileId = localStorage.getItem('profile_id');
+    if (profileId) {
       try {
-        const metrics = JSON.parse(metricsStr);
-        if (metrics.rangeMinMidi && metrics.rangeMaxMidi) {
-          minMidi = Math.round(metrics.rangeMinMidi);
-          maxMidi = Math.round(metrics.rangeMaxMidi);
+        const latestRange = await this.trainingService.getLatestVocalRange(profileId);
+        if (latestRange?.vocalRange?.minMidi && latestRange?.vocalRange?.maxMidi) {
+          minMidi = Math.round(latestRange.vocalRange.minMidi);
+          maxMidi = Math.round(latestRange.vocalRange.maxMidi);
         }
       } catch (e) {
-        console.warn('[Practice] No se pudo obtener rango vocal, usando valores por defecto');
+        console.warn('[Practice] No se pudo obtener rango vocal desde backend, usando valores por defecto');
       }
     }
 
     // Generar nota aleatoria dentro del rango (evitando extremos)
     // Para Pitch Steps, reservamos espacio hacia arriba para el intervalo del nivel.
     const exerciseName = (exercise?.exerciseName ?? '').toLowerCase();
+    const isBreathFlowHold = exerciseName.includes('breath flow hold');
     const isPitchSteps = exerciseName.includes('pitch steps');
-    const isPitchGlide = exerciseName.includes('pitch glide') || exerciseName.includes('vocal glide');
+    const isStepExpansion = exerciseName.includes('step expansion');
+    const isMixCoordination = exerciseName.includes('mix coordination');
+    const isVocalGlide = exerciseName.includes('vocal glide');
+    const isPitchGlide = exerciseName.includes('pitch glide');
     const intervalSemitones = isPitchSteps
       ? ((exercise?.level ?? 1) >= 2 ? 5 : 2)
+      : isStepExpansion
+      ? ((exercise?.level ?? 1) >= 2 ? 5 : 3)
+      : isMixCoordination
+      ? ((exercise?.level ?? 1) >= 2 ? 5 : 3)
+      : isVocalGlide
+      ? ((exercise?.level ?? 1) >= 2 ? 8 : 5)
       : isPitchGlide
       ? ((exercise?.level ?? 1) >= 2 ? 6 : 3)
       : 0;
@@ -115,6 +264,16 @@ export class PracticeComponent implements OnInit, OnDestroy {
     const margin = 3; // Evitar 3 semitonos de los extremos
     const safeMin = minMidi + margin;
     const safeMax = Math.max(safeMin, maxMidi - margin - intervalSemitones);
+
+    if (isBreathFlowHold) {
+      const mid = Math.round((minMidi + maxMidi) / 2);
+      const targetMidi = (exercise?.level ?? 1) >= 2 ? mid + 3 : mid;
+      const clamped = Math.max(safeMin, Math.min(maxMidi - margin, targetMidi));
+      this.targetMidi.set(clamped);
+      this.targetNote.set(this.pitchService.midiToNoteName(clamped));
+      return;
+    }
+
     const randomMidi = Math.floor(Math.random() * (safeMax - safeMin + 1)) + safeMin;
 
     this.targetMidi.set(randomMidi);
@@ -165,6 +324,7 @@ export class PracticeComponent implements OnInit, OnDestroy {
       edgeConfidenceOk: false,
       primaryOk: false,
     });
+    this.breathHoldProgressPercent.set(0);
 
     try {
       // Verificar/inicializar micrófono
@@ -203,7 +363,21 @@ export class PracticeComponent implements OnInit, OnDestroy {
 
       const result = await this.pitchService.detectPitch();
       const rms = this.pitchService.calculateRMS();
-      
+
+      if (!result) {
+        this.currentNote.set('-');
+        this.currentMidi.set(0);
+        this.currentConfidence.set(0);
+        this.frameChecks.set({
+          voiceDetected: false,
+          edgeConfidenceOk: false,
+          primaryOk: false,
+        });
+
+        this.animationFrameId = requestAnimationFrame(capture);
+        return;
+      }
+
       if (result) {
         const { midiNote, frequency, confidence } = result;
         
@@ -237,6 +411,14 @@ export class PracticeComponent implements OnInit, OnDestroy {
 
         this.frameChecks.set(evaluation.checks);
 
+        if (this.definition.kind === 'breath-flow-hold') {
+          const rules = this.definition.rules as BreathFlowHoldRules;
+          const holdPct = rules.requiredHoldMs > 0
+            ? Math.min(100, (this.runtimeState.breathHoldMaxMs / rules.requiredHoldMs) * 100)
+            : 0;
+          this.breathHoldProgressPercent.set(holdPct);
+        }
+
         const activeTargetMidi = this.exerciseEngine.getCurrentTargetMidi(this.definition, this.runtimeState);
         if (activeTargetMidi) {
           this.targetMidi.set(activeTargetMidi);
@@ -251,6 +433,18 @@ export class PracticeComponent implements OnInit, OnDestroy {
 
         if (evaluation.isValidFrame) {
           this.samples.push(midiNote);
+
+          if (this.definition.kind === 'breath-flow-hold') {
+            const earlyResult = this.exerciseEngine.buildResult(
+              this.samples.length,
+              this.definition,
+              this.runtimeState
+            );
+            if (earlyResult.passed) {
+              this.finishPractice();
+              return;
+            }
+          }
         }
       }
 
@@ -318,6 +512,34 @@ export class PracticeComponent implements OnInit, OnDestroy {
       edgeConfidenceOk: false,
       primaryOk: false,
     });
+    this.breathHoldProgressPercent.set(0);
+  }
+
+  isBreathFlowHold(): boolean {
+    return !!this.definition && this.definition.kind === 'breath-flow-hold';
+  }
+
+  isCompletionRequirementMet(): boolean {
+    if (this.isBreathFlowHold()) {
+      return this.breathHoldProgressPercent() >= 100;
+    }
+    return this.samples.length >= this.requiredFrames();
+  }
+
+  getLiveProgressPercent(): number {
+    if (this.isBreathFlowHold()) {
+      return Math.min(100, Math.round(this.breathHoldProgressPercent()));
+    }
+    if (this.requiredFrames() <= 0) return 0;
+    return Math.min(100, Math.round((this.samples.length / this.requiredFrames()) * 100));
+  }
+
+  getCompletionCheckLabel(): string {
+    if (this.isBreathFlowHold() && this.definition) {
+      const rules = this.definition.rules as BreathFlowHoldRules;
+      return `Sostén continuo (${Math.round(rules.requiredHoldMs / 1000)} segundos)`;
+    }
+    return `Duración suficiente (${this.durationSec()} segundos)`;
   }
 
   async finishExercise(): Promise<void> {

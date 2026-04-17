@@ -114,7 +114,7 @@ export class CalibrationComponent implements OnInit, OnDestroy {
   }
   
   isInputComplete(): boolean {
-    // El input está completo cuando progress = 1 (terminó el contador de 5s)
+    // El input está completo cuando progress = 1 (terminó el contador de 15s)
     return this.state() === CalibState.InputMeasuring && 
            this.progress() >= 1;
   }

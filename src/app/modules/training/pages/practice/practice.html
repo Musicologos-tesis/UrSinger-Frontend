@@ -46,10 +46,10 @@
                 @if (state() === 'idle') {
                   <span class="status-indicator pending">⏳</span>
                 }
-                @if (state() === 'practicing' && samples.length < requiredFrames()) {
+                @if (state() === 'practicing' && !isCompletionRequirementMet()) {
                   <span class="status-indicator pending">⏳</span>
                 }
-                @if (state() === 'practicing' && samples.length >= requiredFrames()) {
+                @if (state() === 'practicing' && isCompletionRequirementMet()) {
                   <span class="status-indicator valid">✓</span>
                 }
               </div>
@@ -125,18 +125,18 @@
                   <span class="check-label">Voz detectada</span>
                 </div>
                 
-                <div class="check-item" [class.valid]="samples.length >= requiredFrames()">
-                  <span class="check-icon">{{ samples.length >= requiredFrames() ? '✓' : '○' }}</span>
-                  <span class="check-label">Duración suficiente ({{ durationSec() }} segundos)</span>
+                <div class="check-item" [class.valid]="isCompletionRequirementMet()">
+                  <span class="check-icon">{{ isCompletionRequirementMet() ? '✓' : '○' }}</span>
+                  <span class="check-label">{{ getCompletionCheckLabel() }}</span>
                 </div>
               </div>
               
               <!-- Barra de progreso -->
               @if (frameChecks().primaryOk && frameChecks().voiceDetected && frameChecks().edgeConfidenceOk) {
                 <div class="progress-bar">
-                  <div class="progress-fill" [style.width.%]="Math.min(100, (samples.length / requiredFrames()) * 100)"></div>
+                  <div class="progress-fill" [style.width.%]="getLiveProgressPercent()"></div>
                 </div>
-                <p class="progress-text">Sosteniendo... {{ Math.min(100, Math.round((samples.length / requiredFrames()) * 100)) }}%</p>
+                <p class="progress-text">Sosteniendo... {{ getLiveProgressPercent() }}%</p>
               }
             }
             

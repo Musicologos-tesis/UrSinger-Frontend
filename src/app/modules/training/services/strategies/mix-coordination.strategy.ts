@@ -7,13 +7,13 @@ import {
   ExerciseFrameEvaluation,
   ExerciseResult,
   ExerciseRuntimeState,
-  PitchGlideRules,
+  MixCoordinationRules,
   VoiceFrame,
 } from '../exercise-engine.models';
 import { ExerciseStrategy } from '../exercise-engine.strategy';
 
-export class PitchGlideStrategy implements ExerciseStrategy {
-  readonly kind = 'pitch-glide' as const;
+export class MixCoordinationStrategy implements ExerciseStrategy {
+  readonly kind = 'mix-coordination' as const;
 
   constructor(
     private readonly voiceDetection: VoiceDetectionService,
@@ -22,20 +22,23 @@ export class PitchGlideStrategy implements ExerciseStrategy {
 
   buildDefinition(exercise: ExerciseDescriptor): ExerciseDefinition {
     const normalized = exercise.level >= 2 ? 2 : 1;
-    const isVocalGlide = /vocal\s*glide/i.test(exercise.exerciseName);
-    const levelConfig = isVocalGlide
-      ? LEVEL_CONFIGS['vocal-glide'][normalized]
-      : LEVEL_CONFIGS['pitch-glide'][normalized];
+    const levelConfig = LEVEL_CONFIGS['mix-coordination'][normalized];
     const profile = this.voiceDetection.readVoiceProfile();
-    const endMidi = exercise.targetMidi + levelConfig.glideSpanSemitones;
 
-    const rules: PitchGlideRules = {
+    const endMidi = exercise.targetMidi + levelConfig.glideSpanSemitones;
+    const mixCenterMidi = Math.round((exercise.targetMidi + endMidi) / 2);
+
+    const rules: MixCoordinationRules = {
       startMidi: exercise.targetMidi,
       endMidi,
       startFrequencyHz: this.pitchService.midiToFrequency(exercise.targetMidi),
       endFrequencyHz: this.pitchService.midiToFrequency(endMidi),
+      mixCenterMidi,
+      mixCenterFrequencyHz: this.pitchService.midiToFrequency(mixCenterMidi),
       glideSpanSemitones: levelConfig.glideSpanSemitones,
+      mixWindowToleranceCents: levelConfig.mixWindowToleranceCents,
       endToleranceCents: levelConfig.endToleranceCents,
+      minTransitionSamples: levelConfig.minTransitionSamples,
       minSamples: levelConfig.minSamples,
       minVoiceRmsDb: profile?.avgMinRmsDb ?? -60,
       minFrequencyHz: VOICE_FILTER_DEFAULTS.minFrequencyHz,
@@ -47,7 +50,7 @@ export class PitchGlideStrategy implements ExerciseStrategy {
 
     return {
       id: exercise.id,
-      kind: 'pitch-glide',
+      kind: 'mix-coordination',
       level: exercise.level,
       durationSec: levelConfig.durationSec,
       rules,
@@ -59,7 +62,7 @@ export class PitchGlideStrategy implements ExerciseStrategy {
     definition: ExerciseDefinition,
     runtime: ExerciseRuntimeState
   ): ExerciseFrameEvaluation {
-    const rules = definition.rules as PitchGlideRules;
+    const rules = definition.rules as MixCoordinationRules;
 
     const voiceDetected = this.voiceDetection.isValidVocalSample(
       {
@@ -80,7 +83,7 @@ export class PitchGlideStrategy implements ExerciseStrategy {
         ? frame.confidence >= rules.minEdgeConfidence
         : true;
 
-    if (!(voiceDetected && edgeConfidenceOk) || frame.midiNote <= 0) {
+    if (!(voiceDetected && edgeConfidenceOk) || frame.midiNote <= 0 || frame.frequency <= 0) {
       return {
         checks: {
           voiceDetected,
@@ -94,6 +97,14 @@ export class PitchGlideStrategy implements ExerciseStrategy {
     const midi = frame.midiNote;
     const previousMidi = runtime.previousMidi;
     runtime.previousMidi = midi;
+
+    const centsToMixCenter = 1200 * Math.log2(frame.frequency / rules.mixCenterFrequencyHz);
+    if (Number.isFinite(centsToMixCenter) && Math.abs(centsToMixCenter) <= rules.mixWindowToleranceCents) {
+      runtime.mixTransitionSamples += 1;
+      if (runtime.mixTransitionSamples >= rules.minTransitionSamples) {
+        runtime.mixTransitionReached = true;
+      }
+    }
 
     let primaryOk = false;
 
@@ -130,13 +141,14 @@ export class PitchGlideStrategy implements ExerciseStrategy {
   }
 
   buildResult(validFrames: number, definition: ExerciseDefinition, runtime?: ExerciseRuntimeState): ExerciseResult {
-    const rules = definition.rules as PitchGlideRules;
+    const rules = definition.rules as MixCoordinationRules;
     const requiredFrames = rules.minSamples;
     const completionRatio = requiredFrames > 0 ? Math.min(1, validFrames / requiredFrames) : 0;
     const flowCompleted = !!runtime?.glidePeakReached && !!runtime?.glideReturnedStart;
+    const transitionCompleted = !!runtime?.mixTransitionReached;
 
     return {
-      passed: validFrames >= requiredFrames && flowCompleted,
+      passed: validFrames >= requiredFrames && flowCompleted && transitionCompleted,
       validFrames,
       requiredFrames,
       completionRatio,

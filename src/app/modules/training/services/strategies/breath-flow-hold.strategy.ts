@@ -1,3 +1,4 @@
+import { AudioPitchService } from '../../../checkup/services/audio-pitch.service';
 import { VoiceDetectionService } from '../../../../services/voice-detection.service';
 import { LEVEL_CONFIGS, VOICE_FILTER_DEFAULTS } from '../exercise-engine.config';
 import {
@@ -14,7 +15,10 @@ import { ExerciseStrategy } from '../exercise-engine.strategy';
 export class BreathFlowHoldStrategy implements ExerciseStrategy {
   readonly kind = 'breath-flow-hold' as const;
 
-  constructor(private readonly voiceDetection: VoiceDetectionService) {}
+  constructor(
+    private readonly voiceDetection: VoiceDetectionService,
+    private readonly pitchService: AudioPitchService
+  ) {}
 
   buildDefinition(exercise: ExerciseDescriptor): ExerciseDefinition {
     const normalized = exercise.level >= 2 ? 2 : 1;
@@ -22,7 +26,11 @@ export class BreathFlowHoldStrategy implements ExerciseStrategy {
     const profile = this.voiceDetection.readVoiceProfile();
 
     const rules: BreathFlowHoldRules = {
+      targetMidi: exercise.targetMidi,
+      targetFrequencyHz: this.pitchService.midiToFrequency(exercise.targetMidi),
+      pitchToleranceCents: levelConfig.pitchToleranceCents,
       minSamples: levelConfig.minSamples,
+      requiredHoldMs: levelConfig.requiredHoldSec * 1000,
       minVoiceRmsDb: profile?.avgMinRmsDb ?? -60,
       minFrequencyHz: VOICE_FILTER_DEFAULTS.minFrequencyHz,
       maxFrequencyHz: VOICE_FILTER_DEFAULTS.maxFrequencyHz,
@@ -81,7 +89,26 @@ export class BreathFlowHoldStrategy implements ExerciseStrategy {
 
     const rmsAnchorReady = runtime.rmsAnchorFrameCount >= rules.rmsAnchorFrames;
     const rmsDelta = runtime.rmsAnchorDb === null ? Number.POSITIVE_INFINITY : Math.abs(frame.rms - runtime.rmsAnchorDb);
-    const primaryOk = rmsAnchorReady && Number.isFinite(rmsDelta) && rmsDelta <= rules.rmsStabilityToleranceDb;
+    const rmsOk = rmsAnchorReady && Number.isFinite(rmsDelta) && rmsDelta <= rules.rmsStabilityToleranceDb;
+
+    const centsFromTarget =
+      frame.frequency > 0 && rules.targetFrequencyHz > 0
+        ? 1200 * Math.log2(frame.frequency / rules.targetFrequencyHz)
+        : Number.POSITIVE_INFINITY;
+    const pitchOk = Number.isFinite(centsFromTarget) && Math.abs(centsFromTarget) <= rules.pitchToleranceCents;
+
+    const primaryOk = rmsOk && pitchOk;
+    const validFrame = voiceDetected && edgeConfidenceOk && primaryOk;
+
+    if (validFrame) {
+      if (runtime.breathHoldCurrentStartMs === null) {
+        runtime.breathHoldCurrentStartMs = frame.timestamp;
+      }
+      const streakMs = frame.timestamp - runtime.breathHoldCurrentStartMs;
+      runtime.breathHoldMaxMs = Math.max(runtime.breathHoldMaxMs, streakMs);
+    } else {
+      runtime.breathHoldCurrentStartMs = null;
+    }
 
     return {
       checks: {
@@ -89,17 +116,20 @@ export class BreathFlowHoldStrategy implements ExerciseStrategy {
         edgeConfidenceOk,
         primaryOk,
       },
-      isValidFrame: voiceDetected && edgeConfidenceOk && primaryOk,
+      isValidFrame: validFrame,
     };
   }
 
-  buildResult(validFrames: number, definition: ExerciseDefinition): ExerciseResult {
+  buildResult(validFrames: number, definition: ExerciseDefinition, runtime?: ExerciseRuntimeState): ExerciseResult {
     const rules = definition.rules as BreathFlowHoldRules;
     const requiredFrames = rules.minSamples;
-    const completionRatio = requiredFrames > 0 ? Math.min(1, validFrames / requiredFrames) : 0;
+    const holdGoalMet = (runtime?.breathHoldMaxMs ?? 0) >= rules.requiredHoldMs;
+    const completionRatio = rules.requiredHoldMs > 0
+      ? Math.min(1, (runtime?.breathHoldMaxMs ?? 0) / rules.requiredHoldMs)
+      : 0;
 
     return {
-      passed: validFrames >= requiredFrames,
+      passed: holdGoalMet,
       validFrames,
       requiredFrames,
       completionRatio,

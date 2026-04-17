@@ -168,15 +168,16 @@ export class CalibrationService {
 
         await this.pitch.initialize(analyser);
 
-        const durationSec = 5;
+        const durationSec = 15;
         const td = new Uint8Array(analyser.fftSize);
         const start = performance.now();
         let sumRms = 0;
         let frameCount = 0;
 
-        const voiceThresholdDb = this.RMS_MIN_DB;
-        const minSilenceMs = 150;
-        const minSegmentMs = 200;
+        const dynamicVoiceThresholdDb = Math.max(this.RMS_MIN_DB, this.noiseFloorDbfs + 10);
+        const minSilenceMs = 320;
+        const minSegmentMs = 350;
+        const pitchGraceMs = 240;
 
         let voiceActive = false;
         let segmentStartMs = 0;
@@ -188,6 +189,7 @@ export class CalibrationService {
 
         let lastPitchCheckMs = 0;
         const pitchSampleIntervalMs = 100;
+        let lastPitchVoiceMs = 0;
         let pitchFrameCount = 0;
         let pitchValidCount = 0;
         let confidenceSum = 0;
@@ -220,17 +222,21 @@ export class CalibrationService {
                     const isVoiceFrame =
                         pitchResult.midiNote > 0 &&
                         pitchResult.confidence >= this.MIN_PITCH_CONFIDENCE &&
-                        dbfs >= voiceThresholdDb;
+                        dbfs >= dynamicVoiceThresholdDb;
 
                     if (isVoiceFrame) {
                         pitchValidCount += 1;
                         pitchValues.push(pitchResult.midiNote);
+                        lastPitchVoiceMs = performance.now();
                     }
                 }
             }
 
             const now = performance.now();
-            if (dbfs >= voiceThresholdDb) {
+            const hasRecentPitchVoice = now - lastPitchVoiceMs <= pitchGraceMs;
+            const isVoiceNow = dbfs >= dynamicVoiceThresholdDb && hasRecentPitchVoice;
+
+            if (isVoiceNow) {
                 if (!voiceActive) {
                     voiceActive = true;
                     segmentStartMs = now;

@@ -7,13 +7,13 @@ import {
   ExerciseFrameEvaluation,
   ExerciseResult,
   ExerciseRuntimeState,
-  PitchGlideRules,
+  SingleBurstRules,
   VoiceFrame,
 } from '../exercise-engine.models';
 import { ExerciseStrategy } from '../exercise-engine.strategy';
 
-export class PitchGlideStrategy implements ExerciseStrategy {
-  readonly kind = 'pitch-glide' as const;
+export class SingleBurstStrategy implements ExerciseStrategy {
+  readonly kind = 'single-burst' as const;
 
   constructor(
     private readonly voiceDetection: VoiceDetectionService,
@@ -22,20 +22,13 @@ export class PitchGlideStrategy implements ExerciseStrategy {
 
   buildDefinition(exercise: ExerciseDescriptor): ExerciseDefinition {
     const normalized = exercise.level >= 2 ? 2 : 1;
-    const isVocalGlide = /vocal\s*glide/i.test(exercise.exerciseName);
-    const levelConfig = isVocalGlide
-      ? LEVEL_CONFIGS['vocal-glide'][normalized]
-      : LEVEL_CONFIGS['pitch-glide'][normalized];
+    const levelConfig = LEVEL_CONFIGS['single-burst'][normalized];
     const profile = this.voiceDetection.readVoiceProfile();
-    const endMidi = exercise.targetMidi + levelConfig.glideSpanSemitones;
 
-    const rules: PitchGlideRules = {
-      startMidi: exercise.targetMidi,
-      endMidi,
-      startFrequencyHz: this.pitchService.midiToFrequency(exercise.targetMidi),
-      endFrequencyHz: this.pitchService.midiToFrequency(endMidi),
-      glideSpanSemitones: levelConfig.glideSpanSemitones,
-      endToleranceCents: levelConfig.endToleranceCents,
+    const rules: SingleBurstRules = {
+      targetMidi: exercise.targetMidi,
+      targetFrequencyHz: this.pitchService.midiToFrequency(exercise.targetMidi),
+      toleranceCents: levelConfig.toleranceCents,
       minSamples: levelConfig.minSamples,
       minVoiceRmsDb: profile?.avgMinRmsDb ?? -60,
       minFrequencyHz: VOICE_FILTER_DEFAULTS.minFrequencyHz,
@@ -43,11 +36,13 @@ export class PitchGlideStrategy implements ExerciseStrategy {
       edgeFrequencyLowHz: VOICE_FILTER_DEFAULTS.edgeFrequencyLowHz,
       edgeFrequencyHighHz: VOICE_FILTER_DEFAULTS.edgeFrequencyHighHz,
       minEdgeConfidence: VOICE_FILTER_DEFAULTS.minEdgeConfidence,
+      rmsAnchorFrames: levelConfig.rmsAnchorFrames,
+      minAttackDeltaDb: levelConfig.minAttackDeltaDb,
     };
 
     return {
       id: exercise.id,
-      kind: 'pitch-glide',
+      kind: 'single-burst',
       level: exercise.level,
       durationSec: levelConfig.durationSec,
       rules,
@@ -59,7 +54,7 @@ export class PitchGlideStrategy implements ExerciseStrategy {
     definition: ExerciseDefinition,
     runtime: ExerciseRuntimeState
   ): ExerciseFrameEvaluation {
-    const rules = definition.rules as PitchGlideRules;
+    const rules = definition.rules as SingleBurstRules;
 
     const voiceDetected = this.voiceDetection.isValidVocalSample(
       {
@@ -80,44 +75,34 @@ export class PitchGlideStrategy implements ExerciseStrategy {
         ? frame.confidence >= rules.minEdgeConfidence
         : true;
 
-    if (!(voiceDetected && edgeConfidenceOk) || frame.midiNote <= 0) {
-      return {
-        checks: {
-          voiceDetected,
-          edgeConfidenceOk,
-          primaryOk: false,
-        },
-        isValidFrame: false,
-      };
+    if (voiceDetected && edgeConfidenceOk) {
+      if (runtime.singleBurstAnchorDb === null) {
+        runtime.singleBurstAnchorDb = frame.rms;
+        runtime.singleBurstAnchorFrameCount = 1;
+      } else if (runtime.singleBurstAnchorFrameCount < rules.rmsAnchorFrames) {
+        const n = runtime.singleBurstAnchorFrameCount;
+        runtime.singleBurstAnchorDb = (runtime.singleBurstAnchorDb * n + frame.rms) / (n + 1);
+        runtime.singleBurstAnchorFrameCount = n + 1;
+      }
     }
 
-    const midi = frame.midiNote;
-    const previousMidi = runtime.previousMidi;
-    runtime.previousMidi = midi;
+    const attackReady = runtime.singleBurstAnchorDb !== null && runtime.singleBurstAnchorFrameCount >= rules.rmsAnchorFrames;
+    const attackReached =
+      attackReady &&
+      runtime.singleBurstAnchorDb !== null &&
+      frame.rms - runtime.singleBurstAnchorDb >= rules.minAttackDeltaDb;
 
-    let primaryOk = false;
-
-    if (runtime.glidePhase === 'up') {
-      const monotonicOk = previousMidi === null || midi >= previousMidi - 1;
-      primaryOk = monotonicOk;
-
-      const centsToHigh = 1200 * Math.log2(frame.frequency / rules.endFrequencyHz);
-      if (Number.isFinite(centsToHigh) && Math.abs(centsToHigh) <= rules.endToleranceCents) {
-        runtime.glidePeakReached = true;
-        runtime.glidePhase = 'down';
-      }
-    } else if (runtime.glidePhase === 'down') {
-      const monotonicOk = previousMidi === null || midi <= previousMidi + 1;
-      primaryOk = monotonicOk;
-
-      const centsToStart = 1200 * Math.log2(frame.frequency / rules.startFrequencyHz);
-      if (Number.isFinite(centsToStart) && Math.abs(centsToStart) <= rules.endToleranceCents) {
-        runtime.glideReturnedStart = true;
-        runtime.glidePhase = 'complete';
-      }
-    } else {
-      primaryOk = true;
+    if (attackReached) {
+      runtime.singleBurstAttackReached = true;
     }
+
+    const centsFromTarget =
+      frame.frequency > 0 && rules.targetFrequencyHz > 0
+        ? 1200 * Math.log2(frame.frequency / rules.targetFrequencyHz)
+        : Number.POSITIVE_INFINITY;
+
+    const pitchOk = Number.isFinite(centsFromTarget) && Math.abs(centsFromTarget) <= rules.toleranceCents;
+    const primaryOk = pitchOk && (attackReached || runtime.singleBurstAttackReached);
 
     return {
       checks: {
@@ -125,18 +110,17 @@ export class PitchGlideStrategy implements ExerciseStrategy {
         edgeConfidenceOk,
         primaryOk,
       },
-      isValidFrame: primaryOk,
+      isValidFrame: voiceDetected && edgeConfidenceOk && primaryOk,
     };
   }
 
   buildResult(validFrames: number, definition: ExerciseDefinition, runtime?: ExerciseRuntimeState): ExerciseResult {
-    const rules = definition.rules as PitchGlideRules;
+    const rules = definition.rules as SingleBurstRules;
     const requiredFrames = rules.minSamples;
     const completionRatio = requiredFrames > 0 ? Math.min(1, validFrames / requiredFrames) : 0;
-    const flowCompleted = !!runtime?.glidePeakReached && !!runtime?.glideReturnedStart;
 
     return {
-      passed: validFrames >= requiredFrames && flowCompleted,
+      passed: validFrames >= requiredFrames && !!runtime?.singleBurstAttackReached,
       validFrames,
       requiredFrames,
       completionRatio,

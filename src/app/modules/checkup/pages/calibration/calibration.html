@@ -100,17 +100,17 @@
           }
         </div>
         
-        <p class="instruction">Por favor, di "Probando" 3 veces.</p>
+        <p class="instruction">Por favor, di "Probando" 3 veces de forma pausada.</p>
         
-        <!-- Mostrar barra de progreso durante los 5 segundos -->
+        <!-- Mostrar barra de progreso durante los 15 segundos -->
         @if (progress() < 1) {
           <div class="progress-bar">
             <div class="progress-fill" [style.width.%]="progress() * 100"></div>
           </div>
-          <p class="progress-text">{{ (5 - (progress() * 5)).toFixed(1) }}s restantes</p>
+          <p class="progress-text">{{ (15 - (progress() * 15)).toFixed(1) }}s restantes</p>
         }
         
-        <!-- Mostrar resultado después de los 5 segundos -->
+        <!-- Mostrar resultado después de los 15 segundos -->
         @if (progress() >= 1) {
           <div class="validation-message" 
                [class.valid]="inputStatus() === ValidationStatus.Valid" 
@@ -153,15 +153,15 @@
     }
   }
   
-  <!-- Durante medición de input: botón según resultado de los 5s -->
+  <!-- Durante medición de input: botón según resultado de los 15s -->
   @if (state() === CalibState.InputMeasuring) {
     @if (progress() < 1) {
-      <!-- Durante los 5 segundos -->
+      <!-- Durante los 15 segundos -->
       <button class="primary" disabled>
-        Midiendo... {{ (5 - (progress() * 5)).toFixed(0) }}s
+        Midiendo... {{ (15 - (progress() * 15)).toFixed(0) }}s
       </button>
     } @else {
-      <!-- Después de los 5 segundos -->
+      <!-- Después de los 15 segundos -->
       @if (inputStatus() === ValidationStatus.Valid) {
         <button class="primary" (click)="onConfirmInput()">
           Micrófono listo

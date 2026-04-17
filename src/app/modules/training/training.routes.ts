@@ -21,4 +21,9 @@ export const TRAINING_ROUTES: Routes = [
     loadComponent: () =>
       import('./pages/practice/practice').then(m => m.PracticeComponent),
   },
+  {
+    path: 'practice-lab/:exerciseKey/:level',
+    loadComponent: () =>
+      import('./pages/practice/practice').then(m => m.PracticeComponent),
+  },
 ];
