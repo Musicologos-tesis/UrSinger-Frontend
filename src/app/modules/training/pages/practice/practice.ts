@@ -8,13 +8,14 @@ import { AudioAnalyzerService } from '../../../checkup/services/audio.analyzer.s
 import { AudioPitchService } from '../../../checkup/services/audio-pitch.service';
 import { ExerciseEngineService } from '../../services/exercise-engine.service';
 import { BreathFlowHoldRules, ExerciseDefinition, ExerciseFrameChecks, ExerciseRuntimeState } from '../../services/exercise-engine.models';
+import { ExerciseRendererComponent } from '../../components/exercises/exercise-renderer/exercise-renderer.component';
 
 type PracticeState = 'idle' | 'practicing' | 'success' | 'retry';
 
 @Component({
   selector: 'app-practice',
   standalone: true,
-  imports: [CommonModule, AuthHeaderComponent],
+  imports: [CommonModule, AuthHeaderComponent, ExerciseRendererComponent],
   templateUrl: './practice.html',
   styleUrl: './practice.scss',
 })
@@ -519,9 +520,16 @@ export class PracticeComponent implements OnInit, OnDestroy {
     return !!this.definition && this.definition.kind === 'breath-flow-hold';
   }
 
+  isSZBalance(): boolean {
+    return !!this.definition && this.definition.kind === 's-z-balance';
+  }
+
   isCompletionRequirementMet(): boolean {
     if (this.isBreathFlowHold()) {
       return this.breathHoldProgressPercent() >= 100;
+    }
+    if (this.isSZBalance()) {
+      return this.runtimeState.szPhase === 'complete';
     }
     return this.samples.length >= this.requiredFrames();
   }
@@ -529,6 +537,11 @@ export class PracticeComponent implements OnInit, OnDestroy {
   getLiveProgressPercent(): number {
     if (this.isBreathFlowHold()) {
       return Math.min(100, Math.round(this.breathHoldProgressPercent()));
+    }
+    if (this.isSZBalance()) {
+      const sMs = Math.max(1, this.runtimeState.szSPhaseDurationMs);
+      const zMs = this.runtimeState.szZPhaseDurationMs;
+      return Math.min(100, Math.round((zMs / sMs) * 100));
     }
     if (this.requiredFrames() <= 0) return 0;
     return Math.min(100, Math.round((this.samples.length / this.requiredFrames()) * 100));
@@ -539,7 +552,29 @@ export class PracticeComponent implements OnInit, OnDestroy {
       const rules = this.definition.rules as BreathFlowHoldRules;
       return `Sostén continuo (${Math.round(rules.requiredHoldMs / 1000)} segundos)`;
     }
+    if (this.isSZBalance()) {
+      return 'Iguala la duración entre S y Z';
+    }
     return `Duración suficiente (${this.durationSec()} segundos)`;
+  }
+
+  getSZRecordedDurationSec(): number {
+    return Math.max(0, this.runtimeState.szSPhaseDurationMs / 1000);
+  }
+
+  getSZCurrentZDurationSec(): number {
+    return Math.max(0, this.runtimeState.szZPhaseDurationMs / 1000);
+  }
+
+  getExerciseKindForView(): string {
+    if (this.definition) {
+      return this.definition.kind;
+    }
+
+    const name = (this.exercise()?.exerciseName ?? '').toLowerCase();
+    if (name.includes('breath flow hold')) return 'breath-flow-hold';
+    if (name.includes('s–z balance') || name.includes('s-z balance')) return 's-z-balance';
+    return 'default';
   }
 
   async finishExercise(): Promise<void> {

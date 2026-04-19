@@ -1,0 +1,11 @@
+<div class="live-indicators">
+  <div class="indicator-row">
+    <span class="label">Detectando:</span>
+    <span class="value">{{ currentNote || '---' }}</span>
+  </div>
+
+  <div class="indicator-row">
+    <span class="label">Confianza:</span>
+    <span class="value">{{ (currentConfidence * 100).toFixed(0) }}%</span>
+  </div>
+</div>

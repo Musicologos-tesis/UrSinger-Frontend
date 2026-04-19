@@ -117,6 +117,10 @@ export class VocalRangeService {
             // Inicializar pitch service
             await this.pitchService.initialize(analyser);
 
+            // Warm-up del detector para evitar notas fantasma en el arranque
+            // (primera inferencia de TF/CREPE puede ser inestable).
+            await this.warmupPitchDetector();
+
             // Obtener métricas de calibración y calibrar CREPE
             const noiseFloorDb = this.calibrationService.getNoiseFloorDbfs();
             const avgRmsDb = this.calibrationService.getAverageRmsDb();
@@ -147,6 +151,17 @@ export class VocalRangeService {
 
         } catch (error: any) {
             this.handleError(error.message || 'Error al iniciar ejercicio');
+        }
+    }
+
+    private async warmupPitchDetector(): Promise<void> {
+        try {
+            for (let i = 0; i < 2; i++) {
+                await this.pitchService.detectPitch();
+                await new Promise(resolve => setTimeout(resolve, 50));
+            }
+        } catch {
+            // Si falla warm-up, continuar con el flujo normal.
         }
     }
 
@@ -272,8 +287,9 @@ export class VocalRangeService {
         }
 
         const pitches = this.samples.map(s => s.midi);
-        this.provisionalMin = Math.min(...pitches);
-        this.provisionalMax = Math.max(...pitches);
+        const { minMidi, maxMidi } = this.calculateRobustExtremes(pitches);
+        this.provisionalMin = minMidi;
+        this.provisionalMax = maxMidi;
 
         this.log('sweep_complete', {
             samples: this.samples.length,
@@ -283,6 +299,26 @@ export class VocalRangeService {
 
         // Transición a confirmación de mínimo
         this.startConfirmMinPhase();
+    }
+
+    private calculateRobustExtremes(pitches: number[]): { minMidi: number; maxMidi: number } {
+        const sorted = [...pitches].sort((a, b) => a - b);
+        if (sorted.length < 8) {
+            return {
+                minMidi: sorted[0],
+                maxMidi: sorted[sorted.length - 1]
+            };
+        }
+
+        // Recorta outliers aislados (notas fantasma al inicio/final del barrido).
+        const trim = Math.min(3, Math.floor(sorted.length * 0.08));
+        const minIndex = Math.min(trim, sorted.length - 1);
+        const maxIndex = Math.max(0, sorted.length - 1 - trim);
+
+        return {
+            minMidi: sorted[minIndex],
+            maxMidi: sorted[maxIndex]
+        };
     }
 
     /**
@@ -536,10 +572,6 @@ export class VocalRangeService {
                 ? this.confirmationMetrics.precisionCents.reduce((a, b) => a + b, 0) / this.confirmationMetrics.precisionCents.length
                 : undefined;
             
-            const avgAttackLatencyMs = this.confirmationMetrics.attackLatencyMs.length > 0
-                ? this.confirmationMetrics.attackLatencyMs.reduce((a, b) => a + b, 0) / this.confirmationMetrics.attackLatencyMs.length
-                : undefined;
-            
             // Log deshabilitado: mantener solo RMS > -40 dB en barrido
             
             // Guardar métricas parciales en localStorage
@@ -550,9 +582,8 @@ export class VocalRangeService {
                 meanRmsDb: this.calculatedMetrics.meanRmsDb,
                 rmsConsistency: this.calculatedMetrics.rmsConsistency,
                 dynamicRangeDb: this.calculatedMetrics.dynamicRangeDb,
-                durationSec: this.calculatedMetrics.durationSec,
                 precisionCents: avgPrecisionCents, // ← Agregado
-                attackLatencyMs: avgAttackLatencyMs // ← Agregado
+                // attackLatencyMs se calcula únicamente en estabilidad
             });
             
             // Log deshabilitado: mantener solo RMS > -40 dB en barrido

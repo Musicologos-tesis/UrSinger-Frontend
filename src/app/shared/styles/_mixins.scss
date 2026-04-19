@@ -1,11 +1,11 @@
-@import './variables';
+@use './variables' as *;
 
 // Mixin para botones
 @mixin button-base {
   border: 0;
-  padding: 10px 14px;
+  padding: 12px 16px;
   border-radius: $radius-md;
-  font-weight: $font-weight-semibold;
+  font-weight: $font-weight-medium;
   font-size: $font-size-md;
   cursor: pointer;
   transition: all $transition-base;
@@ -30,10 +30,6 @@
   &:active:not(:disabled) {
     transform: translateY(0);
   }
-  
-  &:disabled {
-    background: $gray-400;
-  }
 }
 
 @mixin button-secondary {
@@ -49,9 +45,10 @@
 // Mixin para cards
 @mixin card {
   border: 1px solid $gray-200;
-  border-radius: $radius-lg;
+  border-radius: 16px;
   padding: $spacing-xl;
   background: #fff;
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.08);
 }
 
 // Mixin para badges

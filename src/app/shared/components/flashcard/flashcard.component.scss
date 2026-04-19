@@ -1,0 +1,133 @@
+@use '../../styles/variables' as *;
+
+.flashcard {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin: 10px 0 16px;
+}
+
+.flashcard--floating {
+  position: fixed;
+  top: 72px;
+  right: 18px;
+  width: min(430px, calc(100vw - 24px));
+  z-index: 1200;
+  margin: 0;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18);
+  animation: flashcard-slide-in 0.25s ease-out;
+  transition: width 0.2s ease, padding 0.2s ease, transform 0.2s ease;
+}
+
+.flashcard--floating.flashcard--minimized {
+  width: auto;
+  max-width: calc(100vw - 24px);
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+.flashcard--floating.flashcard--minimized .flashcard__content {
+  min-width: 0;
+}
+
+.flashcard--floating.flashcard--minimized .flashcard__title {
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.flashcard__icon {
+  font-size: 16px;
+  line-height: 1.25;
+}
+
+.flashcard__content {
+  min-width: 0;
+}
+
+.flashcard__title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.flashcard__message {
+  margin: 4px 0 0;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.flashcard__toggle {
+  margin-left: auto;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.4);
+  color: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.flashcard__toggle:hover {
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.flashcard--error {
+  background: $error-light;
+  border-color: $error-border;
+
+  .flashcard__title,
+  .flashcard__message {
+    color: $error-dark;
+  }
+}
+
+.flashcard--warning {
+  background: $warning-light;
+  border-color: $warning-border;
+
+  .flashcard__title,
+  .flashcard__message {
+    color: $warning-dark;
+  }
+}
+
+.flashcard--info {
+  background: $info-light;
+  border-color: $info-border;
+
+  .flashcard__title,
+  .flashcard__message {
+    color: $info-dark;
+  }
+}
+
+.flashcard--success {
+  background: $success-light;
+  border-color: $success-border;
+
+  .flashcard__title,
+  .flashcard__message {
+    color: $success-dark;
+  }
+}
+
+@keyframes flashcard-slide-in {
+  from {
+    opacity: 0;
+    transform: translate3d(18px, -8px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}

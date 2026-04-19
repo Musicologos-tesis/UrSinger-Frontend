@@ -22,8 +22,7 @@ export class SZBalanceStrategy implements ExerciseStrategy {
     const profile = this.voiceDetection.readVoiceProfile();
 
     const rules: SZBalanceRules = {
-      minSamples: levelConfig.minSamplesPerPhase * 2,
-      minSamplesPerPhase: levelConfig.minSamplesPerPhase,
+      minSamples: levelConfig.minSamples,
       minAirRmsDb: levelConfig.minAirRmsDb,
       minVoiceRmsDb: profile?.avgMinRmsDb ?? -60,
       minFrequencyHz: VOICE_FILTER_DEFAULTS.minFrequencyHz,
@@ -32,6 +31,9 @@ export class SZBalanceStrategy implements ExerciseStrategy {
       edgeFrequencyHighHz: VOICE_FILTER_DEFAULTS.edgeFrequencyHighHz,
       minEdgeConfidence: VOICE_FILTER_DEFAULTS.minEdgeConfidence,
       maxSPhaseConfidence: levelConfig.maxSPhaseConfidence,
+      minSPhaseDurationMs: levelConfig.minSPhaseDurationMs,
+      phaseSilenceMs: levelConfig.phaseSilenceMs,
+      maxDurationDiffMs: levelConfig.maxDurationDiffMs,
     };
 
     return {
@@ -72,15 +74,26 @@ export class SZBalanceStrategy implements ExerciseStrategy {
         : true;
 
     if (runtime.szPhase === 's') {
-      const sPhaseUnvoicedOk = (frame.midiNote <= 0 || frame.confidence <= rules.maxSPhaseConfidence);
+      const sPhaseUnvoicedOk = frame.midiNote <= 0 || frame.confidence <= rules.maxSPhaseConfidence;
       const primaryOk = isAirFlowPresent && sPhaseUnvoicedOk;
       const isValidFrame = primaryOk;
 
       if (isValidFrame) {
-        runtime.szSamplesS++;
-        if (runtime.szSamplesS >= rules.minSamplesPerPhase) {
-          runtime.szPhase = 'z';
+        if (runtime.szSPhaseStartMs === null) {
+          runtime.szSPhaseStartMs = frame.timestamp;
         }
+        runtime.szSPhaseLastAirMs = frame.timestamp;
+        runtime.szSPhaseDurationMs = Math.max(0, frame.timestamp - runtime.szSPhaseStartMs);
+        runtime.szSamplesS++;
+      } else if (
+        runtime.szSPhaseStartMs !== null &&
+        runtime.szSPhaseLastAirMs !== null &&
+        frame.timestamp - runtime.szSPhaseLastAirMs >= rules.phaseSilenceMs &&
+        runtime.szSPhaseDurationMs >= rules.minSPhaseDurationMs
+      ) {
+        runtime.szPhase = 'z';
+        runtime.szZPhaseStartMs = null;
+        runtime.szZPhaseDurationMs = 0;
       }
 
       return {
@@ -98,8 +111,16 @@ export class SZBalanceStrategy implements ExerciseStrategy {
       const isValidFrame = primaryOk;
 
       if (isValidFrame) {
+        if (runtime.szZPhaseStartMs === null) {
+          runtime.szZPhaseStartMs = frame.timestamp;
+        }
+        runtime.szZPhaseDurationMs = Math.max(0, frame.timestamp - runtime.szZPhaseStartMs);
+        runtime.szDurationDiffMs = Math.abs(runtime.szZPhaseDurationMs - runtime.szSPhaseDurationMs);
         runtime.szSamplesZ++;
-        if (runtime.szSamplesZ >= rules.minSamplesPerPhase) {
+
+        const hasReachedComparableDuration = runtime.szZPhaseDurationMs >= runtime.szSPhaseDurationMs;
+        const diffOk = (runtime.szDurationDiffMs ?? Number.POSITIVE_INFINITY) <= rules.maxDurationDiffMs;
+        if (hasReachedComparableDuration && diffOk) {
           runtime.szPhase = 'complete';
         }
       }
@@ -128,10 +149,14 @@ export class SZBalanceStrategy implements ExerciseStrategy {
     const rules = definition.rules as SZBalanceRules;
     const requiredFrames = rules.minSamples;
     const completionRatio = requiredFrames > 0 ? Math.min(1, validFrames / requiredFrames) : 0;
-    const phasesCompleted = (runtime?.szSamplesS ?? 0) >= rules.minSamplesPerPhase && (runtime?.szSamplesZ ?? 0) >= rules.minSamplesPerPhase;
+    const sDuration = runtime?.szSPhaseDurationMs ?? 0;
+    const zDuration = runtime?.szZPhaseDurationMs ?? 0;
+    const diffMs = Math.abs(zDuration - sDuration);
+    const phasesCompleted = sDuration >= rules.minSPhaseDurationMs && zDuration > 0;
+    const durationMatchOk = diffMs <= rules.maxDurationDiffMs;
 
     return {
-      passed: validFrames >= requiredFrames && phasesCompleted,
+      passed: validFrames >= requiredFrames && phasesCompleted && durationMatchOk,
       validFrames,
       requiredFrames,
       completionRatio,

@@ -5,10 +5,11 @@ import { AudioAnalyzerService } from '../../services/audio.analyzer.service';
 import { AuthService } from '../../../../services/auth.service';
 import { StepperComponent } from '../../../../shared/components/stepper/stepper.component';
 import { AuthHeaderComponent } from '../../../auth/components/auth-header/auth-header.component';
+import { FlashcardComponent } from '../../../../shared/components/flashcard/flashcard.component';
 
 @Component({
   selector: 'app-calibration',
-  imports: [StepperComponent, AuthHeaderComponent],
+  imports: [StepperComponent, AuthHeaderComponent, FlashcardComponent],
   templateUrl: './calibration.html',
   styleUrl: './calibration.scss',
 })
@@ -91,8 +92,15 @@ export class CalibrationComponent implements OnInit, OnDestroy {
   }
   
   async onConfirmInput() {
+    // Si ya está validado, al confirmar debe continuar directo al siguiente paso
+    const shouldContinueToRange = this.inputStatus() === ValidationStatus.Valid;
+
     // Confirmar o reintentar según validación
     await this.cal.confirmInputAndFinish();
+
+    if (shouldContinueToRange && this.state() === CalibState.Done) {
+      this.onContinueToVocalRange();
+    }
   }
   
   onRetry() {
@@ -128,6 +136,24 @@ export class CalibrationComponent implements OnInit, OnDestroy {
     return this.state() === CalibState.InputMeasuring &&
            this.progress() >= 1 &&
            this.inputStatus() === ValidationStatus.Invalid;
+  }
+
+  calibrationErrorTitle(): string {
+    const error = (this.errorMessage() || '').toLowerCase();
+    if (error.includes('activado antes de calibrar') || error.includes('vuelve a la página de preparación')) {
+      return 'Primero activa el micrófono';
+    }
+
+    return 'No se pudo completar la calibración';
+  }
+
+  calibrationErrorMessage(): string {
+    const error = this.errorMessage() || 'Por favor, reintenta.';
+    if (error.toLowerCase().includes('activado antes de calibrar')) {
+      return 'Actívalo en Preparación y vuelve a intentar la calibración.';
+    }
+
+    return error;
   }
 
   goToTraining(): void {

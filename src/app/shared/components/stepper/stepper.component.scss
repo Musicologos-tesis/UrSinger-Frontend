@@ -1,4 +1,4 @@
-@import '../../../shared/styles/variables';
+@use '../../../shared/styles/variables' as *;
 
 .stepper {
   display: grid;
@@ -13,11 +13,14 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 10px 22px;
+  min-height: 44px;
+  padding: 8px 14px;
   border: 1px solid $gray-200;
   border-radius: $radius-md;
-  color: $gray-500;
-  font-size: 20px;
+  color: $gray-600;
+  background: #fff;
+  font-size: 16px;
+  font-weight: $font-weight-medium;
   transition: all $transition-base;
   text-align: center;
 }
@@ -25,7 +28,16 @@
 .step-label {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+}
+
+.step-label::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: $gray-400;
+  flex-shrink: 0;
 }
 
 .step-info {
@@ -33,12 +45,12 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   border-radius: 999px;
   background: $gray-100;
   color: $gray-600;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: $font-weight-semibold;
   cursor: help;
   outline: none;
@@ -93,8 +105,28 @@
 }
 
 .step.active {
-  background: $primary-light;
-  border-color: $primary-border;
+  background: rgba(99, 102, 241, 0.08);
+  border-color: $primary;
   color: $primary-text;
   font-weight: $font-weight-semibold;
+}
+
+.step.active .step-label::before {
+  background: $primary;
+}
+
+.step.active .step-info {
+  background: rgba(99, 102, 241, 0.14);
+  color: $primary-dark;
+}
+
+@media (max-width: 960px) {
+  .stepper {
+    grid-template-columns: 1fr;
+  }
+
+  .step {
+    justify-content: space-between;
+    padding-inline: 12px;
+  }
 }

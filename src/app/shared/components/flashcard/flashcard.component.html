@@ -1,0 +1,39 @@
+<div
+  class="flashcard"
+  [class.flashcard--error]="tone === 'error'"
+  [class.flashcard--warning]="tone === 'warning'"
+  [class.flashcard--info]="tone === 'info'"
+  [class.flashcard--success]="tone === 'success'"
+  [class.flashcard--floating]="floating"
+  [class.flashcard--minimized]="minimized"
+  [attr.role]="floating ? 'status' : 'alert'"
+  aria-live="polite"
+  (click)="minimized ? toggleMinimized($event) : null"
+>
+  <div class="flashcard__icon" aria-hidden="true">{{ icon }}</div>
+
+  <div class="flashcard__content">
+    @if (title) {
+      <p class="flashcard__title">{{ title }}</p>
+    }
+
+    @if (message && !minimized) {
+      <p class="flashcard__message">{{ message }}</p>
+    }
+
+    @if (!minimized) {
+      <ng-content></ng-content>
+    }
+  </div>
+
+  @if (floating) {
+    <button
+      type="button"
+      class="flashcard__toggle"
+      (click)="toggleMinimized($event)"
+      [attr.aria-label]="minimized ? 'Expandir notificación' : 'Minimizar notificación'"
+    >
+      {{ minimized ? '↗' : '—' }}
+    </button>
+  }
+</div>

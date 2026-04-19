@@ -112,7 +112,6 @@ export interface BreathFlowHoldRules {
 
 export interface SZBalanceRules {
   minSamples: number;
-  minSamplesPerPhase: number;
   minAirRmsDb: number;
   minVoiceRmsDb: number;
   minFrequencyHz: number;
@@ -121,6 +120,9 @@ export interface SZBalanceRules {
   edgeFrequencyHighHz: number;
   minEdgeConfidence: number;
   maxSPhaseConfidence: number;
+  minSPhaseDurationMs: number;
+  phaseSilenceMs: number;
+  maxDurationDiffMs: number;
 }
 
 export interface DynamicWaveRules {
@@ -310,6 +312,12 @@ export interface ExerciseRuntimeState {
   szPhase: 's' | 'z' | 'complete';
   szSamplesS: number;
   szSamplesZ: number;
+  szSPhaseStartMs: number | null;
+  szSPhaseLastAirMs: number | null;
+  szSPhaseDurationMs: number;
+  szZPhaseStartMs: number | null;
+  szZPhaseDurationMs: number;
+  szDurationDiffMs: number | null;
   dynamicPhase: 'rise' | 'fall' | 'complete';
   dynamicAnchorDb: number | null;
   dynamicAnchorFrameCount: number;

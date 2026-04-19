@@ -59,14 +59,6 @@
           }
           
           <div class="indicator-row">
-            <span class="label">Confianza:</span>
-            <div class="confidence-bar">
-              <div class="confidence-fill" [style.width.%]="currentConfidence.value * 100"></div>
-            </div>
-            <span class="value">{{ (currentConfidence.value * 100).toFixed(0) }}%</span>
-          </div>
-          
-          <div class="indicator-row">
             <span class="label">Volumen:</span>
             <span class="value">{{ currentRms.value.toFixed(1) }} dB</span>
           </div>
@@ -105,7 +97,7 @@
         
         <!-- BOTÓN EMPEZAR (solo si no ha empezado) -->
         @if (!rangeService.extremeStarted$.value) {
-          <button class="btn-start-exercise" (click)="rangeService.startExtremeExercise()">
+          <button class="primary" (click)="rangeService.startExtremeExercise()">
             ▶ Empezar
           </button>
         }
@@ -124,11 +116,6 @@
               <span class="label">Detectando:</span>
               <span class="value">{{ currentNote.value || '---' }}</span>
             </div>
-            
-            <div class="indicator-row">
-              <span class="label">Confianza:</span>
-              <span class="value">{{ (currentConfidence.value * 100).toFixed(0) }}%</span>
-            </div>
           </div>
           
           <!-- Validaciones en tiempo real -->
@@ -136,11 +123,6 @@
           <div class="check-item" [class.valid]="extremeValidation.value.pitchOk">
             <span class="check-icon">{{ extremeValidation.value.pitchOk ? '✓' : '○' }}</span>
             <span class="check-label">Afinación correcta (±100 cents)</span>
-          </div>
-          
-          <div class="check-item" [class.valid]="extremeValidation.value.confidenceOk">
-            <span class="check-icon">{{ extremeValidation.value.confidenceOk ? '✓' : '○' }}</span>
-            <span class="check-label">Confianza suficiente (&gt;30%)</span>
           </div>
           
           <div class="check-item" [class.valid]="extremeValidation.value.rmsOk">
@@ -155,7 +137,7 @@
         </div>
         
         <!-- Barra de progreso de sostenimiento -->
-        @if (extremeValidation.value.pitchOk && extremeValidation.value.confidenceOk && extremeValidation.value.rmsOk) {
+        @if (extremeValidation.value.pitchOk && extremeValidation.value.rmsOk) {
           <div class="progress-bar">
             <div class="progress-fill" [style.width.%]="progress.value * 100"></div>
           </div>
@@ -190,7 +172,7 @@
         
         <!-- BOTÓN EMPEZAR (solo si no ha empezado) -->
         @if (!rangeService.extremeStarted$.value) {
-          <button class="btn-start-exercise" (click)="rangeService.startExtremeExercise()">
+          <button class="primary" (click)="rangeService.startExtremeExercise()">
             ▶ Empezar
           </button>
         }
@@ -209,11 +191,6 @@
               <span class="label">Detectando:</span>
               <span class="value">{{ currentNote.value || '---' }}</span>
             </div>
-            
-            <div class="indicator-row">
-              <span class="label">Confianza:</span>
-              <span class="value">{{ (currentConfidence.value * 100).toFixed(0) }}%</span>
-            </div>
           </div>
           
           <!-- Validaciones (igual que ConfirmMin) -->
@@ -221,11 +198,6 @@
           <div class="check-item" [class.valid]="extremeValidation.value.pitchOk">
             <span class="check-icon">{{ extremeValidation.value.pitchOk ? '✓' : '○' }}</span>
             <span class="check-label">Afinación correcta (±100 cents)</span>
-          </div>
-          
-          <div class="check-item" [class.valid]="extremeValidation.value.confidenceOk">
-            <span class="check-icon">{{ extremeValidation.value.confidenceOk ? '✓' : '○' }}</span>
-            <span class="check-label">Confianza suficiente (&gt;30%)</span>
           </div>
           
           <div class="check-item" [class.valid]="extremeValidation.value.rmsOk">
@@ -239,7 +211,7 @@
           </div>
         </div>
         
-        @if (extremeValidation.value.pitchOk && extremeValidation.value.confidenceOk && extremeValidation.value.rmsOk) {
+        @if (extremeValidation.value.pitchOk && extremeValidation.value.rmsOk) {
           <div class="progress-bar">
             <div class="progress-fill" [style.width.%]="progress.value * 100"></div>
           </div>
@@ -266,9 +238,13 @@
 
     <!-- ESTADO: ERROR -->
     @if (phase.value === RangePhase.Error) {
-      <div class="error-banner">
-        <p>⚠️ {{ errorMessage.value }}</p>
-      </div>
+      <app-flashcard
+        tone="error"
+        title="No se pudo completar la prueba"
+        [message]="errorMessage.value || 'Inténtalo nuevamente.'"
+        [floating]="true"
+        [autoMinimizeMs]="4000"
+      ></app-flashcard>
     }
 
   </div>

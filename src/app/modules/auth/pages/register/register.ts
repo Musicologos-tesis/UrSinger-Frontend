@@ -3,7 +3,6 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../../../../services/auth.service';
-import { AuthHeaderComponent } from '../../components/auth-header/auth-header.component';
 
 interface RegisterRequest {
   email: string;
@@ -17,7 +16,7 @@ interface RegisterRequest {
 @Component({
   selector: 'app-register',
   standalone: true,
-  imports: [CommonModule, FormsModule, AuthHeaderComponent],
+  imports: [CommonModule, FormsModule],
   templateUrl: './register.html',
   styleUrls: ['./register.scss']
 })

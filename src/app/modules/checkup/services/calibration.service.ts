@@ -156,7 +156,30 @@ export class CalibrationService {
         if (this.state$.value !== CalibState.NoiseMeasuring) return;
         this.inputStatus$.next(ValidationStatus.Pending);
         this.inputMessage$.next('');
+
+        const analyser = this.audio.getAnalyser();
+        if (!analyser) {
+            this.handleError('No se detectó el micrófono activo. Vuelve a Preparación e inténtalo de nuevo.');
+            return;
+        }
+
+        // Warm-up del detector para evitar perder los primeros segundos de voz
+        // (compilación inicial de TF/WebGL + primera inferencia de CREPE).
+        await this.pitch.initialize(analyser);
+        await this.warmupPitchDetector();
+
         await this.startGainCheck();
+    }
+
+    private async warmupPitchDetector(): Promise<void> {
+        try {
+            for (let i = 0; i < 2; i++) {
+                await this.pitch.detectPitch();
+                await new Promise(resolve => setTimeout(resolve, 60));
+            }
+        } catch {
+            // Si falla warm-up, dejamos que la medición continúe normalmente.
+        }
     }
 
     private async startGainCheck() {
@@ -165,8 +188,6 @@ export class CalibrationService {
         
         const analyser = this.audio.getAnalyser();
         if (!analyser) return;
-
-        await this.pitch.initialize(analyser);
 
         const durationSec = 15;
         const td = new Uint8Array(analyser.fftSize);

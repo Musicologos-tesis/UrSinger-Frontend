@@ -58,6 +58,17 @@ export class StabilityService {
   private captureIntervalId?: number;
   private startTime = 0;
   private targetDurationSec = 10;
+  private targetMidi: number | null = null;
+  private readonly TARGET_TOLERANCE_CENTS = 50;
+  private readonly ATTACK_LATENCY_LIMIT_MS = 500;
+  private readonly STABILITY_CENTS_LIMIT = 50;
+  private attackLatencyCandidatesMs: number[] = [];
+  private currentAttackStartMs: number | null = null;
+  private attackCapturedInCurrentUtterance = false;
+  private hasReachedTargetInCurrentUtterance = false;
+  private currentDeviationCents: number[] = [];
+  private deviationSegmentMeansCents: number[] = [];
+  private wasVocalActive = false;
   private noiseFloorDb: number = -90;
   private minVoiceRmsDb: number = -40;
 
@@ -66,7 +77,7 @@ export class StabilityService {
   /**
    * Inicia la captura para la prueba de estabilidad
    */
-  async start(analyser: AnalyserNode, durationSec = 10): Promise<void> {
+  async start(analyser: AnalyserNode, durationSec = 10, targetMidi?: number): Promise<void> {
     // Asegurar sesión válida
     const sessionId = this.calibration.getSessionId();
     if (!sessionId) {
@@ -74,7 +85,17 @@ export class StabilityService {
     }
 
     this.targetDurationSec = durationSec;
+    this.targetMidi = Number.isFinite(targetMidi) && (targetMidi as number) > 0
+      ? Math.round(targetMidi as number)
+      : null;
     this.samples = [];
+    this.attackLatencyCandidatesMs = [];
+    this.currentAttackStartMs = null;
+    this.attackCapturedInCurrentUtterance = false;
+    this.hasReachedTargetInCurrentUtterance = false;
+    this.currentDeviationCents = [];
+    this.deviationSegmentMeansCents = [];
+    this.wasVocalActive = false;
     this.progress$.next(0);
     this.errorMessage$.next(null);
     this.lastMetrics = undefined;
@@ -158,6 +179,14 @@ export class StabilityService {
     this.samplesCount$.next(0);
     this.lastMetrics = undefined;
     this.errorMessage$.next(null);
+    this.targetMidi = null;
+    this.attackLatencyCandidatesMs = [];
+    this.currentAttackStartMs = null;
+    this.attackCapturedInCurrentUtterance = false;
+    this.hasReachedTargetInCurrentUtterance = false;
+    this.currentDeviationCents = [];
+    this.deviationSegmentMeansCents = [];
+    this.wasVocalActive = false;
   }
 
   /**
@@ -183,17 +212,8 @@ export class StabilityService {
       const { frequency, confidence, midiNote } = await this.pitch.detectPitch();
       const rms = this.pitch.calculateRMS();
 
-      this.currentMidi$.next(midiNote);
       this.currentRms$.next(rms);
       this.currentConfidence$.next(confidence);
-      
-      // Actualizar nota si es válida
-      if (midiNote > 0) {
-        const noteName = this.pitch.midiToNoteName(midiNote);
-        this.currentNote$.next(noteName);
-      } else {
-        this.currentNote$.next('-');
-      }
 
       const isVocalSignal = this.voiceDetection.isValidVocalSample(
         {
@@ -204,6 +224,17 @@ export class StabilityService {
         },
         { minVoiceRmsDb: this.minVoiceRmsDb }
       );
+
+      // Igual que en rango vocal: solo mostrar nota/midi cuando la señal es vocal válida.
+      if (isVocalSignal) {
+        this.currentMidi$.next(midiNote);
+        this.currentNote$.next(this.pitch.midiToNoteName(midiNote));
+      } else {
+        this.currentMidi$.next(0);
+        this.currentNote$.next('-');
+      }
+
+      this.updateAttackLatencyTracking(isVocalSignal, midiNote, performance.now());
 
       // Log deshabilitado: mantener captura limpia
 
@@ -267,20 +298,137 @@ export class StabilityService {
     const validDynamicRange = segmentMetrics.map(m => m.dynamicRangeDb).filter(v => v !== null) as number[];
     const validStability = segmentMetrics.map(m => m.stabilityCents).filter(v => v !== null) as number[];
 
-    // durationSec = el segmento MÁS LARGO (donde se mantuvo más tiempo)
+    // durationSec = el segmento MÁS LARGO con nota objetivo correcta
+    // (si no hay target/captura válida, usar el mayor segmento vocal).
     const longestSegment = segments.reduce((max, seg) => 
       seg.durationSec > max.durationSec ? seg : max
     , segments[0]);
+    const longestCorrectDurationSec = this.calculateLongestCorrectDurationSec();
+    const durationForPayload = longestCorrectDurationSec ?? longestSegment.durationSec;
+    const attackLatencyMs = this.calculateAttackLatencyMs();
+    const stabilityCents = this.calculateTargetDeviationStabilityCents();
 
     return {
       meanRmsDb: validMeanRms.length > 0 ? this.mean(validMeanRms) : null,
       rmsConsistency: validRmsConsistency.length > 0 ? this.mean(validRmsConsistency) : null,
       dynamicRangeDb: validDynamicRange.length > 0 ? this.mean(validDynamicRange) : null,
-      durationSec: longestSegment.durationSec,
+      durationSec: durationForPayload,
       precisionCents: null, // No se calcula en estabilidad
-      stabilityCents: validStability.length > 0 ? this.mean(validStability) : null,
-      attackLatencyMs: null, // No se calcula en estabilidad
+      stabilityCents: stabilityCents ?? (validStability.length > 0 ? this.mean(validStability) : this.STABILITY_CENTS_LIMIT),
+      attackLatencyMs,
     };
+  }
+
+  private calculateTargetDeviationStabilityCents(): number | null {
+    this.finalizeDeviationSegmentIfNeeded();
+
+    if (!this.deviationSegmentMeansCents.length) {
+      return this.STABILITY_CENTS_LIMIT;
+    }
+
+    const valid = this.deviationSegmentMeansCents.filter(value => value < this.STABILITY_CENTS_LIMIT);
+    if (!valid.length) {
+      return this.STABILITY_CENTS_LIMIT;
+    }
+
+    return this.mean(valid);
+  }
+
+  private updateAttackLatencyTracking(isVocalSignal: boolean, midiNote: number, timestampMs: number): void {
+    if (!this.targetMidi) {
+      this.wasVocalActive = isVocalSignal;
+      return;
+    }
+
+    if (isVocalSignal && !this.wasVocalActive) {
+      // Inicio de una nueva emisión vocal con nota detectada
+      this.currentAttackStartMs = timestampMs;
+      this.attackCapturedInCurrentUtterance = false;
+      this.hasReachedTargetInCurrentUtterance = false;
+      this.currentDeviationCents = [];
+    }
+
+    if (!isVocalSignal && this.wasVocalActive) {
+      // Fin de emisión: reset para capturar siguiente intento
+      this.finalizeDeviationSegmentIfNeeded();
+      this.currentAttackStartMs = null;
+      this.attackCapturedInCurrentUtterance = false;
+      this.hasReachedTargetInCurrentUtterance = false;
+      this.currentDeviationCents = [];
+    }
+
+    if (
+      isVocalSignal &&
+      !this.attackCapturedInCurrentUtterance &&
+      this.currentAttackStartMs !== null &&
+      this.isTargetNote(midiNote)
+    ) {
+      const latencyMs = Math.max(0, timestampMs - this.currentAttackStartMs);
+      this.attackLatencyCandidatesMs.push(latencyMs);
+      this.attackCapturedInCurrentUtterance = true;
+    }
+
+    if (isVocalSignal) {
+      const deviationCents = Math.abs((midiNote - this.targetMidi) * 100);
+
+      if (!this.hasReachedTargetInCurrentUtterance && this.isTargetNote(midiNote)) {
+        this.hasReachedTargetInCurrentUtterance = true;
+        this.currentDeviationCents.push(deviationCents);
+      } else if (this.hasReachedTargetInCurrentUtterance) {
+        this.currentDeviationCents.push(deviationCents);
+      }
+    }
+
+    this.wasVocalActive = isVocalSignal;
+  }
+
+  private finalizeDeviationSegmentIfNeeded(): void {
+    if (!this.hasReachedTargetInCurrentUtterance || !this.currentDeviationCents.length) {
+      return;
+    }
+
+    const meanDeviation = this.mean(this.currentDeviationCents);
+    if (meanDeviation !== null) {
+      this.deviationSegmentMeansCents.push(meanDeviation);
+    }
+  }
+
+  private isTargetNote(midi: number): boolean {
+    if (!this.targetMidi || midi <= 0) {
+      return false;
+    }
+
+    return Math.abs((midi - this.targetMidi) * 100) <= this.TARGET_TOLERANCE_CENTS;
+  }
+
+  private calculateAttackLatencyMs(): number {
+    const validLatencies = this.attackLatencyCandidatesMs.filter(ms => ms < this.ATTACK_LATENCY_LIMIT_MS);
+
+    if (!validLatencies.length) {
+      return this.ATTACK_LATENCY_LIMIT_MS;
+    }
+
+    return Math.round(validLatencies.reduce((sum, ms) => sum + ms, 0) / validLatencies.length);
+  }
+
+  private calculateLongestCorrectDurationSec(): number | null {
+    if (!this.targetMidi || this.samples.length === 0) {
+      return null;
+    }
+
+    const correctSamples = this.samples.filter(sample =>
+      Math.abs((sample.midi - this.targetMidi!) * 100) <= this.TARGET_TOLERANCE_CENTS
+    );
+
+    const correctSegments = this.segmentByGap(correctSamples, 300, 2);
+    if (!correctSegments.length) {
+      return 0;
+    }
+
+    const durations = correctSegments.map(seg => seg.durationSec);
+    this.log('correct_segments_sec', durations.map(d => d.toFixed(2)));
+
+    return Math.max(...durations);
   }
 
   /**
@@ -288,18 +436,20 @@ export class StabilityService {
    * Un fragmento se rompe si hay un gap > 300ms entre muestras
    */
   private segmentVocalPhrases(samples: StabilitySample[]): VocalSegment[] {
+    return this.segmentByGap(samples, 300, 5);
+  }
+
+  private segmentByGap(samples: StabilitySample[], maxGapMs: number, minSamples: number): VocalSegment[] {
     if (samples.length === 0) return [];
 
     const segments: VocalSegment[] = [];
     let currentSegment: StabilitySample[] = [samples[0]];
-    const MAX_GAP_MS = 300; // 300ms de silencio rompe el segmento
 
     for (let i = 1; i < samples.length; i++) {
       const gap = samples[i].timestamp - samples[i - 1].timestamp;
-      
-      if (gap > MAX_GAP_MS) {
-        // Gap detectado - finalizar segmento actual
-        if (currentSegment.length >= 5) { // Mínimo 5 muestras (500ms)
+
+      if (gap > maxGapMs) {
+        if (currentSegment.length >= minSamples) {
           segments.push(this.createSegment(currentSegment));
         }
         currentSegment = [samples[i]];
@@ -308,8 +458,7 @@ export class StabilityService {
       }
     }
 
-    // Agregar último segmento
-    if (currentSegment.length >= 5) {
+    if (currentSegment.length >= minSamples) {
       segments.push(this.createSegment(currentSegment));
     }
 

@@ -1,0 +1,48 @@
+.validation-checks {
+  margin: 16px 0;
+  padding: 12px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.check-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  padding: 8px;
+  border-radius: 6px;
+  transition: all 0.2s;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+
+  &.valid {
+    background: #d1fae5;
+    border: 1px solid #10b981;
+
+    .check-icon {
+      color: #059669;
+    }
+
+    .check-label {
+      color: #065f46;
+    }
+  }
+}
+
+.check-icon {
+  font-size: 18px;
+  font-weight: 700;
+  color: #9ca3af;
+  min-width: 24px;
+  text-align: center;
+}
+
+.check-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #6b7280;
+}

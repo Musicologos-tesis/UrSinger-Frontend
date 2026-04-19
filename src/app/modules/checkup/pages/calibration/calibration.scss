@@ -1,35 +1,42 @@
-@import '../../../../shared/styles/variables';
-@import '../../../../shared/styles/mixins';
+@use '../../../../shared/styles/variables' as *;
+@use '../../../../shared/styles/mixins' as *;
 
 :root { --calib-progress: 0%; }
+
+:host {
+  display: block;
+  min-height: 100vh;
+  background: linear-gradient(180deg, #f5f3ff 0%, #eef2ff 100%);
+}
 
 .page-container {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 0 32px;
+  padding: 8px 32px 28px;
 }
 
 .title {
   font-family: 'Inter', sans-serif;
-  font-size: 40px;
+  font-size: 34px;
   font-weight: 600;
-  margin: 12px 0 12px 0;
+  margin: 8px 0 10px 0;
   color: #000;
 }
 
 .subtitle {
   font-family: 'Inter', sans-serif;
-  font-size: 20px;
+  font-size: 18px;
   color: #828282;
   margin-bottom: 24px;
 }
 
 .stepper-container {
   background: #fff;
-  padding: 20px;
+  border: 1px solid $gray-200;
+  border-radius: 14px;
+  box-shadow: $shadow-sm;
+  padding: 18px;
   margin-bottom: 24px;
-  border-top: 1px solid #BDBDBD;
-  border-bottom: 1px solid #BDBDBD;
 }
 
 .panel { 
@@ -41,10 +48,14 @@
 
 .mic-box { 
   @include mic-box;
+  border: 1px solid rgba(49, 46, 129, 0.42);
+  background: linear-gradient(165deg, #312e81 0%, #1e3a8a 100%);
 }
 
 .mic-circle { 
   @include mic-circle;
+  background: linear-gradient(155deg, #1e3a8a 0%, #3730a3 100%);
+  box-shadow: 0 0 0 10px rgba(99, 102, 241, 0.2);
 }
 
 .mic-circle.pulse { 
@@ -172,24 +183,10 @@
 
 .primary { 
   @include button-primary;
-  padding: $spacing-lg $spacing-2xl;
 }
 
 .secondary { 
-  background: #fff; 
-  color: $gray-700; 
-  border: 2px solid $gray-300; 
-  padding: $spacing-lg $spacing-2xl; 
-  border-radius: $radius-md; 
-  cursor: pointer; 
-  font-weight: $font-weight-semibold; 
-  font-size: $font-size-md; 
-  transition: all $transition-base; 
-  
-  &:hover { 
-    background: $gray-100; 
-    border-color: $gray-400; 
-  }
+  @include button-secondary;
 }
 
 .foot { 
@@ -224,4 +221,28 @@
   font-weight: $font-weight-medium;
   font-size: $font-size-xs;
   @include fade-in;
+}
+
+@media (max-width: 900px) {
+  .page-container {
+    padding: 6px 18px 24px;
+  }
+
+  .title {
+    font-size: 30px;
+  }
+
+  .subtitle {
+    font-size: 16px;
+  }
+
+  .panel {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .mic-box {
+    width: 100%;
+    height: 150px;
+  }
 }

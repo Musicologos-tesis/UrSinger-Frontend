@@ -4,7 +4,7 @@
       class="step" 
       [class.active]="isActive(step.id)"
     >
-      <span class="step-label">● {{ step.label }}</span>
+      <span class="step-label">{{ step.label }}</span>
       <span class="step-info" tabindex="0" role="button" aria-label="Información de {{ step.label }}">
         <span class="step-info-icon" aria-hidden="true">i</span>
         <span class="step-tooltip" role="tooltip">{{ step.info }}</span>

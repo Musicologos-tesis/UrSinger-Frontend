@@ -19,9 +19,15 @@
   </div>
 
 <!-- 🔴 Bloque de error -->
-<div class="alert" *ngIf="errorMessage() as error">
-  {{ error }}
-</div>
+@if (errorMessage(); as error) {
+  <app-flashcard
+    tone="error"
+    title="No se pudo completar la prueba"
+    [message]="error"
+    [floating]="true"
+    [autoMinimizeMs]="4000"
+  ></app-flashcard>
+}
 
 <!-- Panel principal -->
 <div class="panel">
@@ -61,7 +67,7 @@
         </p>
       </div>
 
-      <button class="btn-start-exercise" (click)="startTest()">
+      <button class="primary" (click)="startTest()">
         ▶ Comenzar prueba de estabilidad
       </button>
     }

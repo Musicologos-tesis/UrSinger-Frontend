@@ -1,0 +1,78 @@
+.phase-container {
+  margin-bottom: 24px;
+  padding: 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f9fafb;
+}
+
+.phase-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.phase-label {
+  font-weight: 600;
+  color: #374151;
+}
+
+.status-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+}
+
+.status-indicator.pending { background: #fef3c7; }
+.status-indicator.valid { background: #d1fae5; }
+
+.instruction {
+  font-size: 14px;
+  color: #6b7280;
+  margin: 10px 0;
+}
+
+.result-message {
+  font-weight: 600;
+  padding: 12px;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.result-message.error { background: #fef3c7; color: #92400e; }
+.result-message.success { background: #d1fae5; color: #065f46; }
+
+.timeout-indicator {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  background: #fef3c7;
+  border: 1px solid #fbbf24;
+  border-radius: 8px;
+  margin: 12px 0;
+}
+
+.timeout-label { font-weight: 600; color: #92400e; }
+.timeout-value { font-weight: 700; color: #b45309; }
+
+.btn-start-exercise {
+  width: 100%;
+  padding: 14px 24px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 16px;
+}
+
+.btn-start-exercise.success {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}

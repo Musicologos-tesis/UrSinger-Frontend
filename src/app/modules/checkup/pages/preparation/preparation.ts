@@ -5,10 +5,11 @@ import { FormsModule } from '@angular/forms';
 import { StepperComponent } from '../../../../shared/components/stepper/stepper.component';
 import { AuthHeaderComponent } from '../../../auth/components/auth-header/auth-header.component';
 import { AuthService } from '../../../../services/auth.service';
+import { FlashcardComponent } from '../../../../shared/components/flashcard/flashcard.component';
 
 @Component({
   selector: 'app-preparation',
-  imports: [StepperComponent, AuthHeaderComponent],
+  imports: [StepperComponent, AuthHeaderComponent, FlashcardComponent],
   templateUrl: './preparation.html',
   styleUrl: './preparation.scss',
 })

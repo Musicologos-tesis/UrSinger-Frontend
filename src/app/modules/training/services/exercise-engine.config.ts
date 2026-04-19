@@ -97,8 +97,24 @@ export const LEVEL_CONFIGS = {
     },
   },
   's-z-balance': {
-    1: { durationSec: 6, minSamplesPerPhase: 20, minAirRmsDb: -58, maxSPhaseConfidence: 0.12 },
-    2: { durationSec: 10, minSamplesPerPhase: 35, minAirRmsDb: -60, maxSPhaseConfidence: 0.1 },
+    1: {
+      durationSec: 30,
+      minSamples: 25,
+      minAirRmsDb: -58,
+      maxSPhaseConfidence: 0.12,
+      minSPhaseDurationMs: 1000,
+      phaseSilenceMs: 450,
+      maxDurationDiffMs: 3000,
+    },
+    2: {
+      durationSec: 30,
+      minSamples: 35,
+      minAirRmsDb: -60,
+      maxSPhaseConfidence: 0.1,
+      minSPhaseDurationMs: 1200,
+      phaseSilenceMs: 450,
+      maxDurationDiffMs: 1000,
+    },
   },
   'dynamic-wave': {
     1: { durationSec: 3, minSamples: 20, rmsAnchorFrames: 5, rmsRiseMinDb: 4, rmsReturnToleranceDb: 2.8 },

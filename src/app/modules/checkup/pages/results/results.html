@@ -83,9 +83,9 @@
       <div *ngIf="trainingPlan && !isLoadingPlan && !planError" class="plan-content">
         <!-- Plan header -->
         <div class="plan-header">
-          <div *ngIf="trainingPlan.focusGroups && trainingPlan.focusGroups.length > 0" class="focus-groups">
+          <div *ngIf="weaknessGroupsForDisplay.length > 0" class="focus-groups">
             <span class="focus-label">Grupos con carencia:</span>
-            <span *ngFor="let group of trainingPlan.focusGroups" class="focus-badge-header">{{ group }}</span>
+            <span *ngFor="let group of weaknessGroupsForDisplay" class="focus-badge-header">{{ getFocusGroupBadge(group) }}</span>
           </div>
           <div class="plan-dates">
             {{ formatDate(trainingPlan.startDate) }} - {{ formatDate(trainingPlan.endDate) }}

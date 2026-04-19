@@ -1,0 +1,16 @@
+<div class="validation-checks">
+  <div class="check-item" [class.valid]="primaryOk">
+    <span class="check-icon">{{ primaryOk ? '✓' : '○' }}</span>
+    <span class="check-label">{{ primaryLabel }}</span>
+  </div>
+
+  <div class="check-item" [class.valid]="voiceDetected">
+    <span class="check-icon">{{ voiceDetected ? '✓' : '○' }}</span>
+    <span class="check-label">Voz detectada</span>
+  </div>
+
+  <div class="check-item" [class.valid]="completionOk">
+    <span class="check-icon">{{ completionOk ? '✓' : '○' }}</span>
+    <span class="check-label">{{ completionLabel }}</span>
+  </div>
+</div>

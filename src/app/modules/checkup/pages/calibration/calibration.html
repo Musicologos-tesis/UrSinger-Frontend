@@ -12,17 +12,19 @@
   <h1 class="title">Calibración</h1>
 
   <!-- Estado: Inicio de calibración -->
-  @if (state() === CalibState.Idle) {
+  @if (state() === CalibState.Idle || state() === CalibState.Error) {
     <p class="subtitle">Listo para iniciar la calibración del micrófono.</p>
   }
 
 <!-- Estado: Error -->
 @if (state() === CalibState.Error) {
-  <div class="error-banner">
-    <p>⚠️ No se pudo completar la calibración.</p>
-    <p><small>{{ errorMessage() }}</small></p>
-    <p><small>Por favor, reintenta.</small></p>
-  </div>
+  <app-flashcard
+    tone="error"
+    [title]="calibrationErrorTitle()"
+    [message]="calibrationErrorMessage()"
+    [floating]="true"
+    [autoMinimizeMs]="4000"
+  ></app-flashcard>
 }
 
 <!-- Estado: Completado -->
@@ -43,7 +45,7 @@
 
   <div class="right">
     <!-- INICIO: Mensaje previo a la calibración -->
-    @if (state() === CalibState.Idle) {
+    @if (state() === CalibState.Idle || state() === CalibState.Error) {
       <div class="phase-container">
         <p class="instruction">
           Empezaremos la calibración de tu micrófono, para ello, por favor presione el botón "Calibrar".
@@ -164,7 +166,7 @@
       <!-- Después de los 15 segundos -->
       @if (inputStatus() === ValidationStatus.Valid) {
         <button class="primary" (click)="onConfirmInput()">
-          Micrófono listo
+          Continuar con el rango vocal
         </button>
       } @else {
         <button class="secondary" (click)="onConfirmInput()">
@@ -189,7 +191,7 @@
   }
 </div>
 
-@if (state() === CalibState.Idle) {
+@if (state() === CalibState.Idle || state() === CalibState.Error) {
   <p class="foot">Este proceso toma solo unos segundos.</p>
 }
 

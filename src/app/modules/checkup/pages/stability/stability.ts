@@ -12,13 +12,14 @@ import { MetricsService } from '../../services/metrics.service';
 import { AuthService } from '../../../../services/auth.service';
 import { StepperComponent } from '../../../../shared/components/stepper/stepper.component';
 import { AuthHeaderComponent } from '../../../auth/components/auth-header/auth-header.component';
+import { FlashcardComponent } from '../../../../shared/components/flashcard/flashcard.component';
 
 type UiState = 'intro' | 'recording' | 'done';
 
 @Component({
   selector: 'app-stability',
   standalone: true,
-  imports: [CommonModule, StepperComponent, AuthHeaderComponent],
+  imports: [CommonModule, StepperComponent, AuthHeaderComponent, FlashcardComponent],
   templateUrl: './stability.html',
   styleUrl: './stability.scss',
 })
@@ -101,7 +102,7 @@ export class StabilityComponent implements OnInit, OnDestroy {
       }
 
       // Iniciar captura en el service
-      await this.stabilityService.start(analyser, 10);
+      await this.stabilityService.start(analyser, 10, this.targetMidi());
 
       // Iniciar contador visual
       this.startTimer();
@@ -228,8 +229,9 @@ export class StabilityComponent implements OnInit, OnDestroy {
       this.router.navigate(['/checkup/results']);
     } catch (error: any) {
       console.error('[Stability] Error al enviar métricas:', error);
+      const detail = error?.error?.message || error?.message || 'Error desconocido';
       // Preguntar al usuario si desea continuar a resultados sin enviar
-      const continuar = confirm('No se pudieron enviar las métricas al servidor. ¿Deseas continuar a resultados de todas formas?');
+      const continuar = confirm(`No se pudieron enviar las métricas al servidor.\n\nDetalle: ${detail}\n\n¿Deseas continuar a resultados de todas formas?`);
       if (continuar) {
         this.router.navigate(['/checkup/results']);
       }

@@ -1,8 +1,11 @@
+@use '../../../../shared/styles/variables' as *;
+
 .auth-header {
-  background: #E0E0E0;
-  border-bottom: 1px solid #BDBDBD;
-  padding: 16px 0;
-  margin-bottom: 12px;
+  background: linear-gradient(165deg, #4c1d95 0%, #1e40af 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+  padding: 10px 0;
+  margin-bottom: 10px;
+  backdrop-filter: blur(6px);
 }
 
 .header-content {
@@ -17,7 +20,7 @@
 .logo-section {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .logo-icon {
@@ -28,16 +31,16 @@
 
 .brand-name {
   font-family: 'Inter', sans-serif;
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 600;
-  color: #000;
+  color: #ffffff;
 }
 
 .page-title {
   font-family: 'Inter', sans-serif;
-  font-size: 24px;
-  font-weight: 600;
-  color: #828282;
+  font-size: 16px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.88);
 }
 
 /* Navigation */
@@ -47,41 +50,63 @@
 }
 
 .nav-btn {
-  padding: 8px 20px;
-  border: 1px solid #828282;
-  background: transparent;
-  color: #828282;
-  font-size: 20px;
+  padding: 8px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  font-size: 15px;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .nav-btn:hover {
-  background: #d1d5db;
-  color: #111827;
-  border-color: #111827;
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.4);
 }
 
 .nav-btn--active {
-  background: #6366f1;
-  color: #ffffff;
-  border-color: #6366f1;
+  background: #ffffff;
+  color: #312e81;
+  border-color: #ffffff;
 }
 
 .nav-btn--active:hover {
-  background: #4f46e5;
-  border-color: #4f46e5;
+  background: #eef2ff;
+  border-color: #eef2ff;
 }
 
 .nav-btn--logout {
-  background: #ef4444;
+  background: rgba(239, 68, 68, 0.92);
   color: #ffffff;
-  border-color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.95);
 }
 
 .nav-btn--logout:hover {
   background: #dc2626;
   border-color: #dc2626;
+}
+
+@media (max-width: 900px) {
+  .header-content {
+    padding: 0 18px;
+    gap: 10px;
+  }
+
+  .brand-name,
+  .page-title {
+    font-size: 18px;
+  }
+
+  .main-nav {
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .nav-btn {
+    font-size: 13px;
+    padding: 7px 10px;
+  }
 }

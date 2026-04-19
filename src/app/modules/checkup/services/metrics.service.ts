@@ -77,11 +77,36 @@ export interface FullMetrics {
   createdAt: string;
 }
 
+export interface WeaknessGroupMetric {
+  achievement_pct: number;
+  is_weak: boolean;
+  missing_to_clear_pct: number;
+  score: number;
+  threshold: number;
+}
+
+export interface EvaluateWeaknessAnalysis {
+  groups: string[];
+  total: number;
+  message: string;
+  confidence: Record<string, number>;
+  groupMetrics: Record<string, WeaknessGroupMetric>;
+}
+
+export interface EvaluateMetricsResponse {
+  success: boolean;
+  sessionId: string;
+  profileId: string;
+  weaknessAnalysis: EvaluateWeaknessAnalysis;
+  createdAt: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class MetricsService {
   private http = inject(HttpClient);
   
   private readonly STORAGE_KEY = 'ursinger.metrics.partial';
+  private readonly EVALUATE_RESULT_KEY = 'ursinger.metrics.evaluateResult';
 
   /**
    * Guarda métricas parciales en localStorage
@@ -107,6 +132,7 @@ export class MetricsService {
     } else if (source === 'stability') {
       // Métrica exclusiva de estabilidad
       if (metrics.stabilityCents !== undefined) stored.stabilityCents = metrics.stabilityCents;
+      if (metrics.attackLatencyMs !== undefined) stored.attackLatencyMs = metrics.attackLatencyMs;
       
       // Métricas compartidas (pueden promediar con las de rango)
       if (metrics.meanRmsDb !== undefined) {
@@ -126,9 +152,8 @@ export class MetricsService {
           : metrics.dynamicRangeDb;
       }
       if (metrics.durationSec !== undefined) {
-        stored.durationSec = stored.durationSec !== undefined
-          ? (stored.durationSec + metrics.durationSec) / 2
-          : metrics.durationSec;
+        // durationSec debe venir SOLO desde estabilidad
+        stored.durationSec = metrics.durationSec;
       }
     }
     
@@ -175,7 +200,7 @@ export class MetricsService {
   /**
    * Envía todas las métricas combinadas a /metrics/evaluate
    */
-  async evaluateMetrics(): Promise<any> {
+  async evaluateMetrics(): Promise<EvaluateMetricsResponse> {
     const profileId = localStorage.getItem('profile_id');
     const sessionId = localStorage.getItem('ursinger.checkup.sessionId');
     const userData = localStorage.getItem('user_data');
@@ -200,21 +225,44 @@ export class MetricsService {
     // Obtener métricas parciales guardadas
     const partial = this.getStoredMetrics();
 
-    // TEMPORAL: Comentar métricas reales y usar datos hardcodeados para testing
+    const meanRmsDb = this.requireFiniteMetric(partial.meanRmsDb, 'meanRmsDb');
+    const rmsConsistency = this.requireFiniteMetric(partial.rmsConsistency, 'rmsConsistency');
+    const dynamicRangeDb = this.requireFiniteMetric(partial.dynamicRangeDb, 'dynamicRangeDb');
+    const durationSec = this.requireFiniteMetric(partial.durationSec, 'durationSec');
+    const precisionCents = this.requireFiniteMetric(partial.precisionCents, 'precisionCents');
+    const stabilityCents = this.requireFiniteMetric(partial.stabilityCents, 'stabilityCents');
+    const rangeMinMidi = this.requireFiniteMetric(partial.rangeMinMidi, 'rangeMinMidi');
+    const rangeMaxMidi = this.requireFiniteMetric(partial.rangeMaxMidi, 'rangeMaxMidi');
+    const rangeSpanSemitones = this.requireFiniteMetric(partial.rangeSpanSemitones, 'rangeSpanSemitones');
+    const attackLatencyMs = this.requireFiniteMetric(partial.attackLatencyMs, 'attackLatencyMs');
+
+    // Validaciones de contrato para evitar 500 en backend SIN alterar la inferencia.
+    if (durationSec > 10 || durationSec < 0) {
+      throw new Error('durationSec fuera de rango. Debe estar entre 0 y 10 segundos.');
+    }
+
+    if (rangeMinMidi > rangeMaxMidi) {
+      throw new Error('rangeMinMidi no puede ser mayor que rangeMaxMidi.');
+    }
+
+    if (rangeSpanSemitones <= 0) {
+      throw new Error('rangeSpanSemitones debe ser mayor que 0.');
+    }
+
     const payload: EvaluateMetricsPayload = {
        profileId,
        sessionId,
        gender,
-       meanRmsDb: partial.meanRmsDb ?? -25.5,
-       rmsConsistency: partial.rmsConsistency ?? 0.8,
-       dynamicRangeDb: partial.dynamicRangeDb ?? 18.2,
-       durationSec: partial.durationSec ?? 4.5,
-       precisionCents: partial.precisionCents ?? 12.5,
-       stabilityCents: partial.stabilityCents ?? 8.3,
-       rangeMinMidi: partial.rangeMinMidi ?? 48,
-       rangeMaxMidi: partial.rangeMaxMidi ?? 72,
-       rangeSpanSemitones: partial.rangeSpanSemitones ?? 24,
-       attackLatencyMs: partial.attackLatencyMs ?? 150
+       meanRmsDb,
+       rmsConsistency,
+       dynamicRangeDb,
+       durationSec,
+       precisionCents,
+       stabilityCents,
+       rangeMinMidi,
+       rangeMaxMidi,
+       rangeSpanSemitones,
+       attackLatencyMs
      };
 
     // HARDCODEADO para testing
@@ -246,14 +294,24 @@ export class MetricsService {
         `${environment.API_BASE_URL}/metrics/evaluate`,
         payload
       )
-    );
+    ) as EvaluateMetricsResponse;
     
     console.log('[MetricsService] ✅ Respuesta recibida:', response);
+
+    localStorage.setItem(this.EVALUATE_RESULT_KEY, JSON.stringify(response));
 
     // Limpiar métricas parciales después de enviar
     this.clearPartialMetrics();
 
     return response;
+  }
+
+  private requireFiniteMetric(value: number | undefined, key: keyof EvaluateMetricsPayload): number {
+    if (!Number.isFinite(value)) {
+      throw new Error(`Métrica inválida o faltante: ${key}. Repite la evaluación inicial.`);
+    }
+
+    return value as number;
   }
 
   /**
@@ -284,6 +342,23 @@ export class MetricsService {
    */
   clearPartialMetrics(): void {
     localStorage.removeItem(this.STORAGE_KEY);
+  }
+
+  getEvaluateResult(): EvaluateMetricsResponse | null {
+    const raw = localStorage.getItem(this.EVALUATE_RESULT_KEY);
+    if (!raw) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(raw) as EvaluateMetricsResponse;
+    } catch {
+      return null;
+    }
+  }
+
+  clearEvaluateResult(): void {
+    localStorage.removeItem(this.EVALUATE_RESULT_KEY);
   }
 
   /**

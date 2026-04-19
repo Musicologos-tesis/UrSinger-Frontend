@@ -82,6 +82,12 @@ export class ExerciseEngineService {
       szPhase: 's',
       szSamplesS: 0,
       szSamplesZ: 0,
+      szSPhaseStartMs: null,
+      szSPhaseLastAirMs: null,
+      szSPhaseDurationMs: 0,
+      szZPhaseStartMs: null,
+      szZPhaseDurationMs: 0,
+      szDurationDiffMs: null,
       dynamicPhase: 'rise',
       dynamicAnchorDb: null,
       dynamicAnchorFrameCount: 0,
@@ -149,7 +155,8 @@ export class ExerciseEngineService {
       return `Nota y potencia estables (±${definition.rules.pitchToleranceCents} cents, ±${definition.rules.rmsStabilityToleranceDb} dB)`;
     }
     if (definition.kind === 's-z-balance') {
-      return 'Fase correcta (S/Z)';
+      const diffSec = Math.round(definition.rules.maxDurationDiffMs / 1000);
+      return `Duración Z similar a S (±${diffSec}s)`;
     }
     if (definition.kind === 'dynamic-wave') {
       return 'Control dinámico suave→fuerte→suave';
@@ -186,7 +193,10 @@ export class ExerciseEngineService {
     if (definition.kind === 's-z-balance') {
       const phase = runtime?.szPhase ?? 's';
       if (phase === 's') return 'Fase S: emite "ssss" (aire sin voz)';
-      if (phase === 'z') return 'Fase Z: emite "zzzz" (aire con voz)';
+      if (phase === 'z') {
+        const sSec = runtime ? Math.max(0, runtime.szSPhaseDurationMs / 1000) : 0;
+        return `Fase Z: ahora emite con voz durante ~${sSec.toFixed(1)}s`;
+      }
       return '¡Fases S y Z completadas!';
     }
     if (definition.kind === 'dynamic-wave') {

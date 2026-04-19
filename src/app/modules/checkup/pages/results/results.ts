@@ -4,7 +4,7 @@ import { Router } from '@angular/router';
 import { VocalRangeService, RangeMetrics } from '../../services/vocal-range.service';
 import { StabilityService, StabilityMetrics } from '../../services/stability.service';
 import { AudioPitchService } from '../../services/audio-pitch.service';
-import { MetricsService, FullMetrics } from '../../services/metrics.service';
+import { MetricsService, FullMetrics, EvaluateMetricsResponse } from '../../services/metrics.service';
 import { AuthService } from '../../../../services/auth.service';
 import { StepperComponent } from '../../../../shared/components/stepper/stepper.component';
 import { AuthHeaderComponent } from '../../../auth/components/auth-header/auth-header.component';
@@ -33,6 +33,11 @@ interface TrainingPlan {
   instructions: string;
 }
 
+interface WeaknessGroupDisplay {
+  code: string;
+  label: string;
+}
+
 @Component({
   selector: 'app-checkup-results',
   standalone: true,
@@ -59,10 +64,21 @@ export class CheckupResultsComponent implements OnInit {
   hasActivePlan = false;
   
   fullMetrics: FullMetrics | null = null;
+  evaluateResult: EvaluateMetricsResponse | null = null;
+
+  private readonly groupCodeLabels: Record<string, string> = {
+    G1: 'Soporte respiratorio y control del aire',
+    G2: 'Afinación y oído tonal',
+    G3: 'Estabilidad y vibrato controlado',
+    G4: 'Potencia y control dinámico',
+    G5: 'Rango y flexibilidad vocal',
+  };
 
   checkupCompleted = false;
 
   async ngOnInit(): Promise<void> {
+    this.evaluateResult = this.metricsService.getEvaluateResult();
+
     // Verificar si tiene plan activo
     const profileId = localStorage.getItem('profile_id');
     if (profileId) {
@@ -187,6 +203,74 @@ export class CheckupResultsComponent implements OnInit {
     return Math.max(0, Math.min(100, Math.round(raw)));
   }
 
+  get weaknessGroupsForDisplay(): WeaknessGroupDisplay[] {
+    const evaluateGroups = this.evaluateResult?.weaknessAnalysis?.groups;
+    if (evaluateGroups?.length) {
+      return evaluateGroups.map(code => ({
+        code,
+        label: this.groupCodeLabels[code] ?? code,
+      }));
+    }
+
+    return (this.trainingPlan?.focusGroups ?? []).map(label => {
+      const inferredCode = this.extractGroupCode(label) || this.findCodeByLabel(label) || label;
+      return {
+        code: inferredCode,
+        label,
+      };
+    });
+  }
+
+  getFocusGroupBadge(group: WeaknessGroupDisplay): string {
+    const metric = this.getWeaknessMetricForGroup(group.code);
+    if (!metric) {
+      return group.label;
+    }
+
+    const achievement = Math.max(0, Math.min(100, metric.achievement_pct));
+    const missing = Math.max(0, Math.min(100, metric.missing_to_clear_pct));
+    return `${group.label} · logrado ${achievement.toFixed(2)}% (faltó ${missing.toFixed(2)}%)`;
+  }
+
+  private getWeaknessMetricForGroup(group: string) {
+    const groupMetrics = this.evaluateResult?.weaknessAnalysis?.groupMetrics;
+    if (!groupMetrics) {
+      return null;
+    }
+
+    if (groupMetrics[group]) {
+      return groupMetrics[group];
+    }
+
+    const extractedCode = this.extractGroupCode(group);
+    if (extractedCode && groupMetrics[extractedCode]) {
+      return groupMetrics[extractedCode];
+    }
+
+    return null;
+  }
+
+  private extractGroupCode(label: string): string | null {
+    const match = label.toUpperCase().match(/\bG\d+\b/);
+    return match ? match[0] : null;
+  }
+
+  private findCodeByLabel(label: string): string | null {
+    const normalizedTarget = this.normalizeLabel(label);
+    const entry = Object.entries(this.groupCodeLabels).find(([, name]) => this.normalizeLabel(name) === normalizedTarget);
+    return entry ? entry[0] : null;
+  }
+
+  private normalizeLabel(value: string): string {
+    return value
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
   goToTraining(): void {
     this.router.navigate(['/training/dashboard']);
   }
@@ -207,6 +291,7 @@ export class CheckupResultsComponent implements OnInit {
   finishCheckup() {
     localStorage.removeItem('ursinger.checkup.sessionId');
     localStorage.removeItem('ursinger.metrics.partial');
+    this.metricsService.clearEvaluateResult();
     console.log('[Results] Checkup finalizado - SessionId y métricas limpiadas');
     this.router.navigate(['/training/dashboard']);
   }

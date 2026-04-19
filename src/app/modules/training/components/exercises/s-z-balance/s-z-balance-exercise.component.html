@@ -1,0 +1,76 @@
+<div class="phase-container">
+  @if (state === 'idle' || state === 'practicing') {
+    <div class="phase-header">
+      <span class="phase-label">
+        @if (state === 'idle') { Prepárate para empezar el desafío }
+        @if (state === 'practicing') { {{ practicePrompt }} }
+      </span>
+      @if (state === 'idle' || (state === 'practicing' && !completionMet)) {
+        <span class="status-indicator pending">⏳</span>
+      }
+      @if (state === 'practicing' && completionMet) {
+        <span class="status-indicator valid">✓</span>
+      }
+    </div>
+  }
+
+  @if (state === 'idle') {
+    <p class="instruction">Presiona "Empezar" para iniciar fase S y luego fase Z.</p>
+  }
+
+  @if (state === 'practicing') {
+    <p class="instruction">Completa las fases S y Z para cerrar el ejercicio</p>
+    <p class="instruction">
+      @if (!completionMet && !hasRecordedS) {
+        Fase S: emite "ssss" todo el tiempo que puedas y suelta para cerrar la fase.
+      } @else if (!completionMet) {
+        Fase Z: ahora emite con voz por ~{{ recordedDurationSec.toFixed(1) }}s.
+        Actual: {{ currentZDurationSec.toFixed(1) }}s.
+      } @else {
+        ¡Duraciones S y Z equilibradas!
+      }
+    </p>
+  }
+
+  @if (state === 'retry') {
+    <p class="instruction result-message error">No se logró equilibrar la duración. Reintenta.</p>
+  }
+
+  @if (state === 'success') {
+    <p class="instruction result-message success">¡Excelente! Balance S-Z completado.</p>
+  }
+
+  @if (state === 'practicing') {
+    <div class="timeout-indicator">
+      <span class="timeout-label">Tiempo restante:</span>
+      <span class="timeout-value">{{ remainingSeconds }}s</span>
+    </div>
+
+    <app-live-indicators
+      [currentNote]="currentNote"
+      [currentConfidence]="currentConfidence"
+    />
+
+    <app-validation-checks
+      [primaryOk]="primaryOk"
+      [voiceDetected]="voiceDetected"
+      [primaryLabel]="primaryCheckLabel"
+      [completionOk]="completionMet"
+      [completionLabel]="completionLabel"
+    />
+
+    @if (primaryOk && voiceDetected && edgeConfidenceOk) {
+      <app-progress-meter [progressPercent]="progressPercent" />
+    }
+  }
+
+  @if (state === 'idle') {
+    <button class="btn-start-exercise" (click)="start.emit()">▶ Empezar</button>
+  }
+  @if (state === 'retry') {
+    <button class="btn-start-exercise" (click)="retry.emit()">🔄 Reintentar</button>
+  }
+  @if (state === 'success') {
+    <button class="btn-start-exercise success" (click)="finish.emit()">▶ Finalizar</button>
+  }
+</div>
