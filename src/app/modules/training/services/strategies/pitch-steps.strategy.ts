@@ -14,6 +14,7 @@ import { ExerciseStrategy } from '../exercise-engine.strategy';
 
 export class PitchStepsStrategy implements ExerciseStrategy {
   readonly kind = 'pitch-steps' as const;
+  private readonly MAX_BRIEF_DROP_MS = 220;
 
   constructor(
     private readonly voiceDetection: VoiceDetectionService,
@@ -33,8 +34,10 @@ export class PitchStepsStrategy implements ExerciseStrategy {
       endFrequencyHz: this.pitchService.midiToFrequency(endMidi),
       intervalSemitones: levelConfig.intervalSemitones,
       toleranceCents: levelConfig.toleranceCents,
+      noteHoldMs: levelConfig.noteHoldSec * 1000,
+      requiredRepetitions: levelConfig.requiredRepetitions,
       minSamplesPerStep: levelConfig.minSamplesPerStep,
-      minSamples: levelConfig.minSamplesPerStep * 2,
+      minSamples: levelConfig.minSamplesPerStep * 2 * levelConfig.requiredRepetitions,
       minVoiceRmsDb: profile?.avgMinRmsDb ?? -60,
       minFrequencyHz: VOICE_FILTER_DEFAULTS.minFrequencyHz,
       maxFrequencyHz: VOICE_FILTER_DEFAULTS.maxFrequencyHz,
@@ -89,11 +92,37 @@ export class PitchStepsStrategy implements ExerciseStrategy {
 
     if (isValidFrame && runtime.currentStepIndex <= 1) {
       runtime.stepValidFrames[runtime.currentStepIndex]++;
-      if (
-        runtime.currentStepIndex === 0 &&
-        runtime.stepValidFrames[0] >= rules.minSamplesPerStep
-      ) {
-        runtime.currentStepIndex = 1;
+
+      if (runtime.pitchStepsLastValidMs === null) {
+        runtime.pitchStepsLastValidMs = frame.timestamp;
+      } else {
+        const deltaMs = Math.max(0, frame.timestamp - runtime.pitchStepsLastValidMs);
+        runtime.pitchStepsCurrentHoldMs += deltaMs;
+        runtime.pitchStepsLastValidMs = frame.timestamp;
+      }
+
+      if (runtime.pitchStepsCurrentHoldMs >= rules.noteHoldMs) {
+        if (runtime.currentStepIndex === 0) {
+          runtime.currentStepIndex = 1;
+        } else {
+          runtime.pitchStepsRepetitions += 1;
+          runtime.currentStepIndex = 0;
+        }
+
+        runtime.pitchStepsCurrentHoldMs = 0;
+        runtime.pitchStepsLastValidMs = null;
+      }
+    } else {
+      if (runtime.pitchStepsLastValidMs === null) {
+        runtime.pitchStepsCurrentHoldMs = 0;
+      } else {
+        const invalidGapMs = Math.max(0, frame.timestamp - runtime.pitchStepsLastValidMs);
+        if (invalidGapMs > this.MAX_BRIEF_DROP_MS) {
+          runtime.pitchStepsCurrentHoldMs = 0;
+          runtime.pitchStepsLastValidMs = null;
+        } else {
+          runtime.pitchStepsLastValidMs = frame.timestamp;
+        }
       }
     }
 
@@ -107,13 +136,16 @@ export class PitchStepsStrategy implements ExerciseStrategy {
     };
   }
 
-  buildResult(validFrames: number, definition: ExerciseDefinition): ExerciseResult {
+  buildResult(validFrames: number, definition: ExerciseDefinition, runtime?: ExerciseRuntimeState): ExerciseResult {
     const rules = definition.rules as PitchStepsRules;
     const requiredFrames = rules.minSamples;
-    const completionRatio = requiredFrames > 0 ? Math.min(1, validFrames / requiredFrames) : 0;
+    const repetitions = runtime?.pitchStepsRepetitions ?? 0;
+    const completionRatio = rules.requiredRepetitions > 0
+      ? Math.min(1, repetitions / rules.requiredRepetitions)
+      : 0;
 
     return {
-      passed: validFrames >= requiredFrames,
+      passed: repetitions >= rules.requiredRepetitions,
       validFrames,
       requiredFrames,
       completionRatio,

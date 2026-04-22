@@ -17,7 +17,7 @@
   @if (state === 'idle') {
     <p class="instruction">
       @if (showTargetReference) {
-        Presiona "Empezar" cuando estés listo para cantar {{ targetNote }}
+        Presiona "Empezar" cuando estés listo para cantar {{ targetReferenceLabel || targetNote }}
       } @else {
         Presiona "Empezar" cuando estés listo para sostener una nota cómoda
       }
@@ -40,7 +40,7 @@
     <div class="target-note-display">
       <div class="target-label">NOTA OBJETIVO:</div>
       <div class="target-note">{{ targetReferenceLabel || targetNote }}</div>
-      @if (state === 'idle') {
+      @if (state === 'idle' || state === 'practicing') {
         <button class="play-note-btn" (click)="playNote.emit()">🔊 Reproducir nota</button>
       }
     </div>

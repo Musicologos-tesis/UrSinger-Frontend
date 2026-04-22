@@ -7,10 +7,11 @@ import { AuthService } from '../../../../services/auth.service';
 import { AudioAnalyzerService } from '../../../checkup/services/audio.analyzer.service';
 import { AudioPitchService } from '../../../checkup/services/audio-pitch.service';
 import { ExerciseEngineService } from '../../services/exercise-engine.service';
-import { BreathFlowHoldRules, ExerciseDefinition, ExerciseFrameChecks, ExerciseRuntimeState } from '../../services/exercise-engine.models';
+import { BreathFlowHoldRules, DynamicWaveRules, ExerciseDefinition, ExerciseFrameChecks, ExerciseRuntimeState, PitchGlideRules, PitchStepsRules, PitchTargetRules } from '../../services/exercise-engine.models';
 import { ExerciseRendererComponent } from '../../components/exercises/exercise-renderer/exercise-renderer.component';
 
 type PracticeState = 'idle' | 'practicing' | 'success' | 'retry';
+type SZFlowPhase = 'instructions' | 'countdown-s' | 'timing-s' | 'phase2-ready' | 'holding-z';
 
 @Component({
   selector: 'app-practice',
@@ -52,9 +53,14 @@ export class PracticeComponent implements OnInit, OnDestroy {
     primaryOk: false,
   });
   breathHoldProgressPercent = signal(0);
+  szFlowPhase = signal<SZFlowPhase>('instructions');
+  szCountdown = signal<number>(3);
   
   private timerId: any = null;
   private animationFrameId: any = null;
+  private szCountdownTimerId: any = null;
+  private szSMeasureTimerId: any = null;
+  private szSMeasureStartMs: number = 0;
   samples: number[] = []; // Público para el template
   private planExerciseId: string = '';
   private definition?: ExerciseDefinition;
@@ -122,14 +128,14 @@ export class PracticeComponent implements OnInit, OnDestroy {
       'dynamic-wave': {
         exerciseName: 'Dynamic Wave',
         groupName: 'Soporte respiratorio y control del aire',
-        description: 'Control dinámico suave→fuerte→suave',
-        instructions: 'Canta una vocal, sube ligeramente volumen y vuelve al volumen inicial.',
+        description: 'Patrón dinámico suave→fuerte→suave en una misma nota',
+        instructions: 'Mantén una nota y completa 3 repeticiones del patrón suave→fuerte→suave en máximo 1 minuto.',
       },
       'pitch-target': {
         exerciseName: 'Pitch Target',
         groupName: 'Afinación y oído tonal',
-        description: 'Coincidir la nota emitida con una referencia',
-        instructions: 'Escucha la nota guía y cántala intentando igualarla.',
+        description: 'Coincidir y sostener la nota objetivo en repeticiones',
+        instructions: 'Mantén la nota objetivo durante 3 segundos y completa 3 repeticiones.',
       },
       'pitch-steps': {
         exerciseName: 'Pitch Steps',
@@ -140,8 +146,8 @@ export class PracticeComponent implements OnInit, OnDestroy {
       'pitch-glide': {
         exerciseName: 'Pitch Glide',
         groupName: 'Afinación y oído tonal',
-        description: 'Deslizamientos suaves sin saltos bruscos',
-        instructions: 'Desliza la voz de grave a agudo y regresa de forma continua.',
+        description: 'Barrido controlado entre dos notas objetivo',
+        instructions: 'Completa 3 repeticiones: desliza de Nota 1 a Nota 2 y regresa a Nota 1 en máximo 1 minuto.',
       },
       'steady-tone': {
         exerciseName: 'Steady Tone',
@@ -245,6 +251,8 @@ export class PracticeComponent implements OnInit, OnDestroy {
     // Para Pitch Steps, reservamos espacio hacia arriba para el intervalo del nivel.
     const exerciseName = (exercise?.exerciseName ?? '').toLowerCase();
     const isBreathFlowHold = exerciseName.includes('breath flow hold');
+    const isPitchTarget = exerciseName.includes('pitch target');
+    const isDynamicWave = exerciseName.includes('dynamic wave');
     const isPitchSteps = exerciseName.includes('pitch steps');
     const isStepExpansion = exerciseName.includes('step expansion');
     const isMixCoordination = exerciseName.includes('mix coordination');
@@ -272,6 +280,31 @@ export class PracticeComponent implements OnInit, OnDestroy {
       const clamped = Math.max(safeMin, Math.min(maxMidi - margin, targetMidi));
       this.targetMidi.set(clamped);
       this.targetNote.set(this.pitchService.midiToNoteName(clamped));
+      this.applyIdleTargetPreview();
+      return;
+    }
+
+    if (isDynamicWave) {
+      const level = exercise?.level ?? 1;
+      const comfortableMidi = Math.round((minMidi + maxMidi) / 2);
+      const highMidi = Math.max(safeMin, maxMidi - 1);
+      const targetMidi = level >= 2 ? highMidi : comfortableMidi;
+      const clamped = Math.max(safeMin, Math.min(maxMidi - margin, targetMidi));
+      this.targetMidi.set(clamped);
+      this.targetNote.set(this.pitchService.midiToNoteName(clamped));
+      this.applyIdleTargetPreview();
+      return;
+    }
+
+    if (isPitchTarget) {
+      const level = exercise?.level ?? 1;
+      const comfortableMidi = Math.round((minMidi + maxMidi) / 2);
+      const highMidi = Math.max(safeMin, maxMidi - 1);
+      const targetMidi = level >= 2 ? highMidi : comfortableMidi;
+      const clamped = Math.max(safeMin, Math.min(maxMidi - margin, targetMidi));
+      this.targetMidi.set(clamped);
+      this.targetNote.set(this.pitchService.midiToNoteName(clamped));
+      this.applyIdleTargetPreview();
       return;
     }
 
@@ -279,6 +312,7 @@ export class PracticeComponent implements OnInit, OnDestroy {
 
     this.targetMidi.set(randomMidi);
     this.targetNote.set(this.pitchService.midiToNoteName(randomMidi));
+    this.applyIdleTargetPreview();
   }
 
   async startPractice(): Promise<void> {
@@ -317,6 +351,11 @@ export class PracticeComponent implements OnInit, OnDestroy {
       this.exerciseEngine.getPracticePrompt(this.definition, this.targetNote(), this.runtimeState)
     );
 
+    if (this.definition.kind === 's-z-balance') {
+      this.startSZFlow();
+      return;
+    }
+
     this.state.set('practicing');
     this.remainingSeconds.set(this.definition.durationSec);
     this.samples = [];
@@ -353,9 +392,118 @@ export class PracticeComponent implements OnInit, OnDestroy {
     }
   }
 
+  private startSZFlow(): void {
+    this.state.set('practicing');
+    this.samples = [];
+    this.runtimeState.szPhase = 's';
+    this.runtimeState.szSPhaseDurationMs = 0;
+    this.runtimeState.szZPhaseDurationMs = 0;
+    this.runtimeState.szZRequiredDurationMs = 0;
+    this.runtimeState.szZMaxDurationMs = 0;
+    this.runtimeState.szZStartMs = null;
+    this.runtimeState.szLastValidFrameMs = null;
+    this.runtimeState.szSamplesZ = 0;
+    this.frameChecks.set({
+      voiceDetected: false,
+      edgeConfidenceOk: false,
+      primaryOk: false,
+    });
+    this.currentNote.set('-');
+    this.currentMidi.set(0);
+    this.currentConfidence.set(0);
+    this.remainingSeconds.set(0);
+    this.szFlowPhase.set('countdown-s');
+    this.szCountdown.set(3);
+    this.practicePrompt.set('Respira profundo. Comenzamos en...');
+    this.runSZCountdownToSPhase();
+  }
+
+  private runSZCountdownToSPhase(): void {
+    this.clearSZTimers();
+    this.szCountdownTimerId = setInterval(() => {
+      const value = this.szCountdown();
+      if (value <= 1) {
+        clearInterval(this.szCountdownTimerId);
+        this.szCountdownTimerId = null;
+        this.beginSZSPhaseTiming();
+        return;
+      }
+      this.szCountdown.set(value - 1);
+    }, 1000);
+  }
+
+  private beginSZSPhaseTiming(): void {
+    this.szFlowPhase.set('timing-s');
+    this.practicePrompt.set('Fase S: haz "S" y detén cuando ya no puedas sostenerla.');
+    this.szSMeasureStartMs = performance.now();
+    this.szSMeasureTimerId = setInterval(() => {
+      const elapsedMs = Math.max(0, performance.now() - this.szSMeasureStartMs);
+      this.runtimeState.szSPhaseDurationMs = elapsedMs;
+      this.remainingSeconds.set(Math.round(elapsedMs / 100) / 10);
+    }, 100);
+  }
+
+  stopSZSPhase(): void {
+    if (this.state() !== 'practicing' || this.szFlowPhase() !== 'timing-s' || !this.definition || this.definition.kind !== 's-z-balance') {
+      return;
+    }
+
+    if (this.szSMeasureTimerId) {
+      clearInterval(this.szSMeasureTimerId);
+      this.szSMeasureTimerId = null;
+    }
+
+    const measuredMs = Math.max(1000, this.runtimeState.szSPhaseDurationMs);
+    this.runtimeState.szSPhaseDurationMs = measuredMs;
+    this.runtimeState.szZRequiredDurationMs = measuredMs;
+    this.runtimeState.szZMaxDurationMs = measuredMs + this.definition.rules.maxExtraHoldSeconds * 1000;
+    this.runtimeState.szPhase = 'z';
+    this.szFlowPhase.set('phase2-ready');
+    this.practicePrompt.set(
+      `Ahora mantén ${this.targetNote()} durante ${(measuredMs / 1000).toFixed(1)}s (máximo ${Math.round(this.runtimeState.szZMaxDurationMs / 1000)}s).`
+    );
+    this.remainingSeconds.set(Math.round(measuredMs / 100) / 10);
+  }
+
+  async startSZHoldPhase(): Promise<void> {
+    if (!this.definition || this.definition.kind !== 's-z-balance' || this.szFlowPhase() !== 'phase2-ready') {
+      return;
+    }
+
+    this.szFlowPhase.set('holding-z');
+    this.samples = [];
+    this.runtimeState.szZPhaseDurationMs = 0;
+    this.runtimeState.szSamplesZ = 0;
+    this.runtimeState.szZStartMs = performance.now();
+    this.runtimeState.szLastValidFrameMs = null;
+    this.remainingSeconds.set(Math.max(1, Math.ceil(this.runtimeState.szZMaxDurationMs / 1000)));
+
+    try {
+      let analyser = this.audioService.getAnalyser();
+      if (!analyser) {
+        await this.audioService.requestMic();
+        analyser = this.audioService.getAnalyser();
+        if (!analyser) {
+          throw new Error('No se pudo inicializar el micrófono.');
+        }
+      }
+
+      await this.pitchService.initialize(analyser);
+      this.startAudioCapture();
+      this.startTimer();
+    } catch (err: any) {
+      this.error.set(err?.message || 'Error al iniciar la fase de nota.');
+      this.state.set('idle');
+    }
+  }
+
   private startAudioCapture(): void {
     const capture = async () => {
       if (this.state() !== 'practicing') {
+        return;
+      }
+
+      if (this.definition?.kind === 's-z-balance' && this.szFlowPhase() !== 'holding-z') {
         return;
       }
 
@@ -381,18 +529,7 @@ export class PracticeComponent implements OnInit, OnDestroy {
 
       if (result) {
         const { midiNote, frequency, confidence } = result;
-        
-        // Actualizar visualización en tiempo real
-        if (midiNote > 0) {
-          const noteName = this.pitchService.midiToNoteName(midiNote);
-          this.currentNote.set(noteName);
-          this.currentMidi.set(midiNote);
-          this.currentConfidence.set(confidence);
-        } else {
-          this.currentNote.set('-');
-          this.currentMidi.set(0);
-          this.currentConfidence.set(0);
-        }
+        this.currentConfidence.set(confidence);
         
         if (!this.definition) {
           return;
@@ -411,6 +548,19 @@ export class PracticeComponent implements OnInit, OnDestroy {
         );
 
         this.frameChecks.set(evaluation.checks);
+
+        const shouldShowDetectedNote =
+          evaluation.checks.voiceDetected &&
+          evaluation.checks.edgeConfidenceOk &&
+          midiNote > 0;
+
+        if (shouldShowDetectedNote) {
+          this.currentMidi.set(midiNote);
+          this.currentNote.set(this.pitchService.midiToNoteName(midiNote));
+        } else {
+          this.currentMidi.set(0);
+          this.currentNote.set('-');
+        }
 
         if (this.definition.kind === 'breath-flow-hold') {
           const rules = this.definition.rules as BreathFlowHoldRules;
@@ -435,7 +585,14 @@ export class PracticeComponent implements OnInit, OnDestroy {
         if (evaluation.isValidFrame) {
           this.samples.push(midiNote);
 
-          if (this.definition.kind === 'breath-flow-hold') {
+          if (
+            this.definition.kind === 'breath-flow-hold' ||
+            this.definition.kind === 's-z-balance' ||
+            this.definition.kind === 'dynamic-wave' ||
+            this.definition.kind === 'pitch-target' ||
+            this.definition.kind === 'pitch-steps' ||
+            this.definition.kind === 'pitch-glide'
+          ) {
             const earlyResult = this.exerciseEngine.buildResult(
               this.samples.length,
               this.definition,
@@ -458,6 +615,16 @@ export class PracticeComponent implements OnInit, OnDestroy {
   private startTimer(): void {
     this.clearTimer();
     this.timerId = setInterval(() => {
+      if (this.definition?.kind === 's-z-balance' && this.runtimeState.szZStartMs) {
+        const elapsedMs = performance.now() - this.runtimeState.szZStartMs;
+        const remaining = Math.max(0, Math.ceil((this.runtimeState.szZMaxDurationMs - elapsedMs) / 1000));
+        this.remainingSeconds.set(remaining);
+        if (remaining <= 0) {
+          this.finishPractice();
+        }
+        return;
+      }
+
       const current = this.remainingSeconds();
       if (current <= 1) {
         this.finishPractice();
@@ -475,6 +642,18 @@ export class PracticeComponent implements OnInit, OnDestroy {
     if (this.animationFrameId) {
       cancelAnimationFrame(this.animationFrameId);
       this.animationFrameId = null;
+    }
+    this.clearSZTimers();
+  }
+
+  private clearSZTimers(): void {
+    if (this.szCountdownTimerId) {
+      clearInterval(this.szCountdownTimerId);
+      this.szCountdownTimerId = null;
+    }
+    if (this.szSMeasureTimerId) {
+      clearInterval(this.szSMeasureTimerId);
+      this.szSMeasureTimerId = null;
     }
   }
 
@@ -502,7 +681,10 @@ export class PracticeComponent implements OnInit, OnDestroy {
 
   retryPractice(): void {
     this.error.set(null);
+    this.clearTimer();
     this.state.set('idle');
+    this.szFlowPhase.set('instructions');
+    this.szCountdown.set(3);
     this.samples = [];
     this.currentNote.set('-');
     this.currentMidi.set(0);
@@ -514,6 +696,7 @@ export class PracticeComponent implements OnInit, OnDestroy {
       primaryOk: false,
     });
     this.breathHoldProgressPercent.set(0);
+    this.applyIdleTargetPreview();
   }
 
   isBreathFlowHold(): boolean {
@@ -524,12 +707,44 @@ export class PracticeComponent implements OnInit, OnDestroy {
     return !!this.definition && this.definition.kind === 's-z-balance';
   }
 
+  isDynamicWave(): boolean {
+    return !!this.definition && this.definition.kind === 'dynamic-wave';
+  }
+
+  isPitchTarget(): boolean {
+    return !!this.definition && this.definition.kind === 'pitch-target';
+  }
+
+  isPitchSteps(): boolean {
+    return !!this.definition && this.definition.kind === 'pitch-steps';
+  }
+
+  isPitchGlide(): boolean {
+    return !!this.definition && this.definition.kind === 'pitch-glide';
+  }
+
   isCompletionRequirementMet(): boolean {
     if (this.isBreathFlowHold()) {
       return this.breathHoldProgressPercent() >= 100;
     }
     if (this.isSZBalance()) {
       return this.runtimeState.szPhase === 'complete';
+    }
+    if (this.isDynamicWave() && this.definition) {
+      const rules = this.definition.rules as DynamicWaveRules;
+      return this.runtimeState.dynamicCyclesCompleted >= rules.requiredCycles;
+    }
+    if (this.isPitchTarget() && this.definition) {
+      const rules = this.definition.rules as PitchTargetRules;
+      return this.runtimeState.pitchTargetRepetitions >= rules.requiredRepetitions;
+    }
+    if (this.isPitchSteps() && this.definition) {
+      const rules = this.definition.rules as PitchStepsRules;
+      return this.runtimeState.pitchStepsRepetitions >= rules.requiredRepetitions;
+    }
+    if (this.isPitchGlide() && this.definition) {
+      const rules = this.definition.rules as PitchGlideRules;
+      return this.runtimeState.pitchGlideRepetitions >= rules.requiredRepetitions;
     }
     return this.samples.length >= this.requiredFrames();
   }
@@ -539,9 +754,37 @@ export class PracticeComponent implements OnInit, OnDestroy {
       return Math.min(100, Math.round(this.breathHoldProgressPercent()));
     }
     if (this.isSZBalance()) {
-      const sMs = Math.max(1, this.runtimeState.szSPhaseDurationMs);
+      const requiredMs = Math.max(1, this.runtimeState.szZRequiredDurationMs);
       const zMs = this.runtimeState.szZPhaseDurationMs;
-      return Math.min(100, Math.round((zMs / sMs) * 100));
+      return Math.min(100, Math.round((zMs / requiredMs) * 100));
+    }
+    if (this.isDynamicWave() && this.definition) {
+      const rules = this.definition.rules as DynamicWaveRules;
+      const cycles = this.runtimeState.dynamicCyclesCompleted;
+      const partial = this.runtimeState.dynamicPhase === 'fall' ? 0.5 : 0;
+      const progress = (cycles + partial) / Math.max(1, rules.requiredCycles);
+      return Math.min(100, Math.round(progress * 100));
+    }
+    if (this.isPitchTarget() && this.definition) {
+      const rules = this.definition.rules as PitchTargetRules;
+      const holdProgress = Math.min(1, this.runtimeState.pitchTargetCurrentHoldMs / rules.holdDurationMs);
+      return Math.min(100, Math.round(holdProgress * 100));
+    }
+    if (this.isPitchSteps() && this.definition) {
+      const rules = this.definition.rules as PitchStepsRules;
+      const stepProgress = this.runtimeState.currentStepIndex + Math.min(1, this.runtimeState.pitchStepsCurrentHoldMs / rules.noteHoldMs);
+      return Math.min(100, Math.round((stepProgress / 2) * 100));
+    }
+    if (this.isPitchGlide() && this.definition) {
+      const rules = this.definition.rules as PitchGlideRules;
+      const phaseProgress =
+        this.runtimeState.glidePhase === 'down'
+          ? 0.5
+          : this.runtimeState.glidePhase === 'complete'
+          ? 1
+          : 0;
+      const totalProgress = (this.runtimeState.pitchGlideRepetitions + phaseProgress) / Math.max(1, rules.requiredRepetitions);
+      return Math.min(100, Math.round(totalProgress * 100));
     }
     if (this.requiredFrames() <= 0) return 0;
     return Math.min(100, Math.round((this.samples.length / this.requiredFrames()) * 100));
@@ -553,7 +796,24 @@ export class PracticeComponent implements OnInit, OnDestroy {
       return `Sostén continuo (${Math.round(rules.requiredHoldMs / 1000)} segundos)`;
     }
     if (this.isSZBalance()) {
-      return 'Iguala la duración entre S y Z';
+      const sec = Math.max(0, this.runtimeState.szZRequiredDurationMs / 1000);
+      return `Mantén la nota durante ${sec.toFixed(1)} segundos`;
+    }
+    if (this.isDynamicWave() && this.definition) {
+      const rules = this.definition.rules as DynamicWaveRules;
+      return `Repeticiones detectadas (${this.runtimeState.dynamicCyclesCompleted}/${rules.requiredCycles})`;
+    }
+    if (this.isPitchTarget() && this.definition) {
+      const rules = this.definition.rules as PitchTargetRules;
+      return `Repeticiones completadas (${this.runtimeState.pitchTargetRepetitions}/${rules.requiredRepetitions})`;
+    }
+    if (this.isPitchSteps() && this.definition) {
+      const rules = this.definition.rules as PitchStepsRules;
+      return `Repeticiones completadas (${this.runtimeState.pitchStepsRepetitions}/${rules.requiredRepetitions})`;
+    }
+    if (this.isPitchGlide() && this.definition) {
+      const rules = this.definition.rules as PitchGlideRules;
+      return `Repeticiones completadas (${this.runtimeState.pitchGlideRepetitions}/${rules.requiredRepetitions})`;
     }
     return `Duración suficiente (${this.durationSec()} segundos)`;
   }
@@ -566,6 +826,14 @@ export class PracticeComponent implements OnInit, OnDestroy {
     return Math.max(0, this.runtimeState.szZPhaseDurationMs / 1000);
   }
 
+  getSZFlowPhase(): SZFlowPhase {
+    return this.szFlowPhase();
+  }
+
+  getSZCountdownValue(): number {
+    return this.szCountdown();
+  }
+
   getExerciseKindForView(): string {
     if (this.definition) {
       return this.definition.kind;
@@ -574,7 +842,60 @@ export class PracticeComponent implements OnInit, OnDestroy {
     const name = (this.exercise()?.exerciseName ?? '').toLowerCase();
     if (name.includes('breath flow hold')) return 'breath-flow-hold';
     if (name.includes('s–z balance') || name.includes('s-z balance')) return 's-z-balance';
+    if (name.includes('dynamic wave')) return 'dynamic-wave';
+    if (name.includes('pitch target')) return 'pitch-target';
+    if (name.includes('pitch steps')) return 'pitch-steps';
+    if (name.includes('pitch glide') || name.includes('vocal glide')) return 'pitch-glide';
     return 'default';
+  }
+
+  private getSequenceMidisForExercise(): number[] | null {
+    if (this.definition?.kind === 'pitch-steps') {
+      const rules = this.definition.rules as PitchStepsRules;
+      return [rules.startMidi, rules.endMidi];
+    }
+
+    if (this.definition?.kind === 'pitch-glide') {
+      const rules = this.definition.rules as PitchGlideRules;
+      return [rules.startMidi, rules.endMidi, rules.startMidi];
+    }
+
+    const exercise = this.exercise();
+    if (!exercise) return null;
+
+    const startMidi = this.targetMidi();
+    if (startMidi <= 0) return null;
+
+    const name = exercise.exerciseName.toLowerCase();
+    const level = exercise.level ?? 1;
+
+    if (name.includes('pitch steps')) {
+      const interval = level >= 2 ? 5 : 2;
+      return [startMidi, startMidi + interval];
+    }
+
+    if (name.includes('pitch glide')) {
+      const interval = level >= 2 ? 6 : 3;
+      return [startMidi, startMidi + interval, startMidi];
+    }
+
+    if (name.includes('vocal glide')) {
+      const interval = level >= 2 ? 8 : 5;
+      return [startMidi, startMidi + interval, startMidi];
+    }
+
+    return null;
+  }
+
+  private applyIdleTargetPreview(): void {
+    const sequenceMidis = this.getSequenceMidisForExercise();
+    if (!sequenceMidis || sequenceMidis.length <= 1) {
+      this.targetReferenceLabel.set('');
+      return;
+    }
+
+    const labels = sequenceMidis.map((midi) => this.pitchService.midiToNoteName(midi));
+    this.targetReferenceLabel.set(labels.join(' → '));
   }
 
   async finishExercise(): Promise<void> {
@@ -592,33 +913,71 @@ export class PracticeComponent implements OnInit, OnDestroy {
   }
 
   playTargetNote(): void {
+    if (this.definition?.kind === 'pitch-steps') {
+      const rules = this.definition.rules as PitchStepsRules;
+      const first = this.pitchService.midiToFrequency(rules.startMidi);
+      const second = this.pitchService.midiToFrequency(rules.endMidi);
+      this.playFrequencySequence([first, second], 1.0, 0.12);
+      return;
+    }
+
+    if (this.definition?.kind === 'pitch-glide') {
+      const rules = this.definition.rules as PitchGlideRules;
+      const first = this.pitchService.midiToFrequency(rules.startMidi);
+      const second = this.pitchService.midiToFrequency(rules.endMidi);
+      this.playFrequencySequence([first, second, first], 0.9, 0.1);
+      return;
+    }
+
+    const previewSequence = this.getSequenceMidisForExercise();
+    if (previewSequence && previewSequence.length > 1) {
+      const frequencies = previewSequence.map((midi) => this.pitchService.midiToFrequency(midi));
+      if (previewSequence.length === 2) {
+        this.playFrequencySequence(frequencies, 1.0, 0.12);
+      } else {
+        this.playFrequencySequence(frequencies, 0.9, 0.1);
+      }
+      return;
+    }
+
     const frequency = this.pitchService.midiToFrequency(this.targetMidi());
     if (frequency === 0) return;
+    this.playFrequencySequence([frequency], 1.0, 0);
+  }
 
+  private playFrequencySequence(frequencies: number[], toneSec: number, gapSec: number): void {
     try {
       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
-      
-      oscillator.type = 'sine';
-      oscillator.frequency.value = frequency;
-      
-      gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-      gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.1);
-      gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.9);
-      gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 1.0);
-      
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-      
-      oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 1.0);
-      
-      setTimeout(() => {
-        oscillator.disconnect();
-        gainNode.disconnect();
-        audioContext.close();
-      }, 1100);
+      const now = audioContext.currentTime;
+
+      frequencies.forEach((frequency, idx) => {
+        const start = now + idx * (toneSec + gapSec);
+        const end = start + toneSec;
+
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+
+        oscillator.type = 'sine';
+        oscillator.frequency.value = frequency;
+
+        gainNode.gain.setValueAtTime(0, start);
+        gainNode.gain.linearRampToValueAtTime(0.3, start + 0.08);
+        gainNode.gain.setValueAtTime(0.3, Math.max(start + 0.08, end - 0.08));
+        gainNode.gain.linearRampToValueAtTime(0, end);
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        oscillator.start(start);
+        oscillator.stop(end);
+
+        oscillator.onended = () => {
+          oscillator.disconnect();
+          gainNode.disconnect();
+        };
+      });
+
+      const totalDurationMs = Math.ceil((frequencies.length * toneSec + Math.max(0, frequencies.length - 1) * gapSec) * 1000) + 120;
+      setTimeout(() => void audioContext.close(), totalDurationMs);
     } catch (error) {
       console.error('[Practice] Error al reproducir nota:', error);
     }

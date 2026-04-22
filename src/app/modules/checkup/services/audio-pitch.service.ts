@@ -22,10 +22,12 @@ export class AudioPitchService {
     private readonly MODEL_URL = 'https://cdn.jsdelivr.net/gh/ml5js/ml5-data-and-models/models/pitch-detection/crepe/model.json';
     private readonly CREPE_SAMPLE_RATE = 16000; // CREPE espera 16kHz
     private readonly CREPE_INPUT_SIZE = 1024; // Ventana de 1024 samples
+    private readonly MAX_ANALYSER_FFT_SIZE = 32768;
     
     // Mapeo de CREPE output a frecuencias
     private readonly CREPE_CENTS_PER_BIN = 20; // Cada bin = 20 cents
-    private readonly CREPE_BASE_FREQ = 32.70; // C1
+    private readonly CREPE_CENTS_START = 1997.3794084376191; // Configuracion original CREPE
+    private readonly CREPE_FREQ_REFERENCE_HZ = 10;
 
     // Auto-ganancia basada en calibración
     private calibratedGain: number = 1.0; // Ganancia para normalizar audio
@@ -42,8 +44,16 @@ export class AudioPitchService {
             throw new Error('Se requiere un AnalyserNode válido');
         }
 
+        // Asegurar suficiente contexto temporal para construir 1024 muestras a 16kHz
+        const sourceSampleRate = this.audioContext.sampleRate;
+        const requiredSourceSamples = this.getRequiredSourceSamples(sourceSampleRate);
+        const minFftSize = Math.max(1024, Math.min(this.MAX_ANALYSER_FFT_SIZE, this.nextPowerOfTwo(requiredSourceSamples)));
+        if (this.analyser.fftSize < minFftSize) {
+            this.analyser.fftSize = minFftSize;
+        }
+
         // Configurar buffers
-        const bufferSize = 2048;
+        const bufferSize = this.analyser.fftSize;
         this.timeDataArray = new Float32Array(bufferSize);
 
         // Cargar modelo CREPE si no está cargado
@@ -178,7 +188,7 @@ export class AudioPitchService {
 
             // CORRECCIÓN DE OCTAVAS: Verificar con análisis espectral
             // Los modelos a veces detectan armónicos en lugar de fundamental
-            frequency = this.correctOctaveErrors(frequency, normalizedData);
+            frequency = this.correctOctaveErrors(frequency, normalizedData, this.CREPE_SAMPLE_RATE);
 
             // DEBUG: Log cada 20 detecciones
             if (Math.random() < 0.05) {
@@ -241,6 +251,18 @@ export class AudioPitchService {
         return result;
     }
 
+    private getRequiredSourceSamples(sampleRate: number): number {
+        return Math.ceil((this.CREPE_INPUT_SIZE * sampleRate) / this.CREPE_SAMPLE_RATE);
+    }
+
+    private nextPowerOfTwo(value: number): number {
+        let result = 1;
+        while (result < value) {
+            result <<= 1;
+        }
+        return result;
+    }
+
     /**
      * Extrae ventana centrada de audio
      */
@@ -283,14 +305,13 @@ export class AudioPitchService {
      * Estrategia: Si la frecuencia es alta pero el audio suena grave,
      * verificar si f/2 o f/4 es más probable
      */
-    private correctOctaveErrors(frequency: number, audioData: Float32Array): number {
+    private correctOctaveErrors(frequency: number, audioData: Float32Array, sampleRate: number): number {
         if (frequency < 150) {
             // Frecuencias graves raramente tienen errores de octava hacia arriba
             return frequency;
         }
 
         // Calcular periodo en samples para la frecuencia detectada
-        const sampleRate = this.audioContext!.sampleRate;
         const period = sampleRate / frequency;
 
         // Verificar si periodos dobles (f/2) o cuádruples (f/4) tienen mejor correlación
@@ -388,9 +409,23 @@ export class AudioPitchService {
             }
         }
 
-        // Convertir bin a frecuencia
-        const cents = maxBin * this.CREPE_CENTS_PER_BIN;
-        const frequency = this.CREPE_BASE_FREQ * Math.pow(2, cents / 1200);
+        // Refinar el bin con promedio ponderado local para reducir cuantización
+        const start = Math.max(0, maxBin - 4);
+        const end = Math.min(outputData.length - 1, maxBin + 4);
+        let weightedSum = 0;
+        let weightTotal = 0;
+
+        for (let i = start; i <= end; i++) {
+            const weight = Math.max(0, Number(outputData[i]));
+            weightedSum += i * weight;
+            weightTotal += weight;
+        }
+
+        const refinedBin = weightTotal > 0 ? weightedSum / weightTotal : maxBin;
+
+        // Convertir bin a frecuencia usando la escala oficial de CREPE
+        const cents = this.CREPE_CENTS_START + refinedBin * this.CREPE_CENTS_PER_BIN;
+        const frequency = this.CREPE_FREQ_REFERENCE_HZ * Math.pow(2, cents / 1200);
 
         return {
             frequency,

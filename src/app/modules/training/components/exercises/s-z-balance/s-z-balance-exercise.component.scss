@@ -60,6 +60,61 @@
 .timeout-label { font-weight: 600; color: #92400e; }
 .timeout-value { font-weight: 700; color: #b45309; }
 
+.countdown-box {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 20px;
+  margin: 12px 0;
+  border-radius: 10px;
+  background: #ede9fe;
+  border: 1px solid #c4b5fd;
+}
+
+.countdown-value {
+  font-size: 40px;
+  font-weight: 800;
+  color: #5b21b6;
+}
+
+.target-note-display {
+  margin: 14px 0;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid #dbeafe;
+  background: #eff6ff;
+  text-align: center;
+}
+
+.target-note-display.compact {
+  margin-top: 0;
+}
+
+.target-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1e40af;
+  letter-spacing: 0.06em;
+}
+
+.target-note {
+  margin-top: 4px;
+  font-size: 24px;
+  font-weight: 800;
+  color: #1d4ed8;
+}
+
+.play-note-btn {
+  margin-top: 10px;
+  border: none;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-weight: 600;
+  color: #1e3a8a;
+  background: #dbeafe;
+  cursor: pointer;
+}
+
 .btn-start-exercise {
   width: 100%;
   padding: 14px 24px;

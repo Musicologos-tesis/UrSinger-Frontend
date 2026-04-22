@@ -1,76 +1,118 @@
-<div class="phase-container">
-  @if (state === 'idle' || state === 'practicing') {
+@if (state === 'idle' || (state === 'practicing' && (szFlowPhase === 'countdown-s' || szFlowPhase === 'timing-s'))) {
+  <div class="phase-container">
     <div class="phase-header">
-      <span class="phase-label">
-        @if (state === 'idle') { Prepárate para empezar el desafío }
-        @if (state === 'practicing') { {{ practicePrompt }} }
-      </span>
-      @if (state === 'idle' || (state === 'practicing' && !completionMet)) {
-        <span class="status-indicator pending">⏳</span>
-      }
-      @if (state === 'practicing' && completionMet) {
-        <span class="status-indicator valid">✓</span>
-      }
-    </div>
-  }
-
-  @if (state === 'idle') {
-    <p class="instruction">Presiona "Empezar" para iniciar fase S y luego fase Z.</p>
-  }
-
-  @if (state === 'practicing') {
-    <p class="instruction">Completa las fases S y Z para cerrar el ejercicio</p>
-    <p class="instruction">
-      @if (!completionMet && !hasRecordedS) {
-        Fase S: emite "ssss" todo el tiempo que puedas y suelta para cerrar la fase.
-      } @else if (!completionMet) {
-        Fase Z: ahora emite con voz por ~{{ recordedDurationSec.toFixed(1) }}s.
-        Actual: {{ currentZDurationSec.toFixed(1) }}s.
-      } @else {
-        ¡Duraciones S y Z equilibradas!
-      }
-    </p>
-  }
-
-  @if (state === 'retry') {
-    <p class="instruction result-message error">No se logró equilibrar la duración. Reintenta.</p>
-  }
-
-  @if (state === 'success') {
-    <p class="instruction result-message success">¡Excelente! Balance S-Z completado.</p>
-  }
-
-  @if (state === 'practicing') {
-    <div class="timeout-indicator">
-      <span class="timeout-label">Tiempo restante:</span>
-      <span class="timeout-value">{{ remainingSeconds }}s</span>
+      <span class="phase-label">Ejercicio S-Z por fases</span>
+      <span class="status-indicator pending">⏳</span>
     </div>
 
-    <app-live-indicators
-      [currentNote]="currentNote"
-      [currentConfidence]="currentConfidence"
-    />
-
-    <app-validation-checks
-      [primaryOk]="primaryOk"
-      [voiceDetected]="voiceDetected"
-      [primaryLabel]="primaryCheckLabel"
-      [completionOk]="completionMet"
-      [completionLabel]="completionLabel"
-    />
-
-    @if (primaryOk && voiceDetected && edgeConfidenceOk) {
-      <app-progress-meter [progressPercent]="progressPercent" />
+    @if (state === 'idle') {
+      <p class="instruction">1) Se hará una cuenta 3, 2, 1.</p>
+      <p class="instruction">2) Haz "S" y detén cuando ya no puedas.</p>
+      <p class="instruction">3) Mantén la nota objetivo por el mismo tiempo logrado.</p>
+      <p class="instruction">Límite de fase nota: tiempo S + 30 segundos.</p>
+      <button class="btn-start-exercise" (click)="start.emit()">▶ Empezar</button>
     }
-  }
 
-  @if (state === 'idle') {
-    <button class="btn-start-exercise" (click)="start.emit()">▶ Empezar</button>
-  }
-  @if (state === 'retry') {
-    <button class="btn-start-exercise" (click)="retry.emit()">🔄 Reintentar</button>
-  }
-  @if (state === 'success') {
-    <button class="btn-start-exercise success" (click)="finish.emit()">▶ Finalizar</button>
-  }
-</div>
+    @if (state === 'practicing' && szFlowPhase === 'countdown-s') {
+      <div class="countdown-box">
+        <span class="timeout-label">Respira</span>
+        <span class="countdown-value">{{ szCountdown }}</span>
+      </div>
+    }
+
+    @if (state === 'practicing' && szFlowPhase === 'timing-s') {
+      <div class="timeout-indicator">
+        <span class="timeout-label">Tiempo fase S:</span>
+        <span class="timeout-value">{{ remainingSeconds.toFixed(1) }}s</span>
+      </div>
+      <button class="btn-start-exercise" (click)="stopSZS.emit()">⏹ Detener fase S</button>
+    }
+  </div>
+}
+
+@if (state === 'practicing' && szFlowPhase === 'phase2-ready') {
+  <p class="instruction phase2-intro">Tiempo conseguido con S: <strong>{{ recordedDurationSec.toFixed(1) }}s</strong></p>
+  <app-generic-exercise
+    [state]="'idle'"
+    [practicePrompt]="practicePrompt"
+    [showTargetReference]="true"
+    [targetNote]="targetNote"
+    [targetReferenceLabel]="targetNote"
+    [remainingSeconds]="remainingSeconds"
+    [currentNote]="currentNote"
+    [currentConfidence]="currentConfidence"
+    [primaryCheckLabel]="primaryCheckLabel"
+    [primaryOk]="primaryOk"
+    [voiceDetected]="voiceDetected"
+    [edgeConfidenceOk]="edgeConfidenceOk"
+    [completionMet]="completionMet"
+    [completionLabel]="completionLabel"
+    [progressPercent]="progressPercent"
+    (start)="startSZHold.emit()"
+    (playNote)="playNote.emit()"
+  />
+}
+
+@if (state === 'practicing' && szFlowPhase === 'holding-z') {
+  <p class="instruction phase2-intro">Objetivo: {{ recordedDurationSec.toFixed(1) }}s · Logrado: {{ currentZDurationSec.toFixed(1) }}s</p>
+  <app-generic-exercise
+    [state]="'practicing'"
+    [practicePrompt]="practicePrompt"
+    [showTargetReference]="true"
+    [targetNote]="targetNote"
+    [targetReferenceLabel]="targetNote"
+    [remainingSeconds]="remainingSeconds"
+    [currentNote]="currentNote"
+    [currentConfidence]="currentConfidence"
+    [primaryCheckLabel]="primaryCheckLabel"
+    [primaryOk]="primaryOk"
+    [voiceDetected]="voiceDetected"
+    [edgeConfidenceOk]="edgeConfidenceOk"
+    [completionMet]="completionMet"
+    [completionLabel]="completionLabel"
+    [progressPercent]="progressPercent"
+    (playNote)="playNote.emit()"
+  />
+}
+
+@if (state === 'retry') {
+  <app-generic-exercise
+    [state]="'retry'"
+    [practicePrompt]="practicePrompt"
+    [showTargetReference]="false"
+    [targetNote]="targetNote"
+    [targetReferenceLabel]="targetNote"
+    [remainingSeconds]="0"
+    [currentNote]="'-'"
+    [currentConfidence]="0"
+    [primaryCheckLabel]="primaryCheckLabel"
+    [primaryOk]="false"
+    [voiceDetected]="false"
+    [edgeConfidenceOk]="false"
+    [completionMet]="false"
+    [completionLabel]="completionLabel"
+    [progressPercent]="0"
+    (retry)="retry.emit()"
+  />
+}
+
+@if (state === 'success') {
+  <app-generic-exercise
+    [state]="'success'"
+    [practicePrompt]="practicePrompt"
+    [showTargetReference]="false"
+    [targetNote]="targetNote"
+    [targetReferenceLabel]="targetNote"
+    [remainingSeconds]="0"
+    [currentNote]="'-'"
+    [currentConfidence]="0"
+    [primaryCheckLabel]="primaryCheckLabel"
+    [primaryOk]="true"
+    [voiceDetected]="true"
+    [edgeConfidenceOk]="true"
+    [completionMet]="true"
+    [completionLabel]="completionLabel"
+    [progressPercent]="100"
+    (finish)="finish.emit()"
+  />
+}

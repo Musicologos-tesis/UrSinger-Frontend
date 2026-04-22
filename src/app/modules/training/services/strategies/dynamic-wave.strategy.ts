@@ -22,6 +22,9 @@ export class DynamicWaveStrategy implements ExerciseStrategy {
     const profile = this.voiceDetection.readVoiceProfile();
 
     const rules: DynamicWaveRules = {
+      targetMidi: exercise.targetMidi,
+      pitchToleranceCents: levelConfig.pitchToleranceCents,
+      requiredCycles: levelConfig.requiredCycles,
       minSamples: levelConfig.minSamples,
       minVoiceRmsDb: profile?.avgMinRmsDb ?? -60,
       minFrequencyHz: VOICE_FILTER_DEFAULTS.minFrequencyHz,
@@ -69,7 +72,11 @@ export class DynamicWaveStrategy implements ExerciseStrategy {
         ? frame.confidence >= rules.minEdgeConfidence
         : true;
 
-    if (voiceDetected && edgeConfidenceOk) {
+    const pitchInTolerance =
+      frame.midiNote > 0 &&
+      Math.abs((frame.midiNote - rules.targetMidi) * 100) <= rules.pitchToleranceCents;
+
+    if (voiceDetected && edgeConfidenceOk && pitchInTolerance) {
       if (runtime.dynamicAnchorDb === null) {
         runtime.dynamicAnchorDb = frame.rms;
         runtime.dynamicAnchorFrameCount = 1;
@@ -81,8 +88,9 @@ export class DynamicWaveStrategy implements ExerciseStrategy {
     }
 
     const anchorReady = runtime.dynamicAnchorFrameCount >= rules.rmsAnchorFrames;
+    const pitchOk = voiceDetected && edgeConfidenceOk && pitchInTolerance;
 
-    if (!voiceDetected || !edgeConfidenceOk || !anchorReady || runtime.dynamicAnchorDb === null) {
+    if (!pitchOk || !anchorReady || runtime.dynamicAnchorDb === null) {
       return {
         checks: {
           voiceDetected,
@@ -113,7 +121,18 @@ export class DynamicWaveStrategy implements ExerciseStrategy {
 
       if (returnedNearAnchor) {
         runtime.dynamicReturned = true;
-        runtime.dynamicPhase = 'complete';
+        runtime.dynamicCyclesCompleted += 1;
+
+        if (runtime.dynamicCyclesCompleted >= rules.requiredCycles) {
+          runtime.dynamicPhase = 'complete';
+        } else {
+          runtime.dynamicPhase = 'rise';
+          runtime.dynamicAnchorDb = frame.rms;
+          runtime.dynamicAnchorFrameCount = 1;
+          runtime.dynamicPeakDb = frame.rms;
+          runtime.dynamicPeakReached = false;
+          runtime.dynamicReturned = false;
+        }
       }
     } else {
       primaryOk = true;
@@ -125,7 +144,7 @@ export class DynamicWaveStrategy implements ExerciseStrategy {
         edgeConfidenceOk,
         primaryOk,
       },
-      isValidFrame: voiceDetected && edgeConfidenceOk && primaryOk,
+      isValidFrame: pitchOk && primaryOk,
     };
   }
 
@@ -133,10 +152,11 @@ export class DynamicWaveStrategy implements ExerciseStrategy {
     const rules = definition.rules as DynamicWaveRules;
     const requiredFrames = rules.minSamples;
     const completionRatio = requiredFrames > 0 ? Math.min(1, validFrames / requiredFrames) : 0;
-    const waveCompleted = !!runtime?.dynamicPeakReached && !!runtime?.dynamicReturned;
+    const cyclesCompleted = runtime?.dynamicCyclesCompleted ?? 0;
+    const waveCompleted = cyclesCompleted >= rules.requiredCycles;
 
     return {
-      passed: validFrames >= requiredFrames && waveCompleted,
+      passed: waveCompleted,
       validFrames,
       requiredFrames,
       completionRatio,

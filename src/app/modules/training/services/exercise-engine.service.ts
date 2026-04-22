@@ -71,29 +71,36 @@ export class ExerciseEngineService {
     return {
       anchorFrequencyHz: null,
       anchorFrameCount: 0,
+      pitchTargetCurrentHoldMs: 0,
+      pitchTargetRepetitions: 0,
+      pitchTargetLastValidMs: null,
+      pitchStepsCurrentHoldMs: 0,
+      pitchStepsRepetitions: 0,
+      pitchStepsLastValidMs: null,
       currentStepIndex: 0,
       stepValidFrames: [0, 0],
       previousMidi: null,
       glidePhase: 'up',
+      pitchGlideRepetitions: 0,
       glidePeakReached: false,
       glideReturnedStart: false,
       rmsAnchorDb: null,
       rmsAnchorFrameCount: 0,
       szPhase: 's',
-      szSamplesS: 0,
       szSamplesZ: 0,
-      szSPhaseStartMs: null,
-      szSPhaseLastAirMs: null,
       szSPhaseDurationMs: 0,
-      szZPhaseStartMs: null,
       szZPhaseDurationMs: 0,
-      szDurationDiffMs: null,
+      szZRequiredDurationMs: 0,
+      szZStartMs: null,
+      szZMaxDurationMs: 0,
+      szLastValidFrameMs: null,
       dynamicPhase: 'rise',
       dynamicAnchorDb: null,
       dynamicAnchorFrameCount: 0,
       dynamicPeakDb: null,
       dynamicPeakReached: false,
       dynamicReturned: false,
+      dynamicCyclesCompleted: 0,
       volumeRiseAnchorDb: null,
       volumeRiseAnchorFrameCount: 0,
       volumeRiseAnchorFrequencyHz: null,
@@ -136,6 +143,9 @@ export class ExerciseEngineService {
   }
 
   getPrimaryCheckLabel(definition: ExerciseDefinition): string {
+    if (definition.kind === 'pitch-target') {
+      return 'Nota objetivo';
+    }
     if (definition.kind === 'steady-tone') {
       return `Estabilidad tonal (±${definition.rules.toleranceCents} cents)`;
     }
@@ -155,11 +165,10 @@ export class ExerciseEngineService {
       return `Nota y potencia estables (±${definition.rules.pitchToleranceCents} cents, ±${definition.rules.rmsStabilityToleranceDb} dB)`;
     }
     if (definition.kind === 's-z-balance') {
-      const diffSec = Math.round(definition.rules.maxDurationDiffMs / 1000);
-      return `Duración Z similar a S (±${diffSec}s)`;
+      return `Mantén la nota objetivo (±${definition.rules.toleranceSemitones} semitonos)`;
     }
     if (definition.kind === 'dynamic-wave') {
-      return 'Control dinámico suave→fuerte→suave';
+      return 'Nota objetivo';
     }
     if (definition.kind === 'volume-rise') {
       return 'Incremento progresivo de volumen';
@@ -176,14 +185,18 @@ export class ExerciseEngineService {
     if (definition.kind === 'controlled-vibrato') {
       return 'Vibrato regular y controlado';
     }
-    return `Afinación correcta (±${definition.rules.toleranceCents} cents)`;
+    return 'Afinación correcta';
   }
 
   shouldShowTargetReference(definition: ExerciseDefinition): boolean {
-    return definition.kind === 'pitch-target' || definition.kind === 'pitch-steps' || definition.kind === 'step-expansion' || definition.kind === 'pitch-glide' || definition.kind === 'mix-coordination' || definition.kind === 'single-burst' || definition.kind === 'clean-onset' || definition.kind === 'breath-flow-hold';
+    return definition.kind === 'pitch-target' || definition.kind === 'pitch-steps' || definition.kind === 'step-expansion' || definition.kind === 'pitch-glide' || definition.kind === 'mix-coordination' || definition.kind === 'single-burst' || definition.kind === 'clean-onset' || definition.kind === 'breath-flow-hold' || definition.kind === 'dynamic-wave';
   }
 
   getPracticePrompt(definition: ExerciseDefinition, targetNote?: string, runtime?: ExerciseRuntimeState): string {
+    if (definition.kind === 'pitch-target') {
+      const reps = runtime?.pitchTargetRepetitions ?? 0;
+      return `Mantén ${targetNote ?? 'la nota objetivo'} por 3s (${Math.min(3, reps)}/3)`;
+    }
     if (definition.kind === 'steady-tone') {
       return 'Sostén una nota cómoda y mantenla estable';
     }
@@ -192,18 +205,19 @@ export class ExerciseEngineService {
     }
     if (definition.kind === 's-z-balance') {
       const phase = runtime?.szPhase ?? 's';
-      if (phase === 's') return 'Fase S: emite "ssss" (aire sin voz)';
+      if (phase === 's') return 'Fase S: cronometra tu "S" hasta donde puedas';
       if (phase === 'z') {
-        const sSec = runtime ? Math.max(0, runtime.szSPhaseDurationMs / 1000) : 0;
-        return `Fase Z: ahora emite con voz durante ~${sSec.toFixed(1)}s`;
+        const sSec = runtime ? Math.max(0, runtime.szZRequiredDurationMs / 1000) : 0;
+        return `Fase nota: mantén la nota objetivo durante ${sSec.toFixed(1)}s`;
       }
-      return '¡Fases S y Z completadas!';
+      return '¡Ejercicio S-Z completado!';
     }
     if (definition.kind === 'dynamic-wave') {
       const phase = runtime?.dynamicPhase ?? 'rise';
-      if (phase === 'rise') return 'Comienza suave y sube gradualmente el volumen';
-      if (phase === 'fall') return 'Ahora baja gradualmente al volumen inicial';
-      return '¡Ciclo dinámico completado!';
+      const cycles = runtime?.dynamicCyclesCompleted ?? 0;
+      if (phase === 'rise') return `Repetición ${Math.min(definition.rules.requiredCycles, cycles + 1)}/${definition.rules.requiredCycles}: empieza suave y sube el volumen sin cambiar la nota`;
+      if (phase === 'fall') return `Repetición ${Math.min(definition.rules.requiredCycles, cycles + 1)}/${definition.rules.requiredCycles}: ahora baja al volumen inicial manteniendo la nota`;
+      return `¡Patrón completado! ${Math.min(definition.rules.requiredCycles, cycles)}/${definition.rules.requiredCycles}`;
     }
     if (definition.kind === 'volume-rise') {
       return 'Mantén el tono y sube gradualmente el volumen';
@@ -231,7 +245,8 @@ export class ExerciseEngineService {
     }
     if (definition.kind === 'pitch-steps') {
       const step = (runtime?.currentStepIndex ?? 0) + 1;
-      return `Paso ${Math.min(2, step)}/2: canta ${targetNote ?? 'la nota objetivo'}`;
+      const reps = runtime?.pitchStepsRepetitions ?? 0;
+      return `Repetición ${Math.min(3, reps + 1)}/3 · Nota ${Math.min(2, step)}/2: canta ${targetNote ?? 'la nota objetivo'} por 1s`;
     }
     if (definition.kind === 'step-expansion') {
       const total = definition.rules.sequenceMidis.length;
@@ -240,15 +255,27 @@ export class ExerciseEngineService {
     }
     if (definition.kind === 'pitch-glide') {
       const phase = runtime?.glidePhase ?? 'up';
+      const repetitions = runtime?.pitchGlideRepetitions ?? 0;
+      const total = definition.rules.requiredRepetitions;
+      const nextRep = Math.min(total, repetitions + 1);
+      const repLabel = `Repetición ${nextRep}/${total}`;
       return phase === 'down'
-        ? `Ahora desliza de vuelta hacia ${targetNote ?? 'la nota base'}`
-        : `Desliza suavemente hacia ${targetNote ?? 'la nota alta'}`;
+        ? `${repLabel}: regresa hacia ${targetNote ?? 'la nota base'}`
+        : `${repLabel}: desliza suavemente hacia ${targetNote ?? 'la nota alta'}`;
     }
     return `Sosteniendo nota ${targetNote ?? ''}...`;
   }
 
   getTargetReferenceLabel(definition: ExerciseDefinition, runtime: ExerciseRuntimeState): string | null {
-    if (definition.kind === 'steady-tone' || definition.kind === 's-z-balance' || definition.kind === 'dynamic-wave' || definition.kind === 'volume-rise' || definition.kind === 'loud-soft-alternance') return null;
+    if (definition.kind === 'steady-tone' || definition.kind === 'volume-rise' || definition.kind === 'loud-soft-alternance') return null;
+
+    if (definition.kind === 'dynamic-wave') {
+      return this.pitchService.midiToNoteName(definition.rules.targetMidi);
+    }
+
+    if (definition.kind === 's-z-balance') {
+      return this.pitchService.midiToNoteName(definition.rules.targetMidi);
+    }
 
     if (definition.kind === 'breath-flow-hold') {
       return this.pitchService.midiToNoteName(definition.rules.targetMidi);
@@ -297,6 +324,8 @@ export class ExerciseEngineService {
     if (definition.kind === 'single-burst') return definition.rules.targetMidi;
     if (definition.kind === 'clean-onset') return definition.rules.targetMidi;
     if (definition.kind === 'breath-flow-hold') return definition.rules.targetMidi;
+    if (definition.kind === 's-z-balance') return definition.rules.targetMidi;
+    if (definition.kind === 'dynamic-wave') return definition.rules.targetMidi;
     if (definition.kind === 'pitch-steps') {
       return runtime.currentStepIndex === 0 ? definition.rules.startMidi : definition.rules.endMidi;
     }

@@ -22,18 +22,16 @@ export class SZBalanceStrategy implements ExerciseStrategy {
     const profile = this.voiceDetection.readVoiceProfile();
 
     const rules: SZBalanceRules = {
+      targetMidi: exercise.targetMidi,
       minSamples: levelConfig.minSamples,
-      minAirRmsDb: levelConfig.minAirRmsDb,
       minVoiceRmsDb: profile?.avgMinRmsDb ?? -60,
       minFrequencyHz: VOICE_FILTER_DEFAULTS.minFrequencyHz,
       maxFrequencyHz: VOICE_FILTER_DEFAULTS.maxFrequencyHz,
       edgeFrequencyLowHz: VOICE_FILTER_DEFAULTS.edgeFrequencyLowHz,
       edgeFrequencyHighHz: VOICE_FILTER_DEFAULTS.edgeFrequencyHighHz,
       minEdgeConfidence: VOICE_FILTER_DEFAULTS.minEdgeConfidence,
-      maxSPhaseConfidence: levelConfig.maxSPhaseConfidence,
-      minSPhaseDurationMs: levelConfig.minSPhaseDurationMs,
-      phaseSilenceMs: levelConfig.phaseSilenceMs,
-      maxDurationDiffMs: levelConfig.maxDurationDiffMs,
+      toleranceSemitones: levelConfig.toleranceSemitones,
+      maxExtraHoldSeconds: levelConfig.maxExtraHoldSeconds,
     };
 
     return {
@@ -51,8 +49,6 @@ export class SZBalanceStrategy implements ExerciseStrategy {
     runtime: ExerciseRuntimeState
   ): ExerciseFrameEvaluation {
     const rules = definition.rules as SZBalanceRules;
-
-    const isAirFlowPresent = frame.rms > rules.minAirRmsDb;
 
     const isVocalSignal = this.voiceDetection.isValidVocalSample(
       {
@@ -73,75 +69,58 @@ export class SZBalanceStrategy implements ExerciseStrategy {
         ? frame.confidence >= rules.minEdgeConfidence
         : true;
 
-    if (runtime.szPhase === 's') {
-      const sPhaseUnvoicedOk = frame.midiNote <= 0 || frame.confidence <= rules.maxSPhaseConfidence;
-      const primaryOk = isAirFlowPresent && sPhaseUnvoicedOk;
-      const isValidFrame = primaryOk;
-
-      if (isValidFrame) {
-        if (runtime.szSPhaseStartMs === null) {
-          runtime.szSPhaseStartMs = frame.timestamp;
-        }
-        runtime.szSPhaseLastAirMs = frame.timestamp;
-        runtime.szSPhaseDurationMs = Math.max(0, frame.timestamp - runtime.szSPhaseStartMs);
-        runtime.szSamplesS++;
-      } else if (
-        runtime.szSPhaseStartMs !== null &&
-        runtime.szSPhaseLastAirMs !== null &&
-        frame.timestamp - runtime.szSPhaseLastAirMs >= rules.phaseSilenceMs &&
-        runtime.szSPhaseDurationMs >= rules.minSPhaseDurationMs
-      ) {
-        runtime.szPhase = 'z';
-        runtime.szZPhaseStartMs = null;
-        runtime.szZPhaseDurationMs = 0;
-      }
-
+    if (runtime.szPhase !== 'z') {
       return {
         checks: {
-          voiceDetected: isAirFlowPresent,
+          voiceDetected: false,
           edgeConfidenceOk: true,
-          primaryOk,
+          primaryOk: false,
         },
-        isValidFrame,
+        isValidFrame: false,
       };
     }
 
-    if (runtime.szPhase === 'z') {
-      const primaryOk = isVocalSignal && edgeConfidenceOk;
-      const isValidFrame = primaryOk;
+    const detectedMidi = frame.midiNote > 0 ? frame.midiNote : null;
+    const toleranceCents = rules.toleranceSemitones * 100;
 
-      if (isValidFrame) {
-        if (runtime.szZPhaseStartMs === null) {
-          runtime.szZPhaseStartMs = frame.timestamp;
-        }
-        runtime.szZPhaseDurationMs = Math.max(0, frame.timestamp - runtime.szZPhaseStartMs);
-        runtime.szDurationDiffMs = Math.abs(runtime.szZPhaseDurationMs - runtime.szSPhaseDurationMs);
-        runtime.szSamplesZ++;
+    let pitchInTolerance = false;
+    if (isVocalSignal && edgeConfidenceOk && detectedMidi !== null) {
+      const centsError = Math.abs((detectedMidi - rules.targetMidi) * 100);
+      pitchInTolerance = centsError <= toleranceCents;
+    }
 
-        const hasReachedComparableDuration = runtime.szZPhaseDurationMs >= runtime.szSPhaseDurationMs;
-        const diffOk = (runtime.szDurationDiffMs ?? Number.POSITIVE_INFINITY) <= rules.maxDurationDiffMs;
-        if (hasReachedComparableDuration && diffOk) {
-          runtime.szPhase = 'complete';
-        }
+    const primaryOk = isVocalSignal && edgeConfidenceOk && pitchInTolerance;
+    const isValidFrame = primaryOk;
+
+    if (runtime.szZStartMs === null) {
+      runtime.szZStartMs = frame.timestamp;
+    }
+
+    if (isValidFrame) {
+      runtime.szSamplesZ++;
+      if (runtime.szLastValidFrameMs === null) {
+        runtime.szLastValidFrameMs = frame.timestamp;
+      } else {
+        const deltaMs = Math.max(0, frame.timestamp - runtime.szLastValidFrameMs);
+        runtime.szZPhaseDurationMs = Math.max(0, runtime.szZPhaseDurationMs + deltaMs);
+        runtime.szLastValidFrameMs = frame.timestamp;
       }
+    } else {
+      runtime.szLastValidFrameMs = null;
+    }
 
-      return {
-        checks: {
-          voiceDetected: isVocalSignal,
-          edgeConfidenceOk,
-          primaryOk,
-        },
-        isValidFrame,
-      };
+    const requiredMs = Math.max(0, runtime.szZRequiredDurationMs);
+    if (requiredMs > 0 && runtime.szZPhaseDurationMs >= requiredMs) {
+      runtime.szPhase = 'complete';
     }
 
     return {
       checks: {
-        voiceDetected: true,
-        edgeConfidenceOk: true,
-        primaryOk: true,
+        voiceDetected: isVocalSignal,
+        edgeConfidenceOk,
+        primaryOk,
       },
-      isValidFrame: true,
+      isValidFrame,
     };
   }
 
@@ -149,18 +128,17 @@ export class SZBalanceStrategy implements ExerciseStrategy {
     const rules = definition.rules as SZBalanceRules;
     const requiredFrames = rules.minSamples;
     const completionRatio = requiredFrames > 0 ? Math.min(1, validFrames / requiredFrames) : 0;
-    const sDuration = runtime?.szSPhaseDurationMs ?? 0;
     const zDuration = runtime?.szZPhaseDurationMs ?? 0;
-    const diffMs = Math.abs(zDuration - sDuration);
-    const phasesCompleted = sDuration >= rules.minSPhaseDurationMs && zDuration > 0;
-    const durationMatchOk = diffMs <= rules.maxDurationDiffMs;
+    const requiredMs = runtime?.szZRequiredDurationMs ?? 0;
+    const holdCompleted = requiredMs > 0 && zDuration >= requiredMs;
 
     return {
-      passed: validFrames >= requiredFrames && phasesCompleted && durationMatchOk,
+      passed: validFrames >= requiredFrames && holdCompleted,
       validFrames,
       requiredFrames,
       completionRatio,
       score: Math.round(completionRatio * 100),
     };
   }
+
 }

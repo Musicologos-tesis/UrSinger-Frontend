@@ -4,6 +4,8 @@ export interface PitchTargetRules {
   targetMidi: number;
   targetFrequencyHz: number;
   toleranceCents: number;
+  holdDurationMs: number;
+  requiredRepetitions: number;
   minSamples: number;
   minVoiceRmsDb: number;
   minFrequencyHz: number;
@@ -32,6 +34,8 @@ export interface PitchStepsRules {
   endFrequencyHz: number;
   intervalSemitones: number;
   toleranceCents: number;
+  noteHoldMs: number;
+  requiredRepetitions: number;
   minSamplesPerStep: number;
   minSamples: number;
   minVoiceRmsDb: number;
@@ -48,6 +52,7 @@ export interface PitchGlideRules {
   startFrequencyHz: number;
   endFrequencyHz: number;
   glideSpanSemitones: number;
+  requiredRepetitions: number;
   endToleranceCents: number;
   minSamples: number;
   minVoiceRmsDb: number;
@@ -111,21 +116,22 @@ export interface BreathFlowHoldRules {
 }
 
 export interface SZBalanceRules {
+  targetMidi: number;
   minSamples: number;
-  minAirRmsDb: number;
   minVoiceRmsDb: number;
   minFrequencyHz: number;
   maxFrequencyHz: number;
   edgeFrequencyLowHz: number;
   edgeFrequencyHighHz: number;
   minEdgeConfidence: number;
-  maxSPhaseConfidence: number;
-  minSPhaseDurationMs: number;
-  phaseSilenceMs: number;
-  maxDurationDiffMs: number;
+  toleranceSemitones: number;
+  maxExtraHoldSeconds: number;
 }
 
 export interface DynamicWaveRules {
+  targetMidi: number;
+  pitchToleranceCents: number;
+  requiredCycles: number;
   minSamples: number;
   minVoiceRmsDb: number;
   minFrequencyHz: number;
@@ -301,29 +307,36 @@ export interface ExerciseDescriptor {
 export interface ExerciseRuntimeState {
   anchorFrequencyHz: number | null;
   anchorFrameCount: number;
+  pitchTargetCurrentHoldMs: number;
+  pitchTargetRepetitions: number;
+  pitchTargetLastValidMs: number | null;
+  pitchStepsCurrentHoldMs: number;
+  pitchStepsRepetitions: number;
+  pitchStepsLastValidMs: number | null;
   currentStepIndex: number;
   stepValidFrames: number[];
   previousMidi: number | null;
   glidePhase: 'up' | 'down' | 'complete';
+  pitchGlideRepetitions: number;
   glidePeakReached: boolean;
   glideReturnedStart: boolean;
   rmsAnchorDb: number | null;
   rmsAnchorFrameCount: number;
   szPhase: 's' | 'z' | 'complete';
-  szSamplesS: number;
   szSamplesZ: number;
-  szSPhaseStartMs: number | null;
-  szSPhaseLastAirMs: number | null;
   szSPhaseDurationMs: number;
-  szZPhaseStartMs: number | null;
   szZPhaseDurationMs: number;
-  szDurationDiffMs: number | null;
+  szZRequiredDurationMs: number;
+  szZStartMs: number | null;
+  szZMaxDurationMs: number;
+  szLastValidFrameMs: number | null;
   dynamicPhase: 'rise' | 'fall' | 'complete';
   dynamicAnchorDb: number | null;
   dynamicAnchorFrameCount: number;
   dynamicPeakDb: number | null;
   dynamicPeakReached: boolean;
   dynamicReturned: boolean;
+  dynamicCyclesCompleted: number;
   volumeRiseAnchorDb: number | null;
   volumeRiseAnchorFrameCount: number;
   volumeRiseAnchorFrequencyHz: number | null;

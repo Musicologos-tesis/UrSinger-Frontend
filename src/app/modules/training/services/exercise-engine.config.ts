@@ -37,24 +37,50 @@ export const VOICE_FILTER_DEFAULTS = {
 
 export const LEVEL_CONFIGS = {
   'pitch-target': {
-    1: { durationSec: 3, minSamples: 20, toleranceCents: 50 },
-    2: { durationSec: 5, minSamples: 35, toleranceCents: 25 },
+    1: { durationSec: 60, minSamples: 30, toleranceCents: 50, holdDurationSec: 3, requiredRepetitions: 3 },
+    2: { durationSec: 60, minSamples: 35, toleranceCents: 25, holdDurationSec: 3, requiredRepetitions: 3 },
   },
   'steady-tone': {
     1: { durationSec: 3, minSamples: 20, toleranceCents: 40, anchorFrames: 5 },
     2: { durationSec: 5, minSamples: 35, toleranceCents: 25, anchorFrames: 6 },
   },
   'pitch-steps': {
-    1: { durationSec: 4, intervalSemitones: 2, toleranceCents: 55, minSamplesPerStep: 8 },
-    2: { durationSec: 6, intervalSemitones: 5, toleranceCents: 38, minSamplesPerStep: 11 },
+    1: {
+      durationSec: 60,
+      intervalSemitones: 2,
+      toleranceCents: 55,
+      minSamplesPerStep: 8,
+      noteHoldSec: 1,
+      requiredRepetitions: 3,
+    },
+    2: {
+      durationSec: 60,
+      intervalSemitones: 5,
+      toleranceCents: 38,
+      minSamplesPerStep: 11,
+      noteHoldSec: 1,
+      requiredRepetitions: 3,
+    },
   },
   'step-expansion': {
     1: { durationSec: 5, semitoneSpan: 3, noteCount: 3, toleranceCents: 55, minSamplesPerStep: 6 },
     2: { durationSec: 7, semitoneSpan: 5, noteCount: 5, toleranceCents: 38, minSamplesPerStep: 7 },
   },
   'pitch-glide': {
-    1: { durationSec: 4, glideSpanSemitones: 3, endToleranceCents: 60, minSamples: 20 },
-    2: { durationSec: 6, glideSpanSemitones: 6, endToleranceCents: 45, minSamples: 32 },
+    1: {
+      durationSec: 60,
+      glideSpanSemitones: 3,
+      requiredRepetitions: 3,
+      endToleranceCents: 60,
+      minSamples: 20,
+    },
+    2: {
+      durationSec: 60,
+      glideSpanSemitones: 6,
+      requiredRepetitions: 3,
+      endToleranceCents: 45,
+      minSamples: 32,
+    },
   },
   'vocal-glide': {
     1: { durationSec: 5, glideSpanSemitones: 5, endToleranceCents: 60, minSamples: 24 },
@@ -99,26 +125,36 @@ export const LEVEL_CONFIGS = {
   's-z-balance': {
     1: {
       durationSec: 30,
-      minSamples: 25,
-      minAirRmsDb: -58,
-      maxSPhaseConfidence: 0.12,
-      minSPhaseDurationMs: 1000,
-      phaseSilenceMs: 450,
-      maxDurationDiffMs: 3000,
+      minSamples: 20,
+      toleranceSemitones: 3,
+      maxExtraHoldSeconds: 30,
     },
     2: {
       durationSec: 30,
-      minSamples: 35,
-      minAirRmsDb: -60,
-      maxSPhaseConfidence: 0.1,
-      minSPhaseDurationMs: 1200,
-      phaseSilenceMs: 450,
-      maxDurationDiffMs: 1000,
+      minSamples: 30,
+      toleranceSemitones: 1,
+      maxExtraHoldSeconds: 30,
     },
   },
   'dynamic-wave': {
-    1: { durationSec: 3, minSamples: 20, rmsAnchorFrames: 5, rmsRiseMinDb: 4, rmsReturnToleranceDb: 2.8 },
-    2: { durationSec: 5, minSamples: 35, rmsAnchorFrames: 6, rmsRiseMinDb: 5, rmsReturnToleranceDb: 2.3 },
+    1: {
+      durationSec: 60,
+      minSamples: 45,
+      requiredCycles: 3,
+      pitchToleranceCents: 55,
+      rmsAnchorFrames: 6,
+      rmsRiseMinDb: 4,
+      rmsReturnToleranceDb: 2.8,
+    },
+    2: {
+      durationSec: 60,
+      minSamples: 55,
+      requiredCycles: 3,
+      pitchToleranceCents: 50,
+      rmsAnchorFrames: 7,
+      rmsRiseMinDb: 5,
+      rmsReturnToleranceDb: 2.3,
+    },
   },
   'volume-rise': {
     1: {

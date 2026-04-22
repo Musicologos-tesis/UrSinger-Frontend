@@ -45,6 +45,12 @@ export class StabilityService {
   private metricsService = inject(MetricsService);
   private voiceDetection = inject(VoiceDetectionService);
 
+  private readonly CAPTURE_INTERVAL_MS = 100;
+  private readonly MIN_CAPTURED_SAMPLES = 15;
+  private readonly SEGMENT_MAX_GAP_MS = 300;
+  private readonly MIN_SEGMENT_SAMPLES = 5;
+  private readonly MIN_CORRECT_SEGMENT_SAMPLES = 2;
+
   readonly phase$ = new BehaviorSubject<StabilityPhase>(StabilityPhase.Idle);
   readonly currentMidi$ = new BehaviorSubject<number>(0);
   readonly currentRms$ = new BehaviorSubject<number>(-90);
@@ -69,7 +75,6 @@ export class StabilityService {
   private currentDeviationCents: number[] = [];
   private deviationSegmentMeansCents: number[] = [];
   private wasVocalActive = false;
-  private noiseFloorDb: number = -90;
   private minVoiceRmsDb: number = -40;
 
   lastMetrics?: StabilityMetrics;
@@ -89,13 +94,7 @@ export class StabilityService {
       ? Math.round(targetMidi as number)
       : null;
     this.samples = [];
-    this.attackLatencyCandidatesMs = [];
-    this.currentAttackStartMs = null;
-    this.attackCapturedInCurrentUtterance = false;
-    this.hasReachedTargetInCurrentUtterance = false;
-    this.currentDeviationCents = [];
-    this.deviationSegmentMeansCents = [];
-    this.wasVocalActive = false;
+    this.resetTrackingState();
     this.progress$.next(0);
     this.errorMessage$.next(null);
     this.lastMetrics = undefined;
@@ -108,7 +107,6 @@ export class StabilityService {
     const avgRmsDb = this.calibration.getAverageRmsDb();
     const voiceProfile = this.voiceDetection.readVoiceProfile();
     this.pitch.calibrateFromMetrics(avgRmsDb, noiseFloorDb);
-    this.noiseFloorDb = noiseFloorDb;
     this.minVoiceRmsDb = this.voiceDetection.buildMinVoiceRmsDb(
       noiseFloorDb,
       avgRmsDb,
@@ -137,7 +135,7 @@ export class StabilityService {
       return null;
     }
 
-    if (this.samples.length < 15) {
+    if (this.samples.length < this.MIN_CAPTURED_SAMPLES) {
       this.phase$.next(StabilityPhase.Error);
       this.errorMessage$.next(
         'La señal capturada fue muy débil o inestable. Intenta cantar un poco más fuerte o acercarte al micrófono.'
@@ -180,13 +178,7 @@ export class StabilityService {
     this.lastMetrics = undefined;
     this.errorMessage$.next(null);
     this.targetMidi = null;
-    this.attackLatencyCandidatesMs = [];
-    this.currentAttackStartMs = null;
-    this.attackCapturedInCurrentUtterance = false;
-    this.hasReachedTargetInCurrentUtterance = false;
-    this.currentDeviationCents = [];
-    this.deviationSegmentMeansCents = [];
-    this.wasVocalActive = false;
+    this.resetTrackingState();
   }
 
   /**
@@ -216,12 +208,7 @@ export class StabilityService {
       this.currentConfidence$.next(confidence);
 
       const isVocalSignal = this.voiceDetection.isValidVocalSample(
-        {
-          frequency,
-          confidence,
-          midiNote,
-          rms,
-        },
+        { frequency, confidence, midiNote, rms },
         { minVoiceRmsDb: this.minVoiceRmsDb }
       );
 
@@ -254,7 +241,17 @@ export class StabilityService {
       const elapsedSec = (performance.now() - this.startTime) / 1000;
       const progress = elapsedSec / this.targetDurationSec;
       this.progress$.next(Math.min(1, progress));
-    }, 100);
+    }, this.CAPTURE_INTERVAL_MS);
+  }
+
+  private resetTrackingState(): void {
+    this.attackLatencyCandidatesMs = [];
+    this.currentAttackStartMs = null;
+    this.attackCapturedInCurrentUtterance = false;
+    this.hasReachedTargetInCurrentUtterance = false;
+    this.currentDeviationCents = [];
+    this.deviationSegmentMeansCents = [];
+    this.wasVocalActive = false;
   }
 
   private stopCaptureLoop() {
@@ -420,7 +417,7 @@ export class StabilityService {
       Math.abs((sample.midi - this.targetMidi!) * 100) <= this.TARGET_TOLERANCE_CENTS
     );
 
-    const correctSegments = this.segmentByGap(correctSamples, 300, 2);
+    const correctSegments = this.segmentByGap(correctSamples, this.SEGMENT_MAX_GAP_MS, this.MIN_CORRECT_SEGMENT_SAMPLES);
     if (!correctSegments.length) {
       return 0;
     }
@@ -436,7 +433,7 @@ export class StabilityService {
    * Un fragmento se rompe si hay un gap > 300ms entre muestras
    */
   private segmentVocalPhrases(samples: StabilitySample[]): VocalSegment[] {
-    return this.segmentByGap(samples, 300, 5);
+    return this.segmentByGap(samples, this.SEGMENT_MAX_GAP_MS, this.MIN_SEGMENT_SAMPLES);
   }
 
   private segmentByGap(samples: StabilitySample[], maxGapMs: number, minSamples: number): VocalSegment[] {

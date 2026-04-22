@@ -37,11 +37,11 @@
         "rationale": "CVT (Metal Control)",
         "cvtDescription": "Metal Control: Mantener control del flujo durante cambios de volumen sin perder claridad vocal.",
         "evmDescription": null,
-        "objective": "Mantener control del flujo durante cambios suaves de volumen",
-        "instructions": "Emitir una vocal \"Ah\" a una nota cómoda, comenzando suave, subiendo ligeramente el volumen, y luego volviendo al volumen inicial.",
+        "objective": "Mantener una misma nota mientras se ejecuta el patrón dinámico suave → fuerte → suave",
+        "instructions": "El usuario canta una única nota dentro de su rango y realiza el patrón de potencia suave → fuerte → suave sin cambiar la afinación. Cada patrón detectado cuenta como 1 repetición. Debe completar 3 repeticiones en máximo 1 minuto.",
         "levels": [
-          { "level": 1, "description": "Haz un ciclo de 3 segundos.", "videoUrl": null },
-          { "level": 2, "description": "Haz un ciclo de 5 segundos.", "videoUrl": null }
+          { "level": 1, "description": "Nota cómoda dentro de tu rango vocal. 3 repeticiones en 1 minuto.", "videoUrl": null },
+          { "level": 2, "description": "Nota aguda cercana a tu límite superior. 3 repeticiones en 1 minuto.", "videoUrl": null }
         ]
       }
     ]
@@ -58,11 +58,11 @@
         "rationale": "EVM (Onset)",
         "cvtDescription": null,
         "evmDescription": "Onset: Coordinación precisa entre el inicio del flujo de aire y la activación de las cuerdas vocales.",
-        "objective": "Coincidir la nota emitida con una referencia que UrSinger reproduce (tono guía).",
-        "instructions": "El sistema reproduce una nota (por ejemplo, A3). El usuario debe cantarla intentando igualar el tono lo más posible.",
+        "objective": "Coincidir la nota emitida con una referencia y sostenerla en repeticiones controladas.",
+        "instructions": "UrSinger reproduce una nota objetivo. El usuario debe mantener esa nota durante 3 segundos por repetición y completar 3 repeticiones.",
         "levels": [
-          { "level": 1, "description": "3 repeticiones con tolerancia de ±50 cents.", "videoUrl": null },
-          { "level": 2, "description": "3 repeticiones con tolerancia de ±25 cents.", "videoUrl": null }
+          { "level": 1, "description": "Nota cómoda dentro del rango vocal. 3 repeticiones de 3 segundos.", "videoUrl": null },
+          { "level": 2, "description": "Nota alta del rango vocal. 3 repeticiones de 3 segundos.", "videoUrl": null }
         ]
       },
       {
@@ -71,11 +71,11 @@
         "rationale": "CVT (Neutral) + EVM (Pitch memory)",
         "cvtDescription": "Neutral: Emisión libre y relajada que permite cambios de pitch sin tensión laríngea.",
         "evmDescription": "Pitch Memory: Capacidad de reproducir intervalos precisos entre notas consecutivas.",
-        "objective": "Mejorar la precisión al moverse entre notas (intervalos simples).",
-        "instructions": "UrSinger toca dos notas consecutivas (por ejemplo, C4 → E4). El usuario repite intentando mantener la relación exacta entre ambas.",
+        "objective": "Replicar secuencias de dos notas objetivo con precisión temporal y tonal.",
+        "instructions": "UrSinger reproduce una secuencia de dos notas (nota 1 y nota 2). El usuario debe cantar nota 1 por 1 segundo y luego nota 2 por 1 segundo. Al completar ambas, cuenta 1 repetición. Debe completar 3 repeticiones en máximo 1 minuto.",
         "levels": [
-          { "level": 1, "description": "Intervalo de 2 semitonos (1 tono).", "videoUrl": null },
-          { "level": 2, "description": "Intervalo de 5 semitonos (cuarta).", "videoUrl": null }
+          { "level": 1, "description": "Intervalo menor entre nota 1 y nota 2. 3 repeticiones (1s + 1s).", "videoUrl": null },
+          { "level": 2, "description": "Intervalo mayor entre nota 1 y nota 2. 3 repeticiones (1s + 1s).", "videoUrl": null }
         ]
       },
       {
@@ -84,11 +84,11 @@
         "rationale": "CVT (Neutral flow) + EVM (Pitch glide)",
         "cvtDescription": "Neutral Flow: Mantener el modo neutro durante todo el deslizamiento tonal.",
         "evmDescription": "Pitch Glide: Transiciones continuas y suaves entre diferentes alturas tonales.",
-        "objective": "Lograr transiciones suaves y controladas entre notas sin saltos bruscos.",
-        "instructions": "El usuario emite una vocal \"oo\" o \"ee\", deslizando la voz desde una nota baja hasta una alta y regresando. UrSinger mide la suavidad y continuidad del cambio tonal.",
+        "objective": "Completar barridos controlados entre dos notas objetivo, manteniendo continuidad tonal.",
+        "instructions": "Cada repetición consiste en deslizar la voz desde nota 1 hacia nota 2 y regresar a nota 1. Se deben completar 3 repeticiones en máximo 1 minuto.",
         "levels": [
-          { "level": 1, "description": "Desliza entre 3 semitonos.", "videoUrl": null },
-          { "level": 2, "description": "Desliza entre 6 semitonos.", "videoUrl": null }
+          { "level": 1, "description": "Diferencia menor entre nota 1 y nota 2. 3 repeticiones en 1 minuto.", "videoUrl": null },
+          { "level": 2, "description": "Diferencia mayor entre nota 1 y nota 2. 3 repeticiones en 1 minuto.", "videoUrl": null }
         ]
       }
     ]

@@ -28,6 +28,7 @@ export class PitchGlideStrategy implements ExerciseStrategy {
       : LEVEL_CONFIGS['pitch-glide'][normalized];
     const profile = this.voiceDetection.readVoiceProfile();
     const endMidi = exercise.targetMidi + levelConfig.glideSpanSemitones;
+    const requiredRepetitions = 'requiredRepetitions' in levelConfig ? levelConfig.requiredRepetitions : 1;
 
     const rules: PitchGlideRules = {
       startMidi: exercise.targetMidi,
@@ -35,8 +36,9 @@ export class PitchGlideStrategy implements ExerciseStrategy {
       startFrequencyHz: this.pitchService.midiToFrequency(exercise.targetMidi),
       endFrequencyHz: this.pitchService.midiToFrequency(endMidi),
       glideSpanSemitones: levelConfig.glideSpanSemitones,
+      requiredRepetitions,
       endToleranceCents: levelConfig.endToleranceCents,
-      minSamples: levelConfig.minSamples,
+      minSamples: levelConfig.minSamples * requiredRepetitions,
       minVoiceRmsDb: profile?.avgMinRmsDb ?? -60,
       minFrequencyHz: VOICE_FILTER_DEFAULTS.minFrequencyHz,
       maxFrequencyHz: VOICE_FILTER_DEFAULTS.maxFrequencyHz,
@@ -113,7 +115,16 @@ export class PitchGlideStrategy implements ExerciseStrategy {
       const centsToStart = 1200 * Math.log2(frame.frequency / rules.startFrequencyHz);
       if (Number.isFinite(centsToStart) && Math.abs(centsToStart) <= rules.endToleranceCents) {
         runtime.glideReturnedStart = true;
-        runtime.glidePhase = 'complete';
+        runtime.pitchGlideRepetitions += 1;
+
+        if (runtime.pitchGlideRepetitions >= rules.requiredRepetitions) {
+          runtime.glidePhase = 'complete';
+        } else {
+          runtime.glidePhase = 'up';
+          runtime.previousMidi = null;
+          runtime.glidePeakReached = false;
+          runtime.glideReturnedStart = false;
+        }
       }
     } else {
       primaryOk = true;
@@ -132,11 +143,13 @@ export class PitchGlideStrategy implements ExerciseStrategy {
   buildResult(validFrames: number, definition: ExerciseDefinition, runtime?: ExerciseRuntimeState): ExerciseResult {
     const rules = definition.rules as PitchGlideRules;
     const requiredFrames = rules.minSamples;
-    const completionRatio = requiredFrames > 0 ? Math.min(1, validFrames / requiredFrames) : 0;
-    const flowCompleted = !!runtime?.glidePeakReached && !!runtime?.glideReturnedStart;
+    const repetitions = runtime?.pitchGlideRepetitions ?? 0;
+    const completionRatio = rules.requiredRepetitions > 0
+      ? Math.min(1, repetitions / rules.requiredRepetitions)
+      : 0;
 
     return {
-      passed: validFrames >= requiredFrames && flowCompleted,
+      passed: repetitions >= rules.requiredRepetitions,
       validFrames,
       requiredFrames,
       completionRatio,

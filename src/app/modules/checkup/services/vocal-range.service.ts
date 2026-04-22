@@ -42,6 +42,11 @@ export interface RangeMetrics {
 
 @Injectable({ providedIn: 'root' })
 export class VocalRangeService {
+        private readonly CAPTURE_INTERVAL_MS = 100;
+        private readonly SWEEP_DURATION_SEC = 12;
+        private readonly MIN_SWEEP_SAMPLES = 20;
+        private readonly EXTREME_TIMEOUT_SEC = 15;
+
     private pitchService: AudioPitchService = inject(AudioPitchService);
     private calibrationService = inject(CalibrationService);
     private metricsService = inject(MetricsService);
@@ -79,14 +84,12 @@ export class VocalRangeService {
     private confirmedMin: number = 0;
     private confirmedMax: number = 0;
     
-    // Muestras de confirmaciones (para calcular precisionCents y attackLatencyMs)
+    // Muestras de confirmaciones (para calcular precisionCents)
     private confirmationSamples: PitchSample[] = [];
     private confirmationMetrics: {
         precisionCents: number[];
-        attackLatencyMs: number[];
     } = {
-        precisionCents: [],
-        attackLatencyMs: []
+        precisionCents: []
     };
     
     // Métricas calculadas
@@ -96,7 +99,6 @@ export class VocalRangeService {
     private extremeValidationStartTime: number = 0;
     private extremePhaseStartTime: number = 0; // Inicio de la fase completa (10s timeout)
     private extremeTarget: number = 0;
-    private noiseFloorDb: number = -90;
     private minVoiceRmsDb: number = -40;
     private extremeAttempts: number = 0; // Contador de intentos de ajuste
     
@@ -129,8 +131,6 @@ export class VocalRangeService {
             // Auto-calibrar CREPE con las métricas del usuario
             this.pitchService.calibrateFromMetrics(avgRmsDb, noiseFloorDb);
             
-            this.noiseFloorDb = noiseFloorDb;
-
             this.minVoiceRmsDb = this.voiceDetection.buildMinVoiceRmsDb(
                 noiseFloorDb,
                 avgRmsDb,
@@ -178,15 +178,7 @@ export class VocalRangeService {
             // Detectar pitch (async con CREPE)
             const { frequency, confidence, midiNote } = await this.pitchService.detectPitch();
             const rms = this.pitchService.calculateRMS();
-            const isVocalSignal = this.voiceDetection.isValidVocalSample(
-                {
-                frequency,
-                confidence,
-                midiNote,
-                rms
-                },
-                { minVoiceRmsDb: this.minVoiceRmsDb }
-            );
+            const isVocalSignal = this.isValidVocalSignal(frequency, confidence, midiNote, rms);
             
             // FASE DE BARRIDO: Filtros permisivos para capturar todo el rango
             if (this.phase$.value === RangePhase.Sweep) {
@@ -242,7 +234,7 @@ export class VocalRangeService {
             // Actualizar progreso en fase de barrido
             if (this.phase$.value === RangePhase.Sweep) {
                 const elapsed = (performance.now() - this.sweepStartTime) / 1000;
-                const targetDuration = 12; // 12 segundos (reducido de 25)
+                const targetDuration = this.SWEEP_DURATION_SEC;
                 const progress = elapsed / targetDuration;
                 this.progress$.next(Math.min(1, progress));
                 
@@ -257,7 +249,19 @@ export class VocalRangeService {
                 this.validateExtreme(midiNote, confidence, rms, isVocalSignal);
             }
 
-        }, 100); // 100ms
+        }, this.CAPTURE_INTERVAL_MS);
+    }
+
+    private isValidVocalSignal(frequency: number, confidence: number, midiNote: number, rms: number): boolean {
+        return this.voiceDetection.isValidVocalSample(
+            {
+                frequency,
+                confidence,
+                midiNote,
+                rms
+            },
+            { minVoiceRmsDb: this.minVoiceRmsDb }
+        );
     }
 
     /**
@@ -281,8 +285,8 @@ export class VocalRangeService {
         // Reducido de 50 a 20 para ser más permisivo
         // 12 segundos a 100ms = 120 capturas máximas
         // 20 samples = ~17% de coverage mínimo (muy permisivo)
-        if (this.samples.length < 20) {
-            this.handleError(`No hay suficientes datos (${this.samples.length}/20). Intenta cantando de forma continua y un poco más fuerte.`);
+        if (this.samples.length < this.MIN_SWEEP_SAMPLES) {
+            this.handleError(`No hay suficientes datos (${this.samples.length}/${this.MIN_SWEEP_SAMPLES}). Intenta cantando de forma continua y un poco más fuerte.`);
             return;
         }
 
@@ -377,8 +381,8 @@ export class VocalRangeService {
 
     /**
      * Valida que el extremo esté sostenido correctamente
-     * Incluye timeout de 15s y auto-ajuste de medio tono
-     * CAPTURA MUESTRAS para calcular precisionCents y attackLatencyMs
+    * Incluye timeout de 15s y auto-ajuste de medio tono
+    * CAPTURA MUESTRAS para calcular precisionCents
      */
     private validateExtreme(midi: number, confidence: number, rms: number, isVocalSignal: boolean): void {
         // No validar si el ejercicio no ha empezado
@@ -387,7 +391,7 @@ export class VocalRangeService {
         // TIMEOUT: Verificar si han pasado 15 segundos sin completar
         const phaseElapsed = (performance.now() - this.extremePhaseStartTime) / 1000;
         
-        if (phaseElapsed >= 15.0 && !this.extremeValidation$.value.sustained) {
+        if (phaseElapsed >= this.EXTREME_TIMEOUT_SEC && !this.extremeValidation$.value.sustained) {
             // No logró completar en 15s → Auto-ajustar
             this.adjustExtremeTarget();
             return; // Salir y reintentar con nueva nota
@@ -436,7 +440,7 @@ export class VocalRangeService {
                 this.confirmationSamples = []; // Resetear samples para esta confirmación
             }
             
-            // CAPTURAR MUESTRA para calcular précisionCents y attackLatencyMs
+            // CAPTURAR MUESTRA para calcular précisionCents
             this.confirmationSamples.push({
                 midi,
                 confidence,
@@ -597,35 +601,20 @@ export class VocalRangeService {
     }
 
     /**
-     * Calcula métricas de una confirmación de extremo (precisionCents y attackLatencyMs)
+     * Calcula métricas de una confirmación de extremo (precisionCents)
      */
     private calculateConfirmationMetrics(): void {
         if (this.confirmationSamples.length === 0) return;
         
         const midis = this.confirmationSamples.map(s => s.midi);
-        const rmsValues = this.confirmationSamples.map(s => s.rms);
         
         // precisionCents: desviación promedio del target en cents
         const targetMidi = this.extremeTarget;
         const errorsCents = midis.map(m => Math.abs((m - targetMidi) * 100));
         const precisionCents = this.calculateMean(errorsCents);
         
-        // attackLatencyMs: tiempo hasta que se alcanza el target (±50 cents)
-        // SIN filtro de RMS - solo validar precisión de pitch
-        const attackSampleIdx = this.confirmationSamples.findIndex((sample, idx) => {
-            const error = Math.abs((sample.midi - targetMidi) * 100);
-            return error <= 50; // ±50 cents
-        });
-        
-        const attackLatencyMs = attackSampleIdx >= 0
-            ? this.confirmationSamples[attackSampleIdx].timestamp - this.extremePhaseStartTime
-            : null;
-        
         // Guardar métricas de esta confirmación
         this.confirmationMetrics.precisionCents.push(precisionCents);
-        if (attackLatencyMs !== null) {
-            this.confirmationMetrics.attackLatencyMs.push(attackLatencyMs);
-        }
         
         // Log deshabilitado: mantener solo RMS > -40 dB en barrido
     }
@@ -729,6 +718,8 @@ export class VocalRangeService {
         this.confirmedMin = 0;
         this.confirmedMax = 0;
         this.calculatedMetrics = undefined;
+        this.confirmationSamples = [];
+        this.confirmationMetrics = { precisionCents: [] };
         this.resetExtremeValidation();
     }
 
@@ -759,9 +750,9 @@ export class VocalRangeService {
      * Obtiene el tiempo restante del timeout de 15s
      */
     getRemainingTime(): number {
-        if (!this.extremeStarted$.value || this.extremePhaseStartTime === 0) return 15;
+        if (!this.extremeStarted$.value || this.extremePhaseStartTime === 0) return this.EXTREME_TIMEOUT_SEC;
         const elapsed = (performance.now() - this.extremePhaseStartTime) / 1000;
-        return Math.max(0, Math.ceil(15 - elapsed));
+        return Math.max(0, Math.ceil(this.EXTREME_TIMEOUT_SEC - elapsed));
     }
 
     private handleError(message: string): void {

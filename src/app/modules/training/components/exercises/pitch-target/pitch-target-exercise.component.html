@@ -1,0 +1,27 @@
+<div class="target-shell">
+  @if (state === 'idle' || state === 'practicing') {
+    <p class="target-hint">Realiza 3 repeticiones: mantén la nota objetivo durante 3 segundos en cada intento.</p>
+  }
+
+  <app-generic-exercise
+    [state]="state"
+    [practicePrompt]="practicePrompt"
+    [showTargetReference]="showTargetReference"
+    [targetNote]="targetNote"
+    [targetReferenceLabel]="targetReferenceLabel"
+    [remainingSeconds]="remainingSeconds"
+    [currentNote]="currentNote"
+    [currentConfidence]="currentConfidence"
+    [primaryCheckLabel]="primaryCheckLabel"
+    [primaryOk]="primaryOk"
+    [voiceDetected]="voiceDetected"
+    [edgeConfidenceOk]="edgeConfidenceOk"
+    [completionMet]="completionMet"
+    [completionLabel]="completionLabel"
+    [progressPercent]="progressPercent"
+    (start)="start.emit()"
+    (retry)="retry.emit()"
+    (finish)="finish.emit()"
+    (playNote)="playNote.emit()"
+  />
+</div>
