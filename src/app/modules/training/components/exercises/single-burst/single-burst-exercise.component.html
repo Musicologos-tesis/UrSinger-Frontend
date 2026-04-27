@@ -1,0 +1,27 @@
+<div class="burst-shell">
+  @if (state === 'idle' || state === 'practicing') {
+    <p class="burst-hint">Completa 3 ataques firmes en maximo 1 minuto. Si terminas antes, se completa de inmediato.</p>
+  }
+
+  <app-generic-exercise
+    [state]="state"
+    [practicePrompt]="practicePrompt"
+    [showTargetReference]="showTargetReference"
+    [targetNote]="targetNote"
+    [targetReferenceLabel]="targetReferenceLabel"
+    [remainingSeconds]="remainingSeconds"
+    [currentNote]="currentNote"
+    [currentConfidence]="currentConfidence"
+    [primaryCheckLabel]="primaryCheckLabel"
+    [primaryOk]="primaryOk"
+    [voiceDetected]="voiceDetected"
+    [edgeConfidenceOk]="edgeConfidenceOk"
+    [completionMet]="completionMet"
+    [completionLabel]="completionLabel"
+    [progressPercent]="progressPercent"
+    (start)="start.emit()"
+    (retry)="retry.emit()"
+    (finish)="finish.emit()"
+    (playNote)="playNote.emit()"
+  />
+</div>

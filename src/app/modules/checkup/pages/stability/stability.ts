@@ -12,13 +12,14 @@ import { MetricsService } from '../../services/metrics.service';
 import { AuthService } from '../../../../services/auth.service';
 import { StepperComponent } from '../../../../shared/components/stepper/stepper.component';
 import { AuthHeaderComponent } from '../../../auth/components/auth-header/auth-header.component';
+import { FlashcardComponent } from '../../../../shared/components/flashcard/flashcard.component';
 
 type UiState = 'intro' | 'recording' | 'done';
 
 @Component({
   selector: 'app-stability',
   standalone: true,
-  imports: [CommonModule, StepperComponent, AuthHeaderComponent],
+  imports: [CommonModule, StepperComponent, AuthHeaderComponent, FlashcardComponent],
   templateUrl: './stability.html',
   styleUrl: './stability.scss',
 })
@@ -40,6 +41,8 @@ export class StabilityComponent implements OnInit, OnDestroy {
   currentRms = signal<number>(-90);
   samplesCount = signal<number>(0);
   hasActivePlan = signal(false);
+  targetMidi = signal<number>(0);
+  targetNote = signal<string>('-');
 
   stabilityPercent: number | null = null;
 
@@ -49,6 +52,26 @@ export class StabilityComponent implements OnInit, OnDestroy {
     const profileId = localStorage.getItem('profile_id');
     if (profileId) {
       this.hasActivePlan.set(await this.authService.checkActiveTrainingPlan(profileId));
+    }
+
+    this.loadTargetNote();
+  }
+
+  private loadTargetNote(): void {
+    const stored = localStorage.getItem('ursinger.metrics.partial');
+    if (!stored) return;
+
+    try {
+      const metrics = JSON.parse(stored);
+      const minMidi = metrics.rangeMinMidi;
+      const maxMidi = metrics.rangeMaxMidi;
+      if (typeof minMidi === 'number' && typeof maxMidi === 'number') {
+        const mid = Math.round((minMidi + maxMidi) / 2);
+        this.targetMidi.set(mid);
+        this.targetNote.set(this.formatNote(mid));
+      }
+    } catch {
+      return;
     }
   }
 
@@ -79,7 +102,7 @@ export class StabilityComponent implements OnInit, OnDestroy {
       }
 
       // Iniciar captura en el service
-      await this.stabilityService.start(analyser, 10);
+      await this.stabilityService.start(analyser, 10, this.targetMidi());
 
       // Iniciar contador visual
       this.startTimer();
@@ -88,6 +111,40 @@ export class StabilityComponent implements OnInit, OnDestroy {
         err?.message || 'Error al iniciar la prueba de estabilidad.'
       );
       this.state.set('intro');
+    }
+  }
+
+  playTargetNote(): void {
+    const midi = this.targetMidi();
+    if (!midi) return;
+    const frequency = 440 * Math.pow(2, (midi - 69) / 12);
+
+    try {
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+
+      oscillator.type = 'sine';
+      oscillator.frequency.value = frequency;
+
+      gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+      gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.1);
+      gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.9);
+      gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 1.0);
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 1.0);
+
+      setTimeout(() => {
+        oscillator.disconnect();
+        gainNode.disconnect();
+        audioContext.close();
+      }, 1100);
+    } catch {
+      // Silenciar errores de reproducción
     }
   }
 
@@ -147,10 +204,18 @@ export class StabilityComponent implements OnInit, OnDestroy {
       this.stabilityPercent = 0;
     }
 
-    // (Opcional) puedes revisar en consola el payload ML listo:
-    console.log('[stability] payload para backend:', this.stabilityService.lastPayload);
-
     this.state.set('done');
+  }
+
+  formatNote(midi: number): string {
+    if (!midi || midi <= 0 || !isFinite(midi)) return '-';
+    const midiInt = Math.round(midi);
+    const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    const octave = Math.floor(midiInt / 12) - 1;
+    const noteIndex = midiInt % 12;
+    const noteName = noteNames[noteIndex];
+    if (!noteName) return '-';
+    return `${noteName}${octave}`;
   }
 
   async goToResults() {
@@ -164,8 +229,9 @@ export class StabilityComponent implements OnInit, OnDestroy {
       this.router.navigate(['/checkup/results']);
     } catch (error: any) {
       console.error('[Stability] Error al enviar métricas:', error);
+      const detail = error?.error?.message || error?.message || 'Error desconocido';
       // Preguntar al usuario si desea continuar a resultados sin enviar
-      const continuar = confirm('No se pudieron enviar las métricas al servidor. ¿Deseas continuar a resultados de todas formas?');
+      const continuar = confirm(`No se pudieron enviar las métricas al servidor.\n\nDetalle: ${detail}\n\n¿Deseas continuar a resultados de todas formas?`);
       if (continuar) {
         this.router.navigate(['/checkup/results']);
       }

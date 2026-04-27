@@ -1,71 +1,78 @@
-<app-auth-header [pageTitle]="'Iniciar sesión'"></app-auth-header>
-
 <div class="page-container">
-  <h1 class="title">Iniciar Sesión</h1>
-  <p class="subtitle">Ingresa tus credenciales para continuar con el chequeo vocal.</p>
-
-<div class="login-container">
-  <form class="login-form" (ngSubmit)="onSubmit()">
-    <div class="form-group">
-      <label for="email">Correo electrónico</label>
-      <input
-        type="email"
-        id="email"
-        class="form-input"
-        [value]="email()"
-        (input)="updateEmail($any($event.target).value)"
-        placeholder="tu@email.com"
-        autocomplete="email"
-        [disabled]="isLoading()"
-      />
-    </div>
-
-    <div class="form-group">
-      <label for="password">Contraseña</label>
-      <input
-        type="password"
-        id="password"
-        class="form-input"
-        [value]="password()"
-        (input)="updatePassword($any($event.target).value)"
-        placeholder="••••••••"
-        autocomplete="current-password"
-        [disabled]="isLoading()"
-      />
-    </div>
-
-    @if (errorMessage()) {
-      <div class="error-message">
-        ⚠️ {{ errorMessage() }}
+  <div class="login-layout">
+    <aside class="visual-panel" aria-label="Imagen de bienvenida">
+      <div class="visual-overlay">
+        <p class="visual-kicker">UrSinger</p>
+        <h2>Tu voz, entrenada con propósito</h2>
+        <p>
+          Evalúa tu rango vocal, mejora tu afinación y sigue un plan guiado para cantar con más
+          control y confianza.
+        </p>
       </div>
-    }
+    </aside>
 
-    <button 
-      type="submit" 
-      class="btn-login"
-      [disabled]="isLoading() || !email() || !password()"
-    >
-      {{ isLoading() ? 'Iniciando sesión...' : 'Iniciar sesión' }}
-    </button>
+    <section class="auth-panel">
+      <div class="auth-shell">
+        <div class="auth-copy">
+          <h1 class="title">Iniciar sesión</h1>
+          <p class="subtitle">Ingresa tus credenciales para continuar con tu entrenamiento vocal.</p>
+        </div>
 
-    <button 
-      type="button" 
-      class="btn-secondary"
-      (click)="router.navigate(['/auth/register'])"
-      [disabled]="isLoading()"
-    >
-      Registrarse
-    </button>
-  </form>
+        <form class="login-form" (ngSubmit)="onSubmit()">
+          <div class="form-group">
+            <label for="email">Correo electrónico</label>
+            <input
+              type="email"
+              id="email"
+              class="form-input"
+              [value]="email()"
+              (input)="updateEmail($any($event.target).value)"
+              placeholder="tu@email.com"
+              autocomplete="email"
+              [disabled]="isLoading()"
+            />
+          </div>
 
-  <div class="login-info">
-    <div class="info-card">
-      <span class="info-icon">🎤</span>
-      <div>
-        <h3>¿Qué es el chequeo vocal?</h3>
-        <p>Evaluamos tu rango vocal, estabilidad y calidad de voz para darte recomendaciones personalizadas.</p>
+          <div class="form-group">
+            <label for="password">Contraseña</label>
+            <input
+              type="password"
+              id="password"
+              class="form-input"
+              [value]="password()"
+              (input)="updatePassword($any($event.target).value)"
+              placeholder="••••••••"
+              autocomplete="current-password"
+              [disabled]="isLoading()"
+            />
+          </div>
+
+          @if (errorMessage()) {
+            <div class="error-message">
+              ⚠️ {{ errorMessage() }}
+            </div>
+          }
+
+          <button
+            type="submit"
+            class="btn-login"
+            [disabled]="isLoading() || !email() || !password()"
+          >
+            {{ isLoading() ? 'Iniciando sesión...' : 'Iniciar sesión' }}
+          </button>
+
+          <button
+            type="button"
+            class="btn-secondary"
+            (click)="router.navigate(['/auth/register'])"
+            [disabled]="isLoading()"
+          >
+            Crear cuenta
+          </button>
+
+          <p class="form-hint">¿Primera vez en UrSinger? Crea tu cuenta y comienza tu diagnóstico vocal.</p>
+        </form>
       </div>
-    </div>
+    </section>
   </div>
-</div>
 </div>

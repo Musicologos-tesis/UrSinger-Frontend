@@ -1,5 +1,5 @@
 <app-auth-header 
-  [pageTitle]="'Chequeo rápido'"
+  [pageTitle]="'Evaluación'"
   [showNavigation]="hasActivePlan" 
   [activeNav]="'checkup'"
   (navTraining)="goToTraining()"
@@ -63,7 +63,12 @@
 
     <!-- Plan de entrenamiento -->
     <section class="training-plan-section">
-      <h2 class="section-title">Plan de entrenamiento personalizado</h2>
+      <div class="section-head">
+        <h2 class="section-title">Plan de entrenamiento personalizado</h2>
+        <button class="info-btn" type="button" (click)="openLearningPathInfoModal()">
+          ¿Por qué esta ruta?
+        </button>
+      </div>
 
       <!-- Loading state -->
       <div *ngIf="isLoadingPlan" class="loading-state">
@@ -83,9 +88,9 @@
       <div *ngIf="trainingPlan && !isLoadingPlan && !planError" class="plan-content">
         <!-- Plan header -->
         <div class="plan-header">
-          <div *ngIf="trainingPlan.focusGroups && trainingPlan.focusGroups.length > 0" class="focus-groups">
+          <div *ngIf="weaknessGroupsForDisplay.length > 0" class="focus-groups">
             <span class="focus-label">Grupos con carencia:</span>
-            <span *ngFor="let group of trainingPlan.focusGroups" class="focus-badge-header">{{ group }}</span>
+            <span *ngFor="let group of weaknessGroupsForDisplay" class="focus-badge-header">{{ getFocusGroupBadge(group) }}</span>
           </div>
           <div class="plan-dates">
             {{ formatDate(trainingPlan.startDate) }} - {{ formatDate(trainingPlan.endDate) }}
@@ -128,4 +133,44 @@
       </p>
     </section>
   </main>
+
+  <div
+    *ngIf="showLearningPathInfoModal"
+    class="modal-backdrop"
+    (click)="closeLearningPathInfoModal()"
+    (keydown.escape)="closeLearningPathInfoModal()"
+    tabindex="0"
+  >
+    <section
+      class="modal-card"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="learningPathTitle"
+      (click)="$event.stopPropagation()"
+    >
+      <header class="modal-head">
+        <h3 id="learningPathTitle" class="modal-title">¿Cómo se define tu ruta de aprendizaje?</h3>
+        <button class="modal-close" type="button" aria-label="Cerrar" (click)="closeLearningPathInfoModal()">×</button>
+      </header>
+
+      <div class="modal-body">
+        <p>
+          Tu ruta de aprendizaje se crea de forma personalizada según tu evaluación vocal más reciente.
+        </p>
+        <p>
+          El sistema detecta qué áreas necesitan más trabajo, selecciona ejercicios específicos para reforzarlas,
+          mantiene práctica en las áreas que ya dominas y organiza todo en una rutina clara de 3 días por semana
+          durante 4 semanas.
+        </p>
+        <p>
+          Así, no entrenas al azar, sino con un plan equilibrado que se adapta a tu voz, te ayuda a avanzar paso a
+          paso y permite medir tu progreso real en el tiempo.
+        </p>
+      </div>
+
+      <footer class="modal-actions">
+        <button class="modal-ok" type="button" (click)="closeLearningPathInfoModal()">Entendido</button>
+      </footer>
+    </section>
+  </div>
 </div>

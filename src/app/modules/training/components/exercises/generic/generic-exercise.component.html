@@ -1,0 +1,82 @@
+<div class="phase-container">
+  @if (state === 'idle' || state === 'practicing') {
+    <div class="phase-header">
+      <span class="phase-label">
+        @if (state === 'idle') { Prepárate para empezar el desafío }
+        @if (state === 'practicing') { {{ practicePrompt }} }
+      </span>
+      @if (state === 'idle' || (state === 'practicing' && !completionMet)) {
+        <span class="status-indicator pending">⏳</span>
+      }
+      @if (state === 'practicing' && completionMet) {
+        <span class="status-indicator valid">✓</span>
+      }
+    </div>
+  }
+
+  @if (state === 'idle') {
+    <p class="instruction">
+      @if (showTargetReference) {
+        Presiona "Empezar" cuando estés listo para cantar {{ targetReferenceLabel || targetNote }}
+      } @else {
+        Presiona "Empezar" cuando estés listo para sostener una nota cómoda
+      }
+    </p>
+  }
+
+  @if (state === 'practicing') {
+    <p class="instruction">Mantén la ejecución hasta completar el ejercicio</p>
+  }
+
+  @if (state === 'retry') {
+    <p class="instruction result-message error">¡Casi lo logras! Inténtalo de nuevo.</p>
+  }
+
+  @if (state === 'success') {
+    <p class="instruction result-message success">¡Excelente trabajo! Desafío completado.</p>
+  }
+
+  @if ((state === 'idle' || state === 'practicing') && showTargetReference) {
+    <div class="target-note-display">
+      <div class="target-label">NOTA OBJETIVO:</div>
+      <div class="target-note">{{ targetReferenceLabel || targetNote }}</div>
+      @if (state === 'idle' || state === 'practicing') {
+        <button class="play-note-btn" (click)="playNote.emit()">🔊 Reproducir nota</button>
+      }
+    </div>
+  }
+
+  @if (state === 'practicing') {
+    <div class="timeout-indicator">
+      <span class="timeout-label">Tiempo restante:</span>
+      <span class="timeout-value">{{ remainingSeconds }}s</span>
+    </div>
+
+    <app-live-indicators
+      [currentNote]="currentNote"
+      [currentConfidence]="currentConfidence"
+    />
+
+    <app-validation-checks
+      [primaryOk]="primaryOk"
+      [voiceDetected]="voiceDetected"
+      [primaryLabel]="primaryCheckLabel"
+      [completionOk]="completionMet"
+      [completionLabel]="completionLabel"
+    />
+
+    @if (primaryOk && voiceDetected && edgeConfidenceOk) {
+      <app-progress-meter [progressPercent]="progressPercent" />
+    }
+  }
+
+  @if (state === 'idle') {
+    <button class="btn-start-exercise" (click)="start.emit()">▶ Empezar</button>
+  }
+  @if (state === 'retry') {
+    <button class="btn-start-exercise" (click)="retry.emit()">🔄 Reintentar</button>
+  }
+  @if (state === 'success') {
+    <button class="btn-start-exercise success" (click)="finish.emit()">▶ Finalizar</button>
+  }
+</div>

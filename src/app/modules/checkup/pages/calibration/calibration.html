@@ -1,5 +1,5 @@
 <app-auth-header 
-  [pageTitle]="'Chequeo rápido'"
+  [pageTitle]="'Evaluación'"
   [showNavigation]="hasActivePlan()" 
   [activeNav]="'checkup'"
   (navTraining)="goToTraining()"
@@ -11,18 +11,20 @@
 <div class="page-container">
   <h1 class="title">Calibración</h1>
 
-  <!-- Estado: Inicial -->
-  @if (state() === CalibState.Idle) {
-    <p class="subtitle">Estamos calibrando tu micrófono. Guarda silencio mientras medimos el nivel de ruido del entorno.</p>
+  <!-- Estado: Inicio de calibración -->
+  @if (state() === CalibState.Idle || state() === CalibState.Error) {
+    <p class="subtitle">Listo para iniciar la calibración del micrófono.</p>
   }
 
 <!-- Estado: Error -->
 @if (state() === CalibState.Error) {
-  <div class="error-banner">
-    <p>⚠️ No se pudo completar la calibración.</p>
-    <p><small>{{ errorMessage() }}</small></p>
-    <p><small>Por favor, reintenta.</small></p>
-  </div>
+  <app-flashcard
+    tone="error"
+    [title]="calibrationErrorTitle()"
+    [message]="calibrationErrorMessage()"
+    [floating]="true"
+    [autoMinimizeMs]="4000"
+  ></app-flashcard>
 }
 
 <!-- Estado: Completado -->
@@ -42,41 +44,44 @@
   </div>
 
   <div class="right">
+    <!-- INICIO: Mensaje previo a la calibración -->
+    @if (state() === CalibState.Idle || state() === CalibState.Error) {
+      <div class="phase-container">
+        <p class="instruction">
+          Empezaremos la calibración de tu micrófono, para ello, por favor presione el botón "Calibrar".
+        </p>
+        <p class="instruction">
+          <b>Fase 1: mantén silencio durante 10 segundos mientras medimos el ruido ambiente.</b>
+        </p>
+      </div>
+    }
+
     <!-- FASE 1: Detección de ruido ambiente (SOLO visible en esta fase) -->
     @if (state() === CalibState.NoiseMeasuring) {
       <div class="phase-container">
         <div class="phase-header">
-          <span class="phase-label">Detectando sonido ambiente...</span>
-          @if (noiseStatus() === ValidationStatus.Pending) {
+          <span class="phase-label">Escuchando sonido ambiente...</span>
+          @if (progress() < 1) {
             <span class="status-indicator pending">⏳</span>
           }
-          @if (noiseStatus() === ValidationStatus.Valid) {
+          @if (progress() >= 1) {
             <span class="status-indicator valid">✓</span>
-          }
-          @if (noiseStatus() === ValidationStatus.Invalid) {
-            <span class="status-indicator invalid">✗</span>
           }
         </div>
         
-        <p class="instruction">Por favor, mantén silencio mientras medimos el entorno.</p>
+        <p class="instruction">Por favor, mantén silencio durante 10 segundos.</p>
         
         <!-- Barra de progreso del tick actual (recolectando datos durante 3s) -->
         <div class="progress-bar">
           <div class="progress-fill" [style.width.%]="progress() * 100"></div>
         </div>
-        <p class="progress-text">Recolectando datos... {{ (3 - (progress() * 3)).toFixed(1) }}s hasta crear tick</p>
-        
-        <!-- Resultado solo visible DESPUÉS de completar un tick -->
-        @if (noiseStatus() !== ValidationStatus.Pending) {
-          <div class="validation-message" 
-               [class.valid]="noiseStatus() === ValidationStatus.Valid" 
-               [class.invalid]="noiseStatus() === ValidationStatus.Invalid">
-            {{ noiseMessage() }}
-          </div>
-        }
-        
-        @if (shouldShowNoiseRecommendation()) {
-          <p class="tip">💡 Intenta alejarte de fuentes de sonido o cerrar ventanas.</p>
+        <p class="progress-text">Recolectando datos... {{ (10 - (progress() * 10)).toFixed(1) }}s restantes</p>
+
+        @if (progress() >= 1) {
+          <p class="instruction">Medición completada. Presiona “Continuar con el nivel de entrada”.</p>
+          <p class="instruction">
+            <b>Fase 2: Deberás decir “Probando” 3 veces.</b>
+          </p>
         }
       </div>
     }
@@ -97,21 +102,17 @@
           }
         </div>
         
-        <p class="instruction">Por favor, emite un sonido corto como una vocal 'ahh' durante 5 segundos.</p>
+        <p class="instruction">Por favor, di "Probando" 3 veces de forma pausada.</p>
         
-        <!-- Mostrar barra de progreso durante los 5 segundos -->
+        <!-- Mostrar barra de progreso durante los 15 segundos -->
         @if (progress() < 1) {
           <div class="progress-bar">
             <div class="progress-fill" [style.width.%]="progress() * 100"></div>
           </div>
-          <p class="progress-text">{{ (5 - (progress() * 5)).toFixed(1) }}s restantes</p>
-          
-          @if (tip()) {
-            <p class="tip-live">💡 {{ tip() }}</p>
-          }
+          <p class="progress-text">{{ (15 - (progress() * 15)).toFixed(1) }}s restantes</p>
         }
         
-        <!-- Mostrar resultado después de los 5 segundos -->
+        <!-- Mostrar resultado después de los 15 segundos -->
         @if (progress() >= 1) {
           <div class="validation-message" 
                [class.valid]="inputStatus() === ValidationStatus.Valid" 
@@ -149,23 +150,23 @@
       </button>
     } @else {
       <button class="primary" disabled>
-        Esperando entorno silencioso...
+        Midiendo ruido ambiente...
       </button>
     }
   }
   
-  <!-- Durante medición de input: botón según resultado de los 5s -->
+  <!-- Durante medición de input: botón según resultado de los 15s -->
   @if (state() === CalibState.InputMeasuring) {
     @if (progress() < 1) {
-      <!-- Durante los 5 segundos -->
+      <!-- Durante los 15 segundos -->
       <button class="primary" disabled>
-        Midiendo... {{ (5 - (progress() * 5)).toFixed(0) }}s
+        Midiendo... {{ (15 - (progress() * 15)).toFixed(0) }}s
       </button>
     } @else {
-      <!-- Después de los 5 segundos -->
+      <!-- Después de los 15 segundos -->
       @if (inputStatus() === ValidationStatus.Valid) {
         <button class="primary" (click)="onConfirmInput()">
-          Micrófono listo
+          Continuar con el rango vocal
         </button>
       } @else {
         <button class="secondary" (click)="onConfirmInput()">
@@ -190,7 +191,7 @@
   }
 </div>
 
-@if (state() === CalibState.Idle) {
+@if (state() === CalibState.Idle || state() === CalibState.Error) {
   <p class="foot">Este proceso toma solo unos segundos.</p>
 }
 

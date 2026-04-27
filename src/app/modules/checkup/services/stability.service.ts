@@ -3,6 +3,7 @@ import { BehaviorSubject } from 'rxjs';
 import { AudioPitchService } from './audio-pitch.service';
 import { CalibrationService } from './calibration.service';
 import { MetricsService } from './metrics.service';
+import { VoiceDetectionService } from '../../../services/voice-detection.service';
 
 export enum StabilityPhase {
   Idle = 'idle',
@@ -36,41 +37,19 @@ export interface StabilityMetrics {
   attackLatencyMs: number | null;
 }
 
-/**
- * MISMO contrato que en vocal-range.service.ts
- * (si quieres, luego lo mueves a un archivo compartido)
- */
-export interface MetricsData {
-  meanRmsDb: number | null;
-  rmsConsistency: number | null;
-  dynamicRangeDb: number | null;
-  durationSec: number | null;
-
-  precisionCents: number | null;
-  stabilityCents: number | null;
-
-  rangeMinMidi: number | null;
-  rangeMaxMidi: number | null;
-  rangeSpanSemitones: number | null;
-
-  vibratoRateHz: number | null;
-  vibratoDepthCents: number | null;
-
-  attackLatencyMs: number | null;
-}
-
-export interface ExerciseMetricsPayload {
-  sessionId: string;
-  exerciseId: string;
-  attemptNumber: number;
-  metricsData: MetricsData;
-}
 
 @Injectable({ providedIn: 'root' })
 export class StabilityService {
   private pitch = inject(AudioPitchService);
   private calibration = inject(CalibrationService);
   private metricsService = inject(MetricsService);
+  private voiceDetection = inject(VoiceDetectionService);
+
+  private readonly CAPTURE_INTERVAL_MS = 100;
+  private readonly MIN_CAPTURED_SAMPLES = 15;
+  private readonly SEGMENT_MAX_GAP_MS = 300;
+  private readonly MIN_SEGMENT_SAMPLES = 5;
+  private readonly MIN_CORRECT_SEGMENT_SAMPLES = 2;
 
   readonly phase$ = new BehaviorSubject<StabilityPhase>(StabilityPhase.Idle);
   readonly currentMidi$ = new BehaviorSubject<number>(0);
@@ -85,24 +64,25 @@ export class StabilityService {
   private captureIntervalId?: number;
   private startTime = 0;
   private targetDurationSec = 10;
-  private noiseFloorDb: number = -90;
-  
-  // Filtro de estabilidad temporal (para distinguir picos aislados de notas sostenidas)
-  private lastAcceptedMidi: number = 0;
-  private lastAcceptedCount: number = 0;
-  private readonly MIN_REPETITIONS = 3; // Una nota debe repetirse 3 veces (300ms) para ser válida
-  
-  // Rango de frecuencias de voz humana (para filtrar ruidos externos)
-  private readonly HUMAN_VOICE_MIN_HZ = 80;   // E2 (graves masculinos extremos)
-  private readonly HUMAN_VOICE_MAX_HZ = 880;  // A5 (agudas femeninas típicas) - Reducido de 1100
+  private targetMidi: number | null = null;
+  private readonly TARGET_TOLERANCE_CENTS = 50;
+  private readonly ATTACK_LATENCY_LIMIT_MS = 500;
+  private readonly STABILITY_CENTS_LIMIT = 50;
+  private attackLatencyCandidatesMs: number[] = [];
+  private currentAttackStartMs: number | null = null;
+  private attackCapturedInCurrentUtterance = false;
+  private hasReachedTargetInCurrentUtterance = false;
+  private currentDeviationCents: number[] = [];
+  private deviationSegmentMeansCents: number[] = [];
+  private wasVocalActive = false;
+  private minVoiceRmsDb: number = -40;
 
   lastMetrics?: StabilityMetrics;
-  lastPayload?: ExerciseMetricsPayload;
 
   /**
    * Inicia la captura para la prueba de estabilidad
    */
-  async start(analyser: AnalyserNode, durationSec = 10): Promise<void> {
+  async start(analyser: AnalyserNode, durationSec = 10, targetMidi?: number): Promise<void> {
     // Asegurar sesión válida
     const sessionId = this.calibration.getSessionId();
     if (!sessionId) {
@@ -110,11 +90,14 @@ export class StabilityService {
     }
 
     this.targetDurationSec = durationSec;
+    this.targetMidi = Number.isFinite(targetMidi) && (targetMidi as number) > 0
+      ? Math.round(targetMidi as number)
+      : null;
     this.samples = [];
+    this.resetTrackingState();
     this.progress$.next(0);
     this.errorMessage$.next(null);
     this.lastMetrics = undefined;
-    this.lastPayload = undefined;
 
     // Inicializar CREPE
     await this.pitch.initialize(analyser);
@@ -122,8 +105,13 @@ export class StabilityService {
     // Aplicar calibración de ruido/nivel como en VocalRange
     const noiseFloorDb = this.calibration.getNoiseFloorDbfs();
     const avgRmsDb = this.calibration.getAverageRmsDb();
+    const voiceProfile = this.voiceDetection.readVoiceProfile();
     this.pitch.calibrateFromMetrics(avgRmsDb, noiseFloorDb);
-    this.noiseFloorDb = noiseFloorDb;
+    this.minVoiceRmsDb = this.voiceDetection.buildMinVoiceRmsDb(
+      noiseFloorDb,
+      avgRmsDb,
+      voiceProfile
+    );
 
     this.startTime = performance.now();
     this.phase$.next(StabilityPhase.Recording);
@@ -147,7 +135,7 @@ export class StabilityService {
       return null;
     }
 
-    if (this.samples.length < 15) {
+    if (this.samples.length < this.MIN_CAPTURED_SAMPLES) {
       this.phase$.next(StabilityPhase.Error);
       this.errorMessage$.next(
         'La señal capturada fue muy débil o inestable. Intenta cantar un poco más fuerte o acercarte al micrófono.'
@@ -170,10 +158,7 @@ export class StabilityService {
       durationSec: metrics.durationSec ?? undefined
     });
 
-    // Construir payload estándar para el backend / modelo
-    const payload = this.buildExercisePayload(metrics);
-    this.lastPayload = payload;
-    this.log('metrics_computed', { metrics, payload });
+    this.log('metrics_computed', { metrics });
     console.log('[stability] métricas guardadas en localStorage');
 
     this.phase$.next(StabilityPhase.Complete);
@@ -191,8 +176,9 @@ export class StabilityService {
     this.currentNote$.next('-');
     this.samplesCount$.next(0);
     this.lastMetrics = undefined;
-    this.lastPayload = undefined;
     this.errorMessage$.next(null);
+    this.targetMidi = null;
+    this.resetTrackingState();
   }
 
   /**
@@ -218,69 +204,29 @@ export class StabilityService {
       const { frequency, confidence, midiNote } = await this.pitch.detectPitch();
       const rms = this.pitch.calculateRMS();
 
-      this.currentMidi$.next(midiNote);
       this.currentRms$.next(rms);
       this.currentConfidence$.next(confidence);
-      
-      // Actualizar nota si es válida
-      if (midiNote > 0) {
-        const noteName = this.pitch.midiToNoteName(midiNote);
-        this.currentNote$.next(noteName);
+
+      const isVocalSignal = this.voiceDetection.isValidVocalSample(
+        { frequency, confidence, midiNote, rms },
+        { minVoiceRmsDb: this.minVoiceRmsDb }
+      );
+
+      // Igual que en rango vocal: solo mostrar nota/midi cuando la señal es vocal válida.
+      if (isVocalSignal) {
+        this.currentMidi$.next(midiNote);
+        this.currentNote$.next(this.pitch.midiToNoteName(midiNote));
       } else {
+        this.currentMidi$.next(0);
         this.currentNote$.next('-');
       }
 
-      // VALIDACIÓN: Filtros para voz humana (igual que vocal-range)
-      // 1. RMS > ruido ambiente (eliminar ruido de fondo)
-      const isAboveNoise = rms > this.noiseFloorDb;
-      
-      // 2. Frecuencia en rango vocal humano (80-880 Hz)
-      const isHumanVoiceRange = frequency >= this.HUMAN_VOICE_MIN_HZ && frequency <= this.HUMAN_VOICE_MAX_HZ;
-      
-      // 3. Confidence SOLO para frecuencias extremas (muy graves o muy agudas)
-      // Graves < 100 Hz o agudas > 700 Hz requieren mínima confidence (15%)
-      let passesConfidenceCheck = true;
-      if (frequency < 100 || frequency > 700) {
-        passesConfidenceCheck = confidence >= 0.15; // 15% mínimo para extremos
-      }
-      
-      // 4. Estabilidad temporal: una nota debe repetirse 3 veces seguidas (300ms)
-      // Esto filtra picos instantáneos vs notas sostenidas
-      let isStableNote = false;
-      if (midiNote > 0) {
-        if (Math.abs(midiNote - this.lastAcceptedMidi) <= 1) { // Misma nota (±1 semitono por vibrato)
-          this.lastAcceptedCount++;
-        } else {
-          this.lastAcceptedMidi = midiNote;
-          this.lastAcceptedCount = 1;
-        }
-        isStableNote = this.lastAcceptedCount >= this.MIN_REPETITIONS;
-      }
-      
-      const isVocalSignal = isAboveNoise && isHumanVoiceRange && passesConfidenceCheck && isStableNote;
+      this.updateAttackLatencyTracking(isVocalSignal, midiNote, performance.now());
 
-      // DEBUG: Log cada 20 capturas (~2 segundos)
-      if (Math.random() < 0.05) {
-        console.log('[Stability] Captura:', {
-          midi: midiNote,
-          freq: frequency.toFixed(1) + ' Hz',
-          conf: (confidence * 100).toFixed(1) + '%',
-          rms: rms.toFixed(1) + ' dB',
-          filters: {
-            aboveNoise: isAboveNoise,
-            inRange: isHumanVoiceRange,
-            confCheck: passesConfidenceCheck,
-            stable: isStableNote,
-            reps: this.lastAcceptedCount
-          },
-          FINAL: isVocalSignal,
-          samples: this.samples.length
-        });
-      }
+      // Log deshabilitado: mantener captura limpia
 
-      // Capturar muestra si hay señal vocal (RMS > ruido) y CREPE detectó algo
-      // SIN filtros de confidence - capturar hasta lo más mínimo
-      if (midiNote > 0 && isVocalSignal) {
+      // Capturar muestra si hay señal vocal
+      if (isVocalSignal) {
         this.samples.push({
           midi: midiNote,
           rms,
@@ -295,7 +241,17 @@ export class StabilityService {
       const elapsedSec = (performance.now() - this.startTime) / 1000;
       const progress = elapsedSec / this.targetDurationSec;
       this.progress$.next(Math.min(1, progress));
-    }, 100);
+    }, this.CAPTURE_INTERVAL_MS);
+  }
+
+  private resetTrackingState(): void {
+    this.attackLatencyCandidatesMs = [];
+    this.currentAttackStartMs = null;
+    this.attackCapturedInCurrentUtterance = false;
+    this.hasReachedTargetInCurrentUtterance = false;
+    this.currentDeviationCents = [];
+    this.deviationSegmentMeansCents = [];
+    this.wasVocalActive = false;
   }
 
   private stopCaptureLoop() {
@@ -339,55 +295,137 @@ export class StabilityService {
     const validDynamicRange = segmentMetrics.map(m => m.dynamicRangeDb).filter(v => v !== null) as number[];
     const validStability = segmentMetrics.map(m => m.stabilityCents).filter(v => v !== null) as number[];
 
-    // durationSec = el segmento MÁS LARGO (donde se mantuvo más tiempo)
+    // durationSec = el segmento MÁS LARGO con nota objetivo correcta
+    // (si no hay target/captura válida, usar el mayor segmento vocal).
     const longestSegment = segments.reduce((max, seg) => 
       seg.durationSec > max.durationSec ? seg : max
     , segments[0]);
+    const longestCorrectDurationSec = this.calculateLongestCorrectDurationSec();
+    const durationForPayload = longestCorrectDurationSec ?? longestSegment.durationSec;
+    const attackLatencyMs = this.calculateAttackLatencyMs();
+    const stabilityCents = this.calculateTargetDeviationStabilityCents();
 
     return {
       meanRmsDb: validMeanRms.length > 0 ? this.mean(validMeanRms) : null,
       rmsConsistency: validRmsConsistency.length > 0 ? this.mean(validRmsConsistency) : null,
       dynamicRangeDb: validDynamicRange.length > 0 ? this.mean(validDynamicRange) : null,
-      durationSec: longestSegment.durationSec,
+      durationSec: durationForPayload,
       precisionCents: null, // No se calcula en estabilidad
-      stabilityCents: validStability.length > 0 ? this.mean(validStability) : null,
-      attackLatencyMs: null, // No se calcula en estabilidad
+      stabilityCents: stabilityCents ?? (validStability.length > 0 ? this.mean(validStability) : this.STABILITY_CENTS_LIMIT),
+      attackLatencyMs,
     };
   }
 
-  /**
-   * Construye el payload estándar para ExerciseMetric.metricsData
-   */
-  private buildExercisePayload(metrics: StabilityMetrics): ExerciseMetricsPayload {
-    const sessionId = this.calibration.getSessionId() ?? 'unknown';
+  private calculateTargetDeviationStabilityCents(): number | null {
+    this.finalizeDeviationSegmentIfNeeded();
 
-    const data: MetricsData = {
-      // Métricas generales que este ejercicio SÍ produce
-      meanRmsDb: metrics.meanRmsDb,
-      rmsConsistency: metrics.rmsConsistency,
-      dynamicRangeDb: metrics.dynamicRangeDb,
-      durationSec: metrics.durationSec,
+    if (!this.deviationSegmentMeansCents.length) {
+      return this.STABILITY_CENTS_LIMIT;
+    }
 
-      // Métricas específicas de estabilidad
-      precisionCents: metrics.precisionCents,
-      stabilityCents: metrics.stabilityCents,
-      attackLatencyMs: metrics.attackLatencyMs,
+    const valid = this.deviationSegmentMeansCents.filter(value => value < this.STABILITY_CENTS_LIMIT);
+    if (!valid.length) {
+      return this.STABILITY_CENTS_LIMIT;
+    }
 
-      // Este ejercicio NO calcula rango ni vibrato (por ahora)
-      rangeMinMidi: null,
-      rangeMaxMidi: null,
-      rangeSpanSemitones: null,
+    return this.mean(valid);
+  }
 
-      vibratoRateHz: null,
-      vibratoDepthCents: null,
-    };
+  private updateAttackLatencyTracking(isVocalSignal: boolean, midiNote: number, timestampMs: number): void {
+    if (!this.targetMidi) {
+      this.wasVocalActive = isVocalSignal;
+      return;
+    }
 
-    return {
-      sessionId,
-      exerciseId: 'stability',
-      attemptNumber: 1,
-      metricsData: data,
-    };
+    if (isVocalSignal && !this.wasVocalActive) {
+      // Inicio de una nueva emisión vocal con nota detectada
+      this.currentAttackStartMs = timestampMs;
+      this.attackCapturedInCurrentUtterance = false;
+      this.hasReachedTargetInCurrentUtterance = false;
+      this.currentDeviationCents = [];
+    }
+
+    if (!isVocalSignal && this.wasVocalActive) {
+      // Fin de emisión: reset para capturar siguiente intento
+      this.finalizeDeviationSegmentIfNeeded();
+      this.currentAttackStartMs = null;
+      this.attackCapturedInCurrentUtterance = false;
+      this.hasReachedTargetInCurrentUtterance = false;
+      this.currentDeviationCents = [];
+    }
+
+    if (
+      isVocalSignal &&
+      !this.attackCapturedInCurrentUtterance &&
+      this.currentAttackStartMs !== null &&
+      this.isTargetNote(midiNote)
+    ) {
+      const latencyMs = Math.max(0, timestampMs - this.currentAttackStartMs);
+      this.attackLatencyCandidatesMs.push(latencyMs);
+      this.attackCapturedInCurrentUtterance = true;
+    }
+
+    if (isVocalSignal) {
+      const deviationCents = Math.abs((midiNote - this.targetMidi) * 100);
+
+      if (!this.hasReachedTargetInCurrentUtterance && this.isTargetNote(midiNote)) {
+        this.hasReachedTargetInCurrentUtterance = true;
+        this.currentDeviationCents.push(deviationCents);
+      } else if (this.hasReachedTargetInCurrentUtterance) {
+        this.currentDeviationCents.push(deviationCents);
+      }
+    }
+
+    this.wasVocalActive = isVocalSignal;
+  }
+
+  private finalizeDeviationSegmentIfNeeded(): void {
+    if (!this.hasReachedTargetInCurrentUtterance || !this.currentDeviationCents.length) {
+      return;
+    }
+
+    const meanDeviation = this.mean(this.currentDeviationCents);
+    if (meanDeviation !== null) {
+      this.deviationSegmentMeansCents.push(meanDeviation);
+    }
+  }
+
+  private isTargetNote(midi: number): boolean {
+    if (!this.targetMidi || midi <= 0) {
+      return false;
+    }
+
+    return Math.abs((midi - this.targetMidi) * 100) <= this.TARGET_TOLERANCE_CENTS;
+  }
+
+  private calculateAttackLatencyMs(): number {
+    const validLatencies = this.attackLatencyCandidatesMs.filter(ms => ms < this.ATTACK_LATENCY_LIMIT_MS);
+
+    if (!validLatencies.length) {
+      return this.ATTACK_LATENCY_LIMIT_MS;
+    }
+
+    return Math.round(validLatencies.reduce((sum, ms) => sum + ms, 0) / validLatencies.length);
+  }
+
+  private calculateLongestCorrectDurationSec(): number | null {
+    if (!this.targetMidi || this.samples.length === 0) {
+      return null;
+    }
+
+    const correctSamples = this.samples.filter(sample =>
+      Math.abs((sample.midi - this.targetMidi!) * 100) <= this.TARGET_TOLERANCE_CENTS
+    );
+
+    const correctSegments = this.segmentByGap(correctSamples, this.SEGMENT_MAX_GAP_MS, this.MIN_CORRECT_SEGMENT_SAMPLES);
+    if (!correctSegments.length) {
+      return 0;
+    }
+
+    const durations = correctSegments.map(seg => seg.durationSec);
+    this.log('correct_segments_sec', durations.map(d => d.toFixed(2)));
+
+    return Math.max(...durations);
   }
 
   /**
@@ -395,18 +433,20 @@ export class StabilityService {
    * Un fragmento se rompe si hay un gap > 300ms entre muestras
    */
   private segmentVocalPhrases(samples: StabilitySample[]): VocalSegment[] {
+    return this.segmentByGap(samples, this.SEGMENT_MAX_GAP_MS, this.MIN_SEGMENT_SAMPLES);
+  }
+
+  private segmentByGap(samples: StabilitySample[], maxGapMs: number, minSamples: number): VocalSegment[] {
     if (samples.length === 0) return [];
 
     const segments: VocalSegment[] = [];
     let currentSegment: StabilitySample[] = [samples[0]];
-    const MAX_GAP_MS = 300; // 300ms de silencio rompe el segmento
 
     for (let i = 1; i < samples.length; i++) {
       const gap = samples[i].timestamp - samples[i - 1].timestamp;
-      
-      if (gap > MAX_GAP_MS) {
-        // Gap detectado - finalizar segmento actual
-        if (currentSegment.length >= 5) { // Mínimo 5 muestras (500ms)
+
+      if (gap > maxGapMs) {
+        if (currentSegment.length >= minSamples) {
           segments.push(this.createSegment(currentSegment));
         }
         currentSegment = [samples[i]];
@@ -415,8 +455,7 @@ export class StabilityService {
       }
     }
 
-    // Agregar último segmento
-    if (currentSegment.length >= 5) {
+    if (currentSegment.length >= minSamples) {
       segments.push(this.createSegment(currentSegment));
     }
 

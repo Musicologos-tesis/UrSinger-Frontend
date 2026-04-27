@@ -6,6 +6,7 @@ export type CheckupStep = 'preparation' | 'calibration' | 'vocal-range' | 'stabi
 interface StepConfig {
   id: CheckupStep;
   label: string;
+  info: string;
 }
 
 @Component({
@@ -19,11 +20,11 @@ export class StepperComponent {
   @Input() currentStep: CheckupStep = 'preparation';
 
   steps: StepConfig[] = [
-    { id: 'preparation', label: 'Preparación' },
-    { id: 'calibration', label: 'Calibración' },
-    { id: 'vocal-range', label: 'Rango' },
-    { id: 'stability', label: 'Estabilidad' },
-    { id: 'results', label: 'Resultados' }
+    { id: 'preparation', label: 'Preparación', info: 'Verificaremos que tu micrófono esté activo.' },
+    { id: 'calibration', label: 'Calibración', info: 'Analizaremos tu entorno para asegurar condiciones óptimas.' },
+    { id: 'vocal-range', label: 'Rango', info: 'Probaremos el rango mínimo y máximo de tu voz.' },
+    { id: 'stability', label: 'Estabilidad', info: 'Probaremos qué tan estable es tu voz.' },
+    { id: 'results', label: 'Resultados', info: 'Conocerás tu mejor plan de entrenamiento.' }
   ];
 
   isActive(step: CheckupStep): boolean {

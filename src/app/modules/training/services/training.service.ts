@@ -57,6 +57,69 @@ export interface ActiveTrainingPlan {
   weekPlan: DayExercises[];
 }
 
+export interface LatestVocalRangeResponse {
+  profileId: string;
+  evaluationId: string;
+  sessionId: string;
+  evaluatedAt: string;
+  vocalRange: {
+    minMidi: number;
+    maxMidi: number;
+    spanSemitones: number;
+    minNote: string;
+    maxNote: string;
+  };
+}
+
+export interface EvaluationRangeSummary {
+  minMidi?: number;
+  maxMidi?: number;
+  spanSemitones?: number;
+  minNote?: string;
+  maxNote?: string;
+}
+
+export interface EvaluationMetricsSummary {
+  precisionCents?: number;
+  stabilityCents?: number;
+  dynamicRangeDb?: number;
+  attackLatencyMs?: number;
+}
+
+export interface EvaluationScoresSummary {
+  intonation?: number;
+  stability?: number;
+  dynamics?: number;
+  overall?: number;
+}
+
+export interface EvaluationSnapshotSummary {
+  evaluationId?: string;
+  sessionId?: string;
+  evaluatedAt?: string;
+  range?: EvaluationRangeSummary;
+  metrics?: EvaluationMetricsSummary;
+  scores?: EvaluationScoresSummary;
+  weaknessesDetected?: string[];
+}
+
+export interface EvaluationDeltaSummary {
+  rangeSpanSemitones?: number;
+  precisionCents?: number;
+  stabilityCents?: number;
+  dynamicRangeDb?: number;
+  attackLatencyMs?: number;
+  overallScore?: number;
+}
+
+export interface LatestEvaluationSummaryResponse {
+  profileId: string;
+  latest: EvaluationSnapshotSummary;
+  previous?: EvaluationSnapshotSummary | null;
+  delta?: EvaluationDeltaSummary;
+  trend?: 'improving' | 'stable' | 'declining' | string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class TrainingService {
   private http = inject(HttpClient);
@@ -85,6 +148,24 @@ export class TrainingService {
       this.http.put(
         `${environment.API_BASE_URL}/training-plans/exercise/complete`,
         { planExerciseId }
+      )
+    );
+  }
+
+  async getLatestVocalRange(profileId: string): Promise<LatestVocalRangeResponse> {
+    console.log('[TrainingService] 🎵 Obteniendo rango vocal más reciente para profileId:', profileId);
+    return await firstValueFrom(
+      this.http.get<LatestVocalRangeResponse>(
+        `${environment.API_BASE_URL}/profiles/${profileId}/vocal-range/latest`
+      )
+    );
+  }
+
+  async getLatestEvaluationSummary(profileId: string): Promise<LatestEvaluationSummaryResponse> {
+    console.log('[TrainingService] 📊 Obteniendo resumen de última evaluación para profileId:', profileId);
+    return await firstValueFrom(
+      this.http.get<LatestEvaluationSummaryResponse>(
+        `${environment.API_BASE_URL}/profile/${profileId}/evaluations/latest-summary`
       )
     );
   }

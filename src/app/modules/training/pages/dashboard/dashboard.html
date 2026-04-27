@@ -1,5 +1,5 @@
-<app-auth-header 
-  [showNavigation]="true" 
+<app-auth-header
+  [showNavigation]="true"
   [activeNav]="'training'"
   (navTraining)="loadActivePlan()"
   (navCheckup)="goToCheckup()"
@@ -8,72 +8,205 @@
 ></app-auth-header>
 
 <div class="dashboard-page">
-  <!-- Contenido principal -->
   <main class="dashboard-content">
-    <h1 class="page-title">Módulo de aprendizaje</h1>
-    
+    <h1 class="page-title">Modulo de aprendizaje</h1>
+
     <p *ngIf="trainingPlan" class="page-subtitle">
       Completa los ejercicios de la semana para mejorar tus habilidades vocales.
     </p>
 
-    <!-- Loading state -->
     <div *ngIf="isLoading" class="loading-state">
       <div class="spinner"></div>
       <p>Cargando tu plan de entrenamiento...</p>
     </div>
 
-    <!-- Error state -->
     <div *ngIf="error && !isLoading" class="error-state">
       <p>{{ error }}</p>
       <button class="retry-btn" (click)="loadActivePlan()">Reintentar</button>
     </div>
 
-    <!-- Content -->
     <div *ngIf="trainingPlan && !isLoading && !error">
-      <!-- Progress card -->
-      <div class="progress-card">
-        <div class="progress-header">
-          <h2 class="progress-title">Progreso total: {{ getProgressPercentage() }}% completado</h2>
-          <p class="progress-subtitle">Completa más desafíos para desbloquear el siguiente nivel.</p>
+      <section class="overview-grid">
+        <div class="progress-card">
+          <div class="progress-header">
+            <h2 class="progress-title">Progreso total: {{ getProgressPercentage() }}% completado</h2>
+            <p class="progress-subtitle">Completa mas desafios para desbloquear el siguiente nivel.</p>
+          </div>
+          <div class="progress-bar-container">
+            <div class="progress-bar" [style.width.%]="getProgressPercentage()"></div>
+          </div>
+          <div class="progress-stats">
+            <span>{{ trainingPlan.completedThisWeek }} / {{ trainingPlan.totalExercises }} ejercicios completados</span>
+          </div>
         </div>
-        <div class="progress-bar-container">
-          <div class="progress-bar" [style.width.%]="getProgressPercentage()"></div>
+
+        <div class="evaluation-card">
+          <div class="evaluation-header">
+            <h2 class="evaluation-title">Ultima evaluacion vocal</h2>
+            <span [class]="getTrendClass()">{{ getTrendLabel() }}</span>
+          </div>
+
+          <p class="evaluation-date">
+            Fecha: {{ formatDateTime(evaluationSummary?.latest?.evaluatedAt) }}
+          </p>
+
+          <p *ngIf="evaluationInfoMessage" class="evaluation-note">{{ evaluationInfoMessage }}</p>
+
+          <div *ngIf="evaluationSummary; else noEvaluationData" class="evaluation-body">
+            <div class="summary-row summary-row--single">
+              <div>
+                <div class="summary-label">Score general</div>
+                <div class="summary-value">{{ evaluationSummary.latest.scores?.overall ?? '—' }}</div>
+              </div>
+            </div>
+
+            <button class="details-btn" type="button" (click)="openEvaluationDetailModal()">
+              Ver detalle completo
+            </button>
+          </div>
+
+          <ng-template #noEvaluationData>
+            <p class="evaluation-empty">{{ evaluationSummaryError || 'Aun no hay evaluacion suficiente para comparar progreso.' }}</p>
+          </ng-template>
         </div>
-        <div class="progress-stats">
-          <span>{{ trainingPlan.completedThisWeek }} / {{ trainingPlan.totalExercises }} ejercicios completados</span>
-        </div>
+      </section>
+
+      <div
+        *ngIf="showEvaluationDetailModal && evaluationSummary"
+        class="modal-backdrop"
+        (click)="closeEvaluationDetailModal()"
+        (keydown.escape)="closeEvaluationDetailModal()"
+        tabindex="0"
+      >
+        <section
+          class="modal-card"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="evaluationDetailTitle"
+          (click)="$event.stopPropagation()"
+        >
+          <header class="modal-head">
+            <h3 id="evaluationDetailTitle" class="modal-title">Detalle de evaluacion vocal</h3>
+            <button class="modal-close" type="button" aria-label="Cerrar" (click)="closeEvaluationDetailModal()">×</button>
+          </header>
+
+          <div class="modal-body">
+            <p class="modal-subtitle">Fecha de evaluacion: {{ formatDateTime(evaluationSummary.latest.evaluatedAt) }}</p>
+
+            <div class="summary-row">
+              <div>
+                <div class="summary-label">Rango</div>
+                <div class="summary-value">{{ getRangeLabel() }}</div>
+              </div>
+              <div>
+                <div class="summary-label">Score general</div>
+                <div class="summary-value">{{ evaluationSummary.latest.scores?.overall ?? '—' }}</div>
+              </div>
+            </div>
+
+            <div class="summary-block" *ngIf="getWeaknessesForDisplay().length > 0">
+              <div class="summary-block-header">
+                <h3 class="summary-block-title">Grupos con carencia</h3>
+              </div>
+              <div class="weakness-list">
+                <span *ngFor="let weakness of getWeaknessesForDisplay()" class="weakness-chip">{{ weakness }}</span>
+              </div>
+            </div>
+
+            <div class="metrics-grid">
+              <article class="metric-item">
+                <p class="metric-title">Precision</p>
+                <p class="metric-value">{{ formatMetric(evaluationSummary.latest.metrics?.precisionCents) }} c</p>
+                <p [class]="getDeltaClass(evaluationSummary.delta?.precisionCents, true)">
+                  {{ getDeltaText(evaluationSummary.delta?.precisionCents, 'c', true) }}
+                </p>
+              </article>
+
+              <article class="metric-item">
+                <p class="metric-title">Estabilidad</p>
+                <p class="metric-value">{{ formatMetric(evaluationSummary.latest.metrics?.stabilityCents) }} c</p>
+                <p [class]="getDeltaClass(evaluationSummary.delta?.stabilityCents, true)">
+                  {{ getDeltaText(evaluationSummary.delta?.stabilityCents, 'c', true) }}
+                </p>
+              </article>
+
+              <article class="metric-item">
+                <p class="metric-title">Dinamica</p>
+                <p class="metric-value">{{ formatMetric(evaluationSummary.latest.metrics?.dynamicRangeDb) }} dB</p>
+                <p [class]="getDeltaClass(evaluationSummary.delta?.dynamicRangeDb)">
+                  {{ getDeltaText(evaluationSummary.delta?.dynamicRangeDb, ' dB') }}
+                </p>
+              </article>
+
+              <article class="metric-item">
+                <p class="metric-title">Rango util</p>
+                <p class="metric-value">{{ evaluationSummary.latest.range?.spanSemitones ?? '—' }} st</p>
+                <p [class]="getDeltaClass(evaluationSummary.delta?.rangeSpanSemitones)">
+                  {{ getDeltaText(evaluationSummary.delta?.rangeSpanSemitones, ' st') }}
+                </p>
+              </article>
+            </div>
+
+            <div class="modal-split" *ngIf="hasHistoricalComparison()">
+              <div>
+                <p class="modal-section-title">Mejoras puntuales</p>
+                <ul *ngIf="getImprovementHighlights().length > 0; else noModalImprovements" class="highlight-list highlight-list--good">
+                  <li *ngFor="let highlight of getImprovementHighlights()">{{ highlight }}</li>
+                </ul>
+                <ng-template #noModalImprovements>
+                  <p class="summary-empty">No hay mejoras puntuales en esta comparacion.</p>
+                </ng-template>
+              </div>
+
+              <div>
+                <p class="modal-section-title">Puntos para reforzar</p>
+                <ul *ngIf="getAttentionHighlights().length > 0; else noModalAttention" class="highlight-list highlight-list--warn">
+                  <li *ngFor="let highlight of getAttentionHighlights()">{{ highlight }}</li>
+                </ul>
+                <ng-template #noModalAttention>
+                  <p class="summary-empty">No se detectaron retrocesos frente a la evaluacion anterior.</p>
+                </ng-template>
+              </div>
+            </div>
+          </div>
+
+          <footer class="modal-actions">
+            <button class="modal-ok" type="button" (click)="closeEvaluationDetailModal()">Cerrar</button>
+          </footer>
+        </section>
       </div>
 
-      <!-- Exercises grid -->
       <div class="exercises-grid">
         <div *ngFor="let day of trainingPlan.weekPlan" class="day-section">
           <h2 class="day-title">{{ day.dayName }}</h2>
 
           <div class="exercises-list">
-            <div *ngFor="let exercise of day.exercises; let i = index" 
+            <div
+              *ngFor="let exercise of day.exercises; let i = index"
               class="exercise-card"
-              [class.exercise-card--completed]="exercise.isCompletedThisWeek">
+              [class.exercise-card--completed]="exercise.isCompletedThisWeek"
+            >
               <div class="exercise-icon">🎤</div>
-              
+
               <div class="exercise-content">
-                <h3 class="exercise-title">Desafío {{ i + 1 }}: {{ exercise.exerciseName }}</h3>
+                <h3 class="exercise-title">Desafio {{ i + 1 }}: {{ exercise.exerciseName }}</h3>
                 <p class="exercise-description">{{ exercise.description }}</p>
-                
+
                 <div class="exercise-meta">
                   <span class="exercise-level">Nivel {{ exercise.level }}</span>
                   <span class="exercise-tag exercise-tag--cvt" *ngIf="exercise.cvtDescription">CVT</span>
                   <span class="exercise-tag exercise-tag--evm" *ngIf="exercise.evmDescription">EVM</span>
                 </div>
 
-                <button 
-                  class="start-btn" 
+                <button
+                  class="start-btn"
                   [class.start-btn--disabled]="!canStartExercise(exercise, day.exercises)"
                   [class.start-btn--completed]="exercise.isCompletedThisWeek"
                   [disabled]="!canStartExercise(exercise, day.exercises)"
                   (click)="startExercise(exercise)"
                 >
                   <span class="btn-icon">▶</span>
-                  <span *ngIf="!exercise.isCompletedThisWeek">Iniciar desafío</span>
+                  <span *ngIf="!exercise.isCompletedThisWeek">Iniciar desafio</span>
                   <span *ngIf="exercise.isCompletedThisWeek">✓ Completado</span>
                 </button>
               </div>

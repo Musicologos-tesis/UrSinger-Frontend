@@ -1,0 +1,27 @@
+<div class="glide-shell">
+  @if (state === 'idle' || state === 'practicing') {
+    <p class="glide-hint">Completa 3 repeticiones: sube de Nota 1 a Nota 2 y regresa a Nota 1.</p>
+  }
+
+  <app-generic-exercise
+    [state]="state"
+    [practicePrompt]="practicePrompt"
+    [showTargetReference]="showTargetReference"
+    [targetNote]="targetNote"
+    [targetReferenceLabel]="targetReferenceLabel"
+    [remainingSeconds]="remainingSeconds"
+    [currentNote]="currentNote"
+    [currentConfidence]="currentConfidence"
+    [primaryCheckLabel]="primaryCheckLabel"
+    [primaryOk]="primaryOk"
+    [voiceDetected]="voiceDetected"
+    [edgeConfidenceOk]="edgeConfidenceOk"
+    [completionMet]="completionMet"
+    [completionLabel]="completionLabel"
+    [progressPercent]="progressPercent"
+    (start)="start.emit()"
+    (retry)="retry.emit()"
+    (finish)="finish.emit()"
+    (playNote)="playNote.emit()"
+  />
+</div>

@@ -1,0 +1,27 @@
+<div class="steady-shell">
+  @if (state === 'idle' || state === 'practicing') {
+    <p class="steady-hint">Completa 3 repeticiones sosteniendo la nota objetivo con estabilidad.</p>
+  }
+
+  <app-generic-exercise
+    [state]="state"
+    [practicePrompt]="practicePrompt"
+    [showTargetReference]="showTargetReference"
+    [targetNote]="targetNote"
+    [targetReferenceLabel]="targetReferenceLabel"
+    [remainingSeconds]="remainingSeconds"
+    [currentNote]="currentNote"
+    [currentConfidence]="currentConfidence"
+    [primaryCheckLabel]="primaryCheckLabel"
+    [primaryOk]="primaryOk"
+    [voiceDetected]="voiceDetected"
+    [edgeConfidenceOk]="edgeConfidenceOk"
+    [completionMet]="completionMet"
+    [completionLabel]="completionLabel"
+    [progressPercent]="progressPercent"
+    (start)="start.emit()"
+    (retry)="retry.emit()"
+    (finish)="finish.emit()"
+    (playNote)="playNote.emit()"
+  />
+</div>

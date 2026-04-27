@@ -35,124 +35,34 @@
 
         <!-- Contenido derecho -->
         <div class="right">
-          <div class="phase-container">
-            <!-- Header según estado -->
-            @if (state() === 'idle' || state() === 'practicing') {
-              <div class="phase-header">
-                <span class="phase-label">
-                  @if (state() === 'idle') { Prepárate para empezar el desafío }
-                  @if (state() === 'practicing') { Sosteniendo nota {{ targetNote() }}... }
-                </span>
-                @if (state() === 'idle') {
-                  <span class="status-indicator pending">⏳</span>
-                }
-                @if (state() === 'practicing' && samples.length < 20) {
-                  <span class="status-indicator pending">⏳</span>
-                }
-                @if (state() === 'practicing' && samples.length >= 20) {
-                  <span class="status-indicator valid">✓</span>
-                }
-              </div>
-            }
-
-            <!-- Instrucción según estado -->
-            @if (state() === 'idle') {
-              <p class="instruction">
-                Presiona "Empezar" cuando estés listo para cantar {{ targetNote() }}
-              </p>
-            }
-            @if (state() === 'practicing') {
-              <p class="instruction">Mantén la nota hasta completar el ejercicio</p>
-            }
-            @if (state() === 'retry') {
-              <p class="instruction result-message error">
-                ¡Casi lo logras! Estuviste muy cerca. Inténtalo de nuevo.
-              </p>
-            }
-            @if (state() === 'success') {
-              <p class="instruction result-message success">
-                ¡Excelente trabajo! Has completado el desafío satisfactoriamente.
-              </p>
-            }
-            
-            <!-- NOTA OBJETIVO (siempre visible excepto en resultados) -->
-            @if (state() === 'idle' || state() === 'practicing') {
-              <div class="target-note-display">
-                <div class="target-label">NOTA OBJETIVO:</div>
-                <div class="target-note">{{ targetNote() }}</div>
-                @if (state() === 'idle') {
-                  <button class="play-note-btn" (click)="playTargetNote()" title="Escuchar nota">
-                    🔊 Reproducir nota
-                  </button>
-                }
-              </div>
-            }
-            
-            <!-- Contenido cuando está practicando -->
-            @if (state() === 'practicing') {
-              <!-- Tiempo restante -->
-              <div class="timeout-indicator">
-                <span class="timeout-label">Tiempo restante:</span>
-                <span class="timeout-value">{{ remainingSeconds() }}s</span>
-              </div>
-              
-              <!-- Indicadores en tiempo real -->
-              <div class="live-indicators">
-                <div class="indicator-row">
-                  <span class="label">Detectando:</span>
-                  <span class="value">{{ currentNote() || '---' }}</span>
-                </div>
-                
-                <div class="indicator-row">
-                  <span class="label">Confianza:</span>
-                  <span class="value">{{ (currentConfidence() * 100).toFixed(0) }}%</span>
-                </div>
-              </div>
-              
-              <!-- Validaciones en tiempo real -->
-              <div class="validation-checks">
-                <div class="check-item" [class.valid]="Math.abs(currentMidi() - targetMidi()) <= 1 && currentMidi() > 0">
-                  <span class="check-icon">{{ Math.abs(currentMidi() - targetMidi()) <= 1 && currentMidi() > 0 ? '✓' : '○' }}</span>
-                  <span class="check-label">Afinación correcta (±1 semitono)</span>
-                </div>
-                
-                <div class="check-item" [class.valid]="currentNote() !== '-'">
-                  <span class="check-icon">{{ currentNote() !== '-' ? '✓' : '○' }}</span>
-                  <span class="check-label">Voz detectada</span>
-                </div>
-                
-                <div class="check-item" [class.valid]="samples.length >= 20">
-                  <span class="check-icon">{{ samples.length >= 20 ? '✓' : '○' }}</span>
-                  <span class="check-label">Duración suficiente (3 segundos)</span>
-                </div>
-              </div>
-              
-              <!-- Barra de progreso -->
-              @if (Math.abs(currentMidi() - targetMidi()) <= 1 && currentMidi() > 0) {
-                <div class="progress-bar">
-                  <div class="progress-fill" [style.width.%]="Math.min(100, (samples.length / 20) * 100)"></div>
-                </div>
-                <p class="progress-text">Sosteniendo... {{ Math.min(100, Math.round((samples.length / 20) * 100)) }}%</p>
-              }
-            }
-            
-            <!-- Botón de acción según estado -->
-            @if (state() === 'idle') {
-              <button class="btn-start-exercise" (click)="startPractice()">
-                ▶ Empezar
-              </button>
-            }
-            @if (state() === 'retry') {
-              <button class="btn-start-exercise" (click)="retryPractice()">
-                🔄 Reintentar
-              </button>
-            }
-            @if (state() === 'success') {
-              <button class="btn-start-exercise success" (click)="finishExercise()">
-                ▶ Finalizar
-              </button>
-            }
-          </div>
+          <app-exercise-renderer
+            [kind]="getExerciseKindForView()"
+            [state]="state()"
+            [practicePrompt]="practicePrompt()"
+            [showTargetReference]="showTargetReference()"
+            [targetNote]="targetNote()"
+            [targetReferenceLabel]="targetReferenceLabel()"
+            [remainingSeconds]="remainingSeconds()"
+            [currentNote]="currentNote()"
+            [currentConfidence]="currentConfidence()"
+            [primaryCheckLabel]="primaryCheckLabel()"
+            [primaryOk]="frameChecks().primaryOk"
+            [voiceDetected]="frameChecks().voiceDetected"
+            [edgeConfidenceOk]="frameChecks().edgeConfidenceOk"
+            [completionMet]="isCompletionRequirementMet()"
+            [completionLabel]="getCompletionCheckLabel()"
+            [progressPercent]="getLiveProgressPercent()"
+            [szRecordedDurationSec]="getSZRecordedDurationSec()"
+            [szCurrentZDurationSec]="getSZCurrentZDurationSec()"
+            [szFlowPhase]="getSZFlowPhase()"
+            [szCountdown]="getSZCountdownValue()"
+            (start)="startPractice()"
+            (stopSZS)="stopSZSPhase()"
+            (startSZHold)="startSZHoldPhase()"
+            (retry)="retryPractice()"
+            (finish)="finishExercise()"
+            (playNote)="playTargetNote()"
+          />
         </div>
       </div>
     }

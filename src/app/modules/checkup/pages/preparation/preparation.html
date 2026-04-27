@@ -1,5 +1,5 @@
 <app-auth-header 
-  [pageTitle]="'Chequeo rápido'"
+  [pageTitle]="'Evaluación'"
   [showNavigation]="hasActivePlan()" 
   [activeNav]="'checkup'"
   (navTraining)="goToTraining()"
@@ -23,8 +23,8 @@
 
   <div class="right">
     <ul class="checklist">
-      <li>✔️ Asegúrate de estar en un lugar silencioso y con buena conexión.</li>
-      <li>✔️ Cuando estés listo, activa tu micrófono para empezar la evaluación.</li>
+      <li>Asegúrate de estar en un lugar silencioso y con buena conexión.</li>
+      <li>Cuando estés listo, activa tu micrófono para empezar la evaluación.</li>
     </ul>
 
     <div class="row">
@@ -41,8 +41,12 @@
 </div>
 
 @if (state() === 'error') {
-  <p class="error">
-    No pudimos acceder al micrófono. Revisa los permisos del navegador o usa HTTPS.
-  </p>
+  <app-flashcard
+    tone="error"
+    title="Primero activa el micrófono"
+    message="No pudimos acceder al micrófono. Revisa los permisos del navegador o usa HTTPS."
+    [floating]="true"
+    [autoMinimizeMs]="4000"
+  ></app-flashcard>
 }
 </div>

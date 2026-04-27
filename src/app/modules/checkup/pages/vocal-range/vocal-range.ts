@@ -6,11 +6,12 @@ import { AudioAnalyzerService } from '../../services/audio.analyzer.service';
 import { AuthService } from '../../../../services/auth.service';
 import { StepperComponent } from '../../../../shared/components/stepper/stepper.component';
 import { AuthHeaderComponent } from '../../../auth/components/auth-header/auth-header.component';
+import { FlashcardComponent } from '../../../../shared/components/flashcard/flashcard.component';
 
 @Component({
   selector: 'app-vocal-range',
   standalone: true,
-  imports: [CommonModule, StepperComponent, AuthHeaderComponent],
+  imports: [CommonModule, StepperComponent, AuthHeaderComponent, FlashcardComponent],
   templateUrl: './vocal-range.html',
   styleUrl: './vocal-range.scss'
 })
@@ -69,7 +70,8 @@ export class VocalRangeComponent implements OnInit, OnDestroy {
       await this.rangeService.startSweepPhase(analyser);
     } catch (error: any) {
       console.error('Error al iniciar barrido:', error);
-      alert(error.message || 'Error al iniciar el ejercicio');
+      this.rangeService.errorMessage$.next(error.message || 'Error al iniciar el ejercicio');
+      this.rangeService.phase$.next(RangePhase.Error);
     } finally {
       this.isLoading.set(false);
     }
