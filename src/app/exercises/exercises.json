@@ -105,11 +105,11 @@
         "rationale": "CVT (Neutral) + EVM (Anchoring)",
         "cvtDescription": "Neutral: Modo vocal que permite estabilidad tonal sin tensión laríngea.",
         "evmDescription": "Anchoring: Estabilización de la laringe para mantener pitch constante.",
-        "objective": "Mantener una nota sin que varíe su afinación más de lo necesario.",
-        "instructions": "El usuario elige una nota cómoda y la sostiene intentando evitar cualquier temblor o vibrato.",
+        "objective": "Sostener la nota objetivo con afinación estable en repeticiones controladas.",
+        "instructions": "UrSinger genera una nota objetivo dentro del rango vocal del usuario. Se deben completar 3 repeticiones manteniendo la nota estable según la duración del nivel.",
         "levels": [
-          { "level": 1, "description": "Mantén la nota por 3 s.", "videoUrl": null },
-          { "level": 2, "description": "Mantén la nota por 5 s.", "videoUrl": null }
+          { "level": 1, "description": "3 repeticiones sosteniendo la nota por 3 segundos.", "videoUrl": null },
+          { "level": 2, "description": "3 repeticiones sosteniendo la nota por 5 segundos.", "videoUrl": null }
         ]
       },
       {
@@ -118,11 +118,11 @@
         "rationale": "EVM (Anchoring + Onset control)",
         "cvtDescription": null,
         "evmDescription": "Anchoring + Onset Control: Oscilaciones regulares del pitch mediante control muscular fino.",
-        "objective": "Generar vibrato de forma controlada, regular y sin perder afinación base.",
-        "instructions": "El usuario sostiene una nota y aplica un vibrato suave (oscilaciones de tono naturales, no forzadas). UrSinger analiza su regularidad.",
+        "objective": "Aplicar vibrato controlado alrededor de una nota objetivo dentro del rango vocal.",
+        "instructions": "UrSinger genera una nota objetivo según el rango vocal. El usuario no debe mantener tono plano, sino generar vibrato regular alrededor de la nota. Nivel 1 exige 3 segundos y nivel 2 exige 5 segundos, dentro de un máximo de 1 minuto.",
         "levels": [
-          { "level": 1, "description": "Vibrato libre por 3 s.", "videoUrl": null },
-          { "level": 2, "description": "Vibrato libre por 5 s.", "videoUrl": null }
+          { "level": 1, "description": "Vibrato controlado por 3 segundos sobre la nota objetivo.", "videoUrl": null },
+          { "level": 2, "description": "Vibrato controlado por 5 segundos sobre la nota objetivo.", "videoUrl": null }
         ]
       },
       {
@@ -131,11 +131,11 @@
         "rationale": "CVT (Avoid constriction) + EVM (True Vocal Fold Onset)",
         "cvtDescription": "Avoid Constriction: Inicio de nota sin tensión ni constricción faríngea.",
         "evmDescription": "True Vocal Fold Onset: Activación precisa de las cuerdas vocales desde el primer momento.",
-        "objective": "Entrenar la precisión al iniciar una nota sin ataques bruscos ni retrasos en la afinación.",
-        "instructions": "UrSinger da una nota guía → el usuario la emite intentando empezar directamente en el tono correcto.",
+        "objective": "Iniciar la nota objetivo con afinación exacta, sin deslizar desde otra nota.",
+        "instructions": "UrSinger genera una nota objetivo. Nivel 1 trabaja en una nota cómoda del rango vocal; nivel 2 usa una nota aguda al límite del rango. Se deben completar 3 repeticiones limpias para superar el desafío.",
         "levels": [
-          { "level": 1, "description": "3 repeticiones con ±50 cents al inicio.", "videoUrl": null },
-          { "level": 2, "description": "3 repeticiones con ±25 cents al inicio.", "videoUrl": null }
+          { "level": 1, "description": "3 repeticiones en nota cómoda con entrada limpia (±50 cents).", "videoUrl": null },
+          { "level": 2, "description": "3 repeticiones en nota aguda límite con entrada limpia (±25 cents).", "videoUrl": null }
         ]
       }
     ]
@@ -153,10 +153,10 @@
         "cvtDescription": "Twang/Overdrive: Modos vocales que permiten proyección potente sin tensión.",
         "evmDescription": null,
         "objective": "Ejecutar una nota breve con proyección firme y controlada, evitando saturación o tensión.",
-        "instructions": "UrSinger da una nota guía. El usuario la emite con un ataque energético (como un \"¡HEY!\"), manteniendo 1 segundo de potencia estable.",
+        "instructions": "UrSinger da una nota guía. El usuario la emite con un ataque energético (como un \"¡HEY!\"). Debe completar 3 repeticiones en un máximo de 1 minuto; si termina antes, el ejercicio se da por completado.",
         "levels": [
-          { "level": 1, "description": "Emisión fuerte de 3 s en nota media.", "videoUrl": null },
-          { "level": 2, "description": "Emisión fuerte de 5 s en nota media.", "videoUrl": null }
+          { "level": 1, "description": "3 repeticiones válidas en máximo 1 minuto (exigencia base de precisión y ataque).", "videoUrl": null },
+          { "level": 2, "description": "3 repeticiones válidas en máximo 1 minuto (mayor exigencia de precisión y ataque).", "videoUrl": null }
         ]
       },
       {
@@ -165,11 +165,11 @@
         "rationale": "EVM (Source–Filter Balance) + CVT (Metal Control)",
         "cvtDescription": "Metal Control: Mantener claridad vocal durante aumento de volumen.",
         "evmDescription": "Source-Filter Balance: Equilibrio entre la fuente (cuerdas vocales) y el filtro (tracto vocal).",
-        "objective": "Aumentar gradualmente el volumen manteniendo el tono estable.",
-        "instructions": "El usuario mantiene una vocal \"Ah\", comenzando suave y aumentando volumen uniformemente hasta el final del tiempo.",
+        "objective": "Mantener una nota sostenida mientras aumenta ligeramente la potencia sin perder estabilidad tonal.",
+        "instructions": "UrSinger genera una nota dentro del rango vocal. El usuario la sostiene y aumenta solo un poco la potencia desde el inicio hasta el final. Debe completar 3 repeticiones en un máximo de 1 minuto; si termina antes, el ejercicio se da por completado.",
         "levels": [
-          { "level": 1, "description": "Aumenta volumen durante 3 s.", "videoUrl": null },
-          { "level": 2, "description": "Aumenta volumen durante 5 s.", "videoUrl": null }
+          { "level": 1, "description": "3 repeticiones sosteniendo 3 s con una subida suave de potencia.", "videoUrl": null },
+          { "level": 2, "description": "3 repeticiones sosteniendo 5 s con una subida suave de potencia.", "videoUrl": null }
         ]
       },
       {
@@ -178,11 +178,11 @@
         "rationale": "CVT (Twang + Metal Control) + EVM (Anchoring)",
         "cvtDescription": "Twang + Metal Control: Cambios dinámicos manteniendo claridad y eficiencia vocal.",
         "evmDescription": "Anchoring: Estabilización laríngea durante cambios de volumen.",
-        "objective": "Cambiar rápidamente entre voz suave y fuerte sin perder tono ni calidad.",
-        "instructions": "El usuario alterna una vocal entre \"suave → fuerte → suave\" sin cambiar la nota.",
+        "objective": "Alternar potencia suave -> fuerte -> suave sobre una nota objetivo sin perder estabilidad tonal.",
+        "instructions": "UrSinger genera una nota objetivo dentro del rango vocal del usuario. Cada ciclo suave -> fuerte -> suave cuenta como 1 repetición. Se deben completar 3 repeticiones en un máximo de 1 minuto; si termina antes, el ejercicio se da por completado.",
         "levels": [
-          { "level": 1, "description": "1 ciclo de 3 s.", "videoUrl": null },
-          { "level": 2, "description": "2 ciclos de 5 s.", "videoUrl": null }
+          { "level": 1, "description": "3 repeticiones en nota cómoda del rango vocal.", "videoUrl": null },
+          { "level": 2, "description": "3 repeticiones en nota más alta del rango vocal.", "videoUrl": null }
         ]
       }
     ]

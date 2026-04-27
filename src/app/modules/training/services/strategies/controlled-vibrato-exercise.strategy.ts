@@ -1,3 +1,4 @@
+import { AudioPitchService } from '../../../checkup/services/audio-pitch.service';
 import { VoiceDetectionService } from '../../../../services/voice-detection.service';
 import { LEVEL_CONFIGS, VOICE_FILTER_DEFAULTS } from '../exercise-engine.config';
 import {
@@ -13,8 +14,13 @@ import { ExerciseStrategy } from '../exercise-engine.strategy';
 
 export class ControlledVibratoStrategy implements ExerciseStrategy {
   readonly kind = 'controlled-vibrato' as const;
+  private readonly MAX_BRIEF_DROP_MS = 350;
+  private readonly MAX_TARGET_GAP_MS = 550;
 
-  constructor(private readonly voiceDetection: VoiceDetectionService) {}
+  constructor(
+    private readonly voiceDetection: VoiceDetectionService,
+    private readonly pitchService: AudioPitchService
+  ) {}
 
   buildDefinition(exercise: ExerciseDescriptor): ExerciseDefinition {
     const normalized = exercise.level >= 2 ? 2 : 1;
@@ -22,6 +28,9 @@ export class ControlledVibratoStrategy implements ExerciseStrategy {
     const profile = this.voiceDetection.readVoiceProfile();
 
     const rules: ControlledVibratoRules = {
+      targetMidi: exercise.targetMidi,
+      targetFrequencyHz: this.pitchService.midiToFrequency(exercise.targetMidi),
+      requiredHoldMs: levelConfig.requiredHoldSec * 1000,
       minSamples: levelConfig.minSamples,
       minVoiceRmsDb: profile?.avgMinRmsDb ?? -60,
       minFrequencyHz: VOICE_FILTER_DEFAULTS.minFrequencyHz,
@@ -71,21 +80,8 @@ export class ControlledVibratoStrategy implements ExerciseStrategy {
         ? frame.confidence >= rules.minEdgeConfidence
         : true;
 
-    if (voiceDetected && edgeConfidenceOk && frame.frequency > 0) {
-      if (runtime.vibratoAnchorFrequencyHz === null) {
-        runtime.vibratoAnchorFrequencyHz = frame.frequency;
-        runtime.vibratoAnchorFrameCount = 1;
-      } else if (runtime.vibratoAnchorFrameCount < rules.anchorFrames) {
-        const n = runtime.vibratoAnchorFrameCount;
-        runtime.vibratoAnchorFrequencyHz = (runtime.vibratoAnchorFrequencyHz * n + frame.frequency) / (n + 1);
-        runtime.vibratoAnchorFrameCount = n + 1;
-      }
-    }
-
-    const anchorReady = runtime.vibratoAnchorFrameCount >= rules.anchorFrames;
-    const anchorHz = runtime.vibratoAnchorFrequencyHz;
-
-    if (!voiceDetected || !edgeConfidenceOk || !anchorReady || !anchorHz || frame.frequency <= 0) {
+    if (!voiceDetected || !edgeConfidenceOk || frame.frequency <= 0) {
+      this.resetHoldIfDropExceeded(runtime, frame.timestamp);
       return {
         checks: {
           voiceDetected,
@@ -96,16 +92,42 @@ export class ControlledVibratoStrategy implements ExerciseStrategy {
       };
     }
 
-    const centsFromAnchor = 1200 * Math.log2(frame.frequency / anchorHz);
+    const centsFromTarget = 1200 * Math.log2(frame.frequency / rules.targetFrequencyHz);
+    const allowedCenterDeviation = rules.centerDriftToleranceCents + rules.maxPeakToPeakCents / 2;
+    const primaryOk = Number.isFinite(centsFromTarget) && Math.abs(centsFromTarget) <= allowedCenterDeviation;
 
-    if (runtime.vibratoMaxCents === null || centsFromAnchor > runtime.vibratoMaxCents) {
-      runtime.vibratoMaxCents = centsFromAnchor;
-    }
-    if (runtime.vibratoMinCents === null || centsFromAnchor < runtime.vibratoMinCents) {
-      runtime.vibratoMinCents = centsFromAnchor;
+    if (!primaryOk) {
+      this.resetHoldIfDropExceeded(runtime, frame.timestamp);
+      return {
+        checks: {
+          voiceDetected,
+          edgeConfidenceOk,
+          primaryOk,
+        },
+        isValidFrame: false,
+      };
     }
 
-    const sign: -1 | 0 | 1 = centsFromAnchor > 0 ? 1 : centsFromAnchor < 0 ? -1 : 0;
+    const nearTargetToleranceCents = Math.max(18, Math.round(rules.centerDriftToleranceCents * 0.6));
+    const nearTarget = Math.abs(centsFromTarget) <= nearTargetToleranceCents;
+
+    if (nearTarget && !runtime.controlledVibratoWasNearTarget && runtime.controlledVibratoLastTargetMs !== null) {
+      runtime.controlledVibratoTargetReturns += 1;
+    }
+
+    if (nearTarget) {
+      runtime.controlledVibratoLastTargetMs = frame.timestamp;
+    }
+    runtime.controlledVibratoWasNearTarget = nearTarget;
+
+    if (runtime.vibratoMaxCents === null || centsFromTarget > runtime.vibratoMaxCents) {
+      runtime.vibratoMaxCents = centsFromTarget;
+    }
+    if (runtime.vibratoMinCents === null || centsFromTarget < runtime.vibratoMinCents) {
+      runtime.vibratoMinCents = centsFromTarget;
+    }
+
+    const sign: -1 | 0 | 1 = centsFromTarget > 0 ? 1 : centsFromTarget < 0 ? -1 : 0;
     if (sign !== 0 && runtime.vibratoLastSign !== 0 && sign !== runtime.vibratoLastSign) {
       runtime.vibratoDirectionChanges += 1;
     }
@@ -113,15 +135,33 @@ export class ControlledVibratoStrategy implements ExerciseStrategy {
       runtime.vibratoLastSign = sign;
     }
 
-    const primaryOk = Math.abs(centsFromAnchor) <= rules.maxPeakToPeakCents / 2;
+    const recentTargetHeard =
+      runtime.controlledVibratoLastTargetMs !== null &&
+      Math.max(0, frame.timestamp - runtime.controlledVibratoLastTargetMs) <= this.MAX_TARGET_GAP_MS;
+
+    const requiredTargetReturns = rules.requiredHoldMs >= 5000 ? 2 : 1;
+    const intermittentTargetOk = runtime.controlledVibratoTargetReturns >= requiredTargetReturns;
+    const validVibratoFrame = recentTargetHeard && intermittentTargetOk;
+
+    if (validVibratoFrame) {
+      if (runtime.controlledVibratoLastValidMs === null) {
+        runtime.controlledVibratoLastValidMs = frame.timestamp;
+      } else {
+        const deltaMs = Math.max(0, frame.timestamp - runtime.controlledVibratoLastValidMs);
+        runtime.controlledVibratoHoldMs += deltaMs;
+        runtime.controlledVibratoLastValidMs = frame.timestamp;
+      }
+    } else {
+      this.resetHoldIfDropExceeded(runtime, frame.timestamp);
+    }
 
     return {
       checks: {
         voiceDetected,
         edgeConfidenceOk,
-        primaryOk,
+        primaryOk: validVibratoFrame,
       },
-      isValidFrame: voiceDetected && edgeConfidenceOk && primaryOk,
+      isValidFrame: validVibratoFrame,
     };
   }
 
@@ -129,22 +169,32 @@ export class ControlledVibratoStrategy implements ExerciseStrategy {
     const rules = definition.rules as ControlledVibratoRules;
     const requiredFrames = rules.minSamples;
     const completionRatio = requiredFrames > 0 ? Math.min(1, validFrames / requiredFrames) : 0;
-
-    const max = runtime?.vibratoMaxCents;
-    const min = runtime?.vibratoMinCents;
-    const peakToPeak = max !== null && max !== undefined && min !== null && min !== undefined ? max - min : 0;
-    const center = max !== null && max !== undefined && min !== null && min !== undefined ? (max + min) / 2 : 0;
-
-    const amplitudeOk = peakToPeak >= rules.minPeakToPeakCents && peakToPeak <= rules.maxPeakToPeakCents;
-    const regularityOk = (runtime?.vibratoDirectionChanges ?? 0) >= rules.minDirectionChanges;
-    const centerOk = Math.abs(center) <= rules.centerDriftToleranceCents;
+    const holdOk = (runtime?.controlledVibratoHoldMs ?? 0) >= rules.requiredHoldMs;
+    const requiredTargetReturns = rules.requiredHoldMs >= 5000 ? 2 : 1;
+    const intermittentTargetOk = (runtime?.controlledVibratoTargetReturns ?? 0) >= requiredTargetReturns;
 
     return {
-      passed: validFrames >= requiredFrames && amplitudeOk && regularityOk && centerOk,
+      passed: validFrames >= requiredFrames && holdOk && intermittentTargetOk,
       validFrames,
       requiredFrames,
       completionRatio,
       score: Math.round(completionRatio * 100),
     };
+  }
+
+  private resetHoldIfDropExceeded(runtime: ExerciseRuntimeState, nowMs: number): void {
+    if (runtime.controlledVibratoLastValidMs === null) {
+      runtime.controlledVibratoHoldMs = 0;
+      return;
+    }
+
+    const invalidGapMs = Math.max(0, nowMs - runtime.controlledVibratoLastValidMs);
+    if (invalidGapMs > this.MAX_BRIEF_DROP_MS) {
+      runtime.controlledVibratoHoldMs = 0;
+      runtime.controlledVibratoLastValidMs = null;
+      runtime.controlledVibratoTargetReturns = 0;
+      runtime.controlledVibratoLastTargetMs = null;
+      runtime.controlledVibratoWasNearTarget = false;
+    }
   }
 }

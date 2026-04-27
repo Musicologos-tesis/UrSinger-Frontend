@@ -1,26 +1,28 @@
 .dashboard-page {
   min-height: 100vh;
-  background: #E0E0E0;
+  background: linear-gradient(180deg, #f5f3ff 0%, #eef2ff 100%);
 }
 
 /* Content */
 .dashboard-content {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 40px 32px;
+  padding: 8px 32px 28px;
 }
 
 .page-title {
-  font-size: 40px;
+  font-family: 'Inter', sans-serif;
+  font-size: 34px;
   font-weight: 600;
-  margin: 0 0 12px 0;
+  margin: 8px 0 10px 0;
   color: #000;
 }
 
 .page-subtitle {
-  font-size: 20px;
+  font-family: 'Inter', sans-serif;
+  font-size: 18px;
   color: #828282;
-  margin: 0 0 32px 0;
+  margin: 0 0 24px 0;
 }
 
 /* Loading/Error states */
@@ -57,12 +59,350 @@
 }
 
 /* Progress card */
+.overview-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 18px;
+  margin-bottom: 24px;
+}
+
 .progress-card {
   background: #ffffff;
-  border-radius: 16px;
-  padding: 32px;
-  margin-bottom: 32px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.08);
+}
+
+.evaluation-card {
+  background: #ffffff;
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+  padding: 18px;
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.08);
+}
+
+.evaluation-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.evaluation-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.evaluation-date {
+  margin: 0 0 14px;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.evaluation-note {
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: #4338ca;
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.trend {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.trend--up {
+  color: #166534;
+  background: #dcfce7;
+}
+
+.trend--down {
+  color: #9f1239;
+  background: #ffe4e6;
+}
+
+.trend--neutral {
+  color: #1e3a8a;
+  background: #dbeafe;
+}
+
+.summary-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.summary-row--single {
+  grid-template-columns: 1fr;
+}
+
+.summary-label {
+  margin: 0 0 2px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.summary-value {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.summary-block {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #f8fafc;
+  padding: 10px;
+  margin-bottom: 10px;
+}
+
+.summary-block-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.summary-block-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.weakness-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.weakness-chip {
+  display: flex;
+  align-items: center;
+  border-radius: 10px;
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #991b1b;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.summary-empty {
+  margin: 0;
+  font-size: 12px;
+  color: #4b5563;
+}
+
+.highlight-list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.highlight-list li {
+  margin-bottom: 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.highlight-list li:last-child {
+  margin-bottom: 0;
+}
+
+.highlight-list--good li {
+  color: #166534;
+}
+
+.highlight-list--warn li {
+  color: #b91c1c;
+}
+
+.details-btn {
+  width: 100%;
+  border: 1px solid #c7d2fe;
+  border-radius: 10px;
+  background: #eef2ff;
+  color: #3730a3;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: auto;
+}
+
+.details-btn:hover {
+  background: #e0e7ff;
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.metric-item {
+  margin: 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #f8fafc;
+  padding: 10px;
+}
+
+.metric-title {
+  margin: 0;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.metric-value {
+  margin: 4px 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.delta {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.delta--good {
+  color: #166534;
+}
+
+.delta--bad {
+  color: #b91c1c;
+}
+
+.delta--neutral {
+  color: #4b5563;
+}
+
+.evaluation-empty {
+  margin: 0;
+  border: 1px dashed #cbd5e1;
+  background: #f8fafc;
+  color: #6b7280;
+  border-radius: 10px;
+  padding: 12px;
+  font-size: 13px;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 70;
+}
+
+.modal-card {
+  width: min(720px, 100%);
+  max-height: min(88vh, 760px);
+  overflow: auto;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  box-shadow: 0 20px 44px rgba(15, 23, 42, 0.22);
+}
+
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.modal-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.modal-close {
+  width: 32px;
+  height: 32px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  color: #4b5563;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.modal-close:hover {
+  background: #f9fafb;
+}
+
+.modal-body {
+  padding: 14px 18px;
+}
+
+.modal-subtitle {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: #4b5563;
+}
+
+.modal-split {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.modal-section-title {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.modal-actions {
+  padding: 12px 18px 16px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.modal-ok {
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 14px;
+  background: #6366f1;
+  color: #f9fafb;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.modal-ok:hover {
+  background: #4f46e5;
 }
 
 .progress-title {
@@ -103,14 +443,22 @@
 .exercises-grid {
   display: flex;
   flex-direction: column;
-  gap: 40px;
+  gap: 24px;
+}
+
+.day-section {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.08);
+  padding: 18px;
 }
 
 .day-title {
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 600;
   color: #000;
-  margin: 0 0 20px 0;
+  margin: 0 0 14px 0;
 }
 
 .exercises-list {
@@ -120,27 +468,36 @@
 }
 
 .exercise-card {
-  background: #ffffff;
+  background: #f9fafb;
   border-radius: 12px;
-  padding: 24px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+  box-shadow: none;
   display: flex;
   gap: 16px;
   transition: transform 0.2s, box-shadow 0.2s;
-  border: 3px solid transparent;
+  border: 1px solid #e5e7eb;
 
   &--completed {
-    border-color: #10b981;
+    border-color: #86efac;
+    background: #f0fdf4;
   }
 }
 
 .exercise-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
 }
 
 .exercise-icon {
-  font-size: 28px;
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: linear-gradient(165deg, #312e81 0%, #1e3a8a 100%);
+  box-shadow: inset 0 0 0 1px rgba(49, 46, 129, 0.42);
+  font-size: 26px;
   flex-shrink: 0;
 }
 
@@ -209,7 +566,7 @@
   gap: 8px;
   padding: 12px 24px;
   border: none;
-  border-radius: 8px;
+  border-radius: 999px;
   background: #6366f1;
   color: #ffffff;
   font-size: 15px;
@@ -261,12 +618,22 @@
     grid-template-columns: 1fr;
   }
 
+  .overview-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .summary-row,
+  .metrics-grid,
+  .modal-split {
+    grid-template-columns: 1fr;
+  }
+
   .dashboard-content {
-    padding: 24px 16px;
+    padding: 6px 18px 24px;
   }
 
   .page-title {
-    font-size: 28px;
+    font-size: 30px;
   }
 
   .page-subtitle {

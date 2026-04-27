@@ -29,6 +29,7 @@ export class CleanOnsetStrategy implements ExerciseStrategy {
       targetMidi: exercise.targetMidi,
       targetFrequencyHz: this.pitchService.midiToFrequency(exercise.targetMidi),
       toleranceCents: levelConfig.toleranceCents,
+      requiredRepetitions: levelConfig.requiredRepetitions,
       minSamples: levelConfig.minSamples,
       minVoiceRmsDb: profile?.avgMinRmsDb ?? -60,
       minFrequencyHz: VOICE_FILTER_DEFAULTS.minFrequencyHz,
@@ -74,8 +75,44 @@ export class CleanOnsetStrategy implements ExerciseStrategy {
         ? frame.confidence >= rules.minEdgeConfidence
         : true;
 
-    if (voiceDetected && runtime.onsetStartTimeMs === null) {
+    if (!voiceDetected) {
+      this.resetAttemptCycle(runtime);
+      return {
+        checks: {
+          voiceDetected,
+          edgeConfidenceOk,
+          primaryOk: false,
+        },
+        isValidFrame: false,
+      };
+    }
+
+    // Each repetition requires a fresh onset after voice release.
+    if (runtime.cleanOnsetAwaitingRelease) {
+      return {
+        checks: {
+          voiceDetected,
+          edgeConfidenceOk,
+          primaryOk: false,
+        },
+        isValidFrame: false,
+      };
+    }
+
+    if (!edgeConfidenceOk || frame.frequency <= 0) {
+      return {
+        checks: {
+          voiceDetected,
+          edgeConfidenceOk,
+          primaryOk: false,
+        },
+        isValidFrame: false,
+      };
+    }
+
+    if (runtime.onsetStartTimeMs === null) {
       runtime.onsetStartTimeMs = frame.timestamp;
+      runtime.cleanOnsetAttemptResolved = false;
     }
 
     const centsFromTarget =
@@ -84,46 +121,49 @@ export class CleanOnsetStrategy implements ExerciseStrategy {
         : Number.POSITIVE_INFINITY;
 
     const inTuneOk = Number.isFinite(centsFromTarget) && Math.abs(centsFromTarget) <= rules.toleranceCents;
+    const onsetLatencyMs = runtime.onsetStartTimeMs !== null ? Math.max(0, frame.timestamp - runtime.onsetStartTimeMs) : 0;
+    const latencyOk = onsetLatencyMs <= rules.maxOnsetLatencyMs;
+    const onsetSuccess = inTuneOk && latencyOk;
 
-    if (
-      voiceDetected &&
-      edgeConfidenceOk &&
-      inTuneOk &&
-      runtime.onsetStartTimeMs !== null &&
-      runtime.onsetLatencyMs === null
-    ) {
-      runtime.onsetLatencyMs = frame.timestamp - runtime.onsetStartTimeMs;
-      runtime.onsetReachedTarget = runtime.onsetLatencyMs <= rules.maxOnsetLatencyMs;
+    runtime.onsetLatencyMs = onsetLatencyMs;
+    runtime.onsetReachedTarget = onsetSuccess;
+    runtime.cleanOnsetAttemptResolved = true;
+    runtime.cleanOnsetAwaitingRelease = true;
+
+    if (onsetSuccess) {
+      runtime.cleanOnsetRepetitions += 1;
     }
-
-    const latencyOk = runtime.onsetLatencyMs !== null && runtime.onsetLatencyMs <= rules.maxOnsetLatencyMs;
-    const primaryOk = inTuneOk && latencyOk;
 
     return {
       checks: {
         voiceDetected,
         edgeConfidenceOk,
-        primaryOk,
+        primaryOk: onsetSuccess,
       },
-      isValidFrame: voiceDetected && edgeConfidenceOk && primaryOk,
+      isValidFrame: onsetSuccess,
     };
   }
 
   buildResult(validFrames: number, definition: ExerciseDefinition, runtime?: ExerciseRuntimeState): ExerciseResult {
     const rules = definition.rules as CleanOnsetRules;
-    const requiredFrames = rules.minSamples;
-    const completionRatio = requiredFrames > 0 ? Math.min(1, validFrames / requiredFrames) : 0;
-    const onsetOk =
-      runtime?.onsetReachedTarget === true &&
-      runtime?.onsetLatencyMs !== null &&
-      runtime.onsetLatencyMs <= rules.maxOnsetLatencyMs;
+    const repetitions = runtime?.cleanOnsetRepetitions ?? 0;
+    const requiredFrames = rules.requiredRepetitions;
+    const completionRatio = requiredFrames > 0 ? Math.min(1, repetitions / requiredFrames) : 0;
 
     return {
-      passed: validFrames >= requiredFrames && onsetOk,
-      validFrames,
+      passed: repetitions >= rules.requiredRepetitions,
+      validFrames: repetitions,
       requiredFrames,
       completionRatio,
       score: Math.round(completionRatio * 100),
     };
+  }
+
+  private resetAttemptCycle(runtime: ExerciseRuntimeState): void {
+    runtime.onsetStartTimeMs = null;
+    runtime.onsetLatencyMs = null;
+    runtime.onsetReachedTarget = false;
+    runtime.cleanOnsetAwaitingRelease = false;
+    runtime.cleanOnsetAttemptResolved = false;
   }
 }

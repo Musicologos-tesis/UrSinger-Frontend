@@ -16,7 +16,11 @@ export interface PitchTargetRules {
 }
 
 export interface SteadyToneRules {
+  targetMidi: number;
+  targetFrequencyHz: number;
   toleranceCents: number;
+  holdDurationMs: number;
+  requiredRepetitions: number;
   minSamples: number;
   minVoiceRmsDb: number;
   minFrequencyHz: number;
@@ -24,7 +28,6 @@ export interface SteadyToneRules {
   edgeFrequencyLowHz: number;
   edgeFrequencyHighHz: number;
   minEdgeConfidence: number;
-  anchorFrames: number;
 }
 
 export interface PitchStepsRules {
@@ -68,6 +71,7 @@ export interface MixCoordinationRules {
   endMidi: number;
   startFrequencyHz: number;
   endFrequencyHz: number;
+  requiredRepetitions: number;
   mixCenterMidi: number;
   mixCenterFrequencyHz: number;
   glideSpanSemitones: number;
@@ -88,6 +92,7 @@ export interface StepExpansionRules {
   sequenceFrequenciesHz: number[];
   semitoneSpan: number;
   noteCount: number;
+  requiredRepetitions: number;
   toleranceCents: number;
   minSamplesPerStep: number;
   minSamples: number;
@@ -145,6 +150,8 @@ export interface DynamicWaveRules {
 }
 
 export interface VolumeRiseRules {
+  targetMidi: number;
+  targetFrequencyHz: number;
   minSamples: number;
   minVoiceRmsDb: number;
   minFrequencyHz: number;
@@ -153,12 +160,15 @@ export interface VolumeRiseRules {
   edgeFrequencyHighHz: number;
   minEdgeConfidence: number;
   rmsAnchorFrames: number;
-  pitchAnchorFrames: number;
   pitchToleranceCents: number;
   rmsRiseMinDb: number;
+  holdDurationMs: number;
+  requiredRepetitions: number;
 }
 
 export interface LoudSoftAlternanceRules {
+  targetMidi: number;
+  targetFrequencyHz: number;
   minSamples: number;
   minVoiceRmsDb: number;
   minFrequencyHz: number;
@@ -167,7 +177,6 @@ export interface LoudSoftAlternanceRules {
   edgeFrequencyHighHz: number;
   minEdgeConfidence: number;
   rmsAnchorFrames: number;
-  pitchAnchorFrames: number;
   pitchToleranceCents: number;
   loudDeltaDb: number;
   softReturnToleranceDb: number;
@@ -178,6 +187,7 @@ export interface SingleBurstRules {
   targetMidi: number;
   targetFrequencyHz: number;
   toleranceCents: number;
+  requiredRepetitions: number;
   minSamples: number;
   minVoiceRmsDb: number;
   minFrequencyHz: number;
@@ -193,6 +203,7 @@ export interface CleanOnsetRules {
   targetMidi: number;
   targetFrequencyHz: number;
   toleranceCents: number;
+  requiredRepetitions: number;
   minSamples: number;
   minVoiceRmsDb: number;
   minFrequencyHz: number;
@@ -204,6 +215,9 @@ export interface CleanOnsetRules {
 }
 
 export interface ControlledVibratoRules {
+  targetMidi: number;
+  targetFrequencyHz: number;
+  requiredHoldMs: number;
   minSamples: number;
   minVoiceRmsDb: number;
   minFrequencyHz: number;
@@ -307,6 +321,9 @@ export interface ExerciseDescriptor {
 export interface ExerciseRuntimeState {
   anchorFrequencyHz: number | null;
   anchorFrameCount: number;
+  steadyToneCurrentHoldMs: number;
+  steadyToneRepetitions: number;
+  steadyToneLastValidMs: number | null;
   pitchTargetCurrentHoldMs: number;
   pitchTargetRepetitions: number;
   pitchTargetLastValidMs: number | null;
@@ -315,9 +332,11 @@ export interface ExerciseRuntimeState {
   pitchStepsLastValidMs: number | null;
   currentStepIndex: number;
   stepValidFrames: number[];
+  stepExpansionRepetitions: number;
   previousMidi: number | null;
   glidePhase: 'up' | 'down' | 'complete';
   pitchGlideRepetitions: number;
+  mixCoordinationRepetitions: number;
   glidePeakReached: boolean;
   glideReturnedStart: boolean;
   rmsAnchorDb: number | null;
@@ -343,6 +362,10 @@ export interface ExerciseRuntimeState {
   volumeRisePitchFrameCount: number;
   volumeRisePeakDb: number | null;
   volumeRisePeakReached: boolean;
+  volumeRiseCurrentHoldMs: number;
+  volumeRiseRepetitions: number;
+  volumeRiseLastValidMs: number | null;
+  volumeRiseAwaitingRelease: boolean;
   alternancePhase: 'loud' | 'soft' | 'complete';
   alternanceCyclesCompleted: number;
   alternanceAnchorDb: number | null;
@@ -353,15 +376,25 @@ export interface ExerciseRuntimeState {
   singleBurstAnchorDb: number | null;
   singleBurstAnchorFrameCount: number;
   singleBurstAttackReached: boolean;
+  singleBurstRepetitions: number;
+  singleBurstAwaitingRelease: boolean;
   onsetStartTimeMs: number | null;
   onsetLatencyMs: number | null;
   onsetReachedTarget: boolean;
+  cleanOnsetRepetitions: number;
+  cleanOnsetAwaitingRelease: boolean;
+  cleanOnsetAttemptResolved: boolean;
   vibratoAnchorFrequencyHz: number | null;
   vibratoAnchorFrameCount: number;
   vibratoLastSign: -1 | 0 | 1;
   vibratoDirectionChanges: number;
   vibratoMaxCents: number | null;
   vibratoMinCents: number | null;
+  controlledVibratoHoldMs: number;
+  controlledVibratoLastValidMs: number | null;
+  controlledVibratoLastTargetMs: number | null;
+  controlledVibratoTargetReturns: number;
+  controlledVibratoWasNearTarget: boolean;
   mixTransitionSamples: number;
   mixTransitionReached: boolean;
   breathHoldCurrentStartMs: number | null;

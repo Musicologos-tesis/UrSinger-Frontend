@@ -37,9 +37,10 @@ export class StepExpansionStrategy implements ExerciseStrategy {
       sequenceFrequenciesHz,
       semitoneSpan: levelConfig.semitoneSpan,
       noteCount: levelConfig.noteCount,
+      requiredRepetitions: levelConfig.requiredRepetitions,
       toleranceCents: levelConfig.toleranceCents,
       minSamplesPerStep: levelConfig.minSamplesPerStep,
-      minSamples: levelConfig.minSamplesPerStep * sequenceMidis.length,
+      minSamples: levelConfig.minSamplesPerStep * sequenceMidis.length * levelConfig.requiredRepetitions,
       minVoiceRmsDb: profile?.avgMinRmsDb ?? -60,
       minFrequencyHz: VOICE_FILTER_DEFAULTS.minFrequencyHz,
       maxFrequencyHz: VOICE_FILTER_DEFAULTS.maxFrequencyHz,
@@ -106,6 +107,15 @@ export class StepExpansionStrategy implements ExerciseStrategy {
       const hasNextStep = safeStepIndex < rules.sequenceMidis.length - 1;
       if (stepCompleted && hasNextStep) {
         runtime.currentStepIndex = safeStepIndex + 1;
+      } else if (stepCompleted && !hasNextStep) {
+        runtime.stepExpansionRepetitions += 1;
+
+        if (runtime.stepExpansionRepetitions >= rules.requiredRepetitions) {
+          runtime.currentStepIndex = safeStepIndex;
+        } else {
+          runtime.currentStepIndex = 0;
+          runtime.stepValidFrames = Array(rules.sequenceMidis.length).fill(0);
+        }
       }
     }
 
@@ -121,17 +131,13 @@ export class StepExpansionStrategy implements ExerciseStrategy {
 
   buildResult(validFrames: number, definition: ExerciseDefinition, runtime?: ExerciseRuntimeState): ExerciseResult {
     const rules = definition.rules as StepExpansionRules;
-    const requiredFrames = rules.minSamples;
-    const completionRatio = requiredFrames > 0 ? Math.min(1, validFrames / requiredFrames) : 0;
-
-    const lastStep = rules.sequenceMidis.length - 1;
-    const reachedLastStep = (runtime?.currentStepIndex ?? 0) >= lastStep;
-    const lastStepFrames = runtime?.stepValidFrames?.[lastStep] ?? 0;
-    const sequenceCompleted = reachedLastStep && lastStepFrames >= rules.minSamplesPerStep;
+    const repetitions = runtime?.stepExpansionRepetitions ?? 0;
+    const requiredFrames = rules.requiredRepetitions;
+    const completionRatio = requiredFrames > 0 ? Math.min(1, repetitions / requiredFrames) : 0;
 
     return {
-      passed: validFrames >= requiredFrames && sequenceCompleted,
-      validFrames,
+      passed: repetitions >= rules.requiredRepetitions,
+      validFrames: repetitions,
       requiredFrames,
       completionRatio,
       score: Math.round(completionRatio * 100),

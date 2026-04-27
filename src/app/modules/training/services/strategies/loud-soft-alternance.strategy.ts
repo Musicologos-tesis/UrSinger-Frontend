@@ -1,3 +1,4 @@
+import { AudioPitchService } from '../../../checkup/services/audio-pitch.service';
 import { VoiceDetectionService } from '../../../../services/voice-detection.service';
 import { LEVEL_CONFIGS, VOICE_FILTER_DEFAULTS } from '../exercise-engine.config';
 import {
@@ -14,7 +15,10 @@ import { ExerciseStrategy } from '../exercise-engine.strategy';
 export class LoudSoftAlternanceStrategy implements ExerciseStrategy {
   readonly kind = 'loud-soft-alternance' as const;
 
-  constructor(private readonly voiceDetection: VoiceDetectionService) {}
+  constructor(
+    private readonly voiceDetection: VoiceDetectionService,
+    private readonly pitchService: AudioPitchService
+  ) {}
 
   buildDefinition(exercise: ExerciseDescriptor): ExerciseDefinition {
     const normalized = exercise.level >= 2 ? 2 : 1;
@@ -22,6 +26,8 @@ export class LoudSoftAlternanceStrategy implements ExerciseStrategy {
     const profile = this.voiceDetection.readVoiceProfile();
 
     const rules: LoudSoftAlternanceRules = {
+      targetMidi: exercise.targetMidi,
+      targetFrequencyHz: this.pitchService.midiToFrequency(exercise.targetMidi),
       minSamples: levelConfig.minSamples,
       minVoiceRmsDb: profile?.avgMinRmsDb ?? -60,
       minFrequencyHz: VOICE_FILTER_DEFAULTS.minFrequencyHz,
@@ -30,7 +36,6 @@ export class LoudSoftAlternanceStrategy implements ExerciseStrategy {
       edgeFrequencyHighHz: VOICE_FILTER_DEFAULTS.edgeFrequencyHighHz,
       minEdgeConfidence: VOICE_FILTER_DEFAULTS.minEdgeConfidence,
       rmsAnchorFrames: levelConfig.rmsAnchorFrames,
-      pitchAnchorFrames: levelConfig.pitchAnchorFrames,
       pitchToleranceCents: levelConfig.pitchToleranceCents,
       loudDeltaDb: levelConfig.loudDeltaDb,
       softReturnToleranceDb: levelConfig.softReturnToleranceDb,
@@ -82,26 +87,16 @@ export class LoudSoftAlternanceStrategy implements ExerciseStrategy {
         runtime.alternanceAnchorFrameCount = n + 1;
       }
 
-      if (frame.frequency > 0) {
-        if (runtime.alternanceAnchorFrequencyHz === null) {
-          runtime.alternanceAnchorFrequencyHz = frame.frequency;
-          runtime.alternancePitchFrameCount = 1;
-        } else if (runtime.alternancePitchFrameCount < rules.pitchAnchorFrames) {
-          const n = runtime.alternancePitchFrameCount;
-          runtime.alternanceAnchorFrequencyHz = (runtime.alternanceAnchorFrequencyHz * n + frame.frequency) / (n + 1);
-          runtime.alternancePitchFrameCount = n + 1;
-        }
-      }
+      runtime.alternanceAnchorFrequencyHz = rules.targetFrequencyHz;
+      runtime.alternancePitchFrameCount = rules.rmsAnchorFrames;
     }
 
     const anchorReady = runtime.alternanceAnchorDb !== null && runtime.alternanceAnchorFrameCount >= rules.rmsAnchorFrames;
-    const pitchAnchorReady = runtime.alternanceAnchorFrequencyHz !== null && runtime.alternancePitchFrameCount >= rules.pitchAnchorFrames;
-
-    let pitchStableOk = false;
-    if (pitchAnchorReady && frame.frequency > 0 && runtime.alternanceAnchorFrequencyHz) {
-      const centsFromAnchor = 1200 * Math.log2(frame.frequency / runtime.alternanceAnchorFrequencyHz);
-      pitchStableOk = Number.isFinite(centsFromAnchor) && Math.abs(centsFromAnchor) <= rules.pitchToleranceCents;
-    }
+    const centsFromTarget =
+      frame.frequency > 0 && rules.targetFrequencyHz > 0
+        ? 1200 * Math.log2(frame.frequency / rules.targetFrequencyHz)
+        : Number.POSITIVE_INFINITY;
+    const pitchStableOk = Number.isFinite(centsFromTarget) && Math.abs(centsFromTarget) <= rules.pitchToleranceCents;
 
     if (!voiceDetected || !edgeConfidenceOk || !anchorReady || !pitchStableOk || runtime.alternanceAnchorDb === null) {
       return {
@@ -129,9 +124,9 @@ export class LoudSoftAlternanceStrategy implements ExerciseStrategy {
         checks: {
           voiceDetected,
           edgeConfidenceOk,
-          primaryOk: reachedLoud,
+          primaryOk: pitchStableOk,
         },
-        isValidFrame: reachedLoud,
+        isValidFrame: pitchStableOk,
       };
     }
 
@@ -152,9 +147,9 @@ export class LoudSoftAlternanceStrategy implements ExerciseStrategy {
         checks: {
           voiceDetected,
           edgeConfidenceOk,
-          primaryOk: returnedSoft,
+          primaryOk: pitchStableOk,
         },
-        isValidFrame: returnedSoft,
+        isValidFrame: pitchStableOk,
       };
     }
 

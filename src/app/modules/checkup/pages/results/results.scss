@@ -102,6 +102,35 @@
   color: #111827;
 }
 
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.section-head .section-title {
+  margin: 0;
+}
+
+.info-btn {
+  padding: 0.45rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid #c7d2fe;
+  background: #eef2ff;
+  color: #4338ca;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all $transition-base;
+}
+
+.info-btn:hover {
+  background: #e0e7ff;
+  border-color: #a5b4fc;
+}
+
 .loading-state,
 .error-state {
   text-align: center;
@@ -303,9 +332,103 @@
   color: #6b7280;
 }
 
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 60;
+}
+
+.modal-card {
+  width: min(680px, 100%);
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  box-shadow: 0 20px 44px rgba(15, 23, 42, 0.22);
+  overflow: hidden;
+}
+
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.modal-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #111827;
+}
+
+.modal-close {
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  color: #4b5563;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.modal-close:hover {
+  background: #f9fafb;
+}
+
+.modal-body {
+  padding: 1rem 1.25rem;
+}
+
+.modal-body p {
+  margin: 0 0 0.75rem 0;
+  color: #374151;
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.modal-body p:last-child {
+  margin-bottom: 0;
+}
+
+.modal-actions {
+  padding: 0.95rem 1.25rem 1.15rem;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.modal-ok {
+  border: 0;
+  border-radius: 999px;
+  padding: 0.58rem 1rem;
+  background: $primary;
+  color: #f9fafb;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all $transition-base;
+}
+
+.modal-ok:hover {
+  background: $primary-dark;
+}
+
 @media (max-width: 768px) {
   .summary-row {
     grid-template-columns: 1fr;
+  }
+
+  .section-head {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .page-container {

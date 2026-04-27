@@ -3,9 +3,18 @@ import { CommonModule } from '@angular/common';
 import { BreathFlowHoldExerciseComponent } from '../breath-flow-hold/breath-flow-hold-exercise.component';
 import { SZBalanceExerciseComponent } from '../s-z-balance/s-z-balance-exercise.component';
 import { DynamicWaveExerciseComponent } from '../dynamic-wave/dynamic-wave-exercise.component';
+import { SteadyToneExerciseComponent } from '../steady-tone/steady-tone-exercise.component';
+import { ControlledVibratoExerciseComponent } from '../controlled-vibrato/controlled-vibrato-exercise.component';
+import { CleanOnsetExerciseComponent } from '../clean-onset/clean-onset-exercise.component';
 import { PitchTargetExerciseComponent } from '../pitch-target/pitch-target-exercise.component';
 import { PitchStepsExerciseComponent } from '../pitch-steps/pitch-steps-exercise.component';
 import { PitchGlideExerciseComponent } from '../pitch-glide/pitch-glide-exercise.component';
+import { VocalGlideExerciseComponent } from '../vocal-glide/vocal-glide-exercise.component';
+import { StepExpansionExerciseComponent } from '../step-expansion/step-expansion-exercise.component';
+import { MixCoordinationExerciseComponent } from '../mix-coordination/mix-coordination-exercise.component';
+import { SingleBurstExerciseComponent } from '../single-burst/single-burst-exercise.component';
+import { VolumeRiseExerciseComponent } from '../volume-rise/volume-rise-exercise.component';
+import { LoudSoftAlternanceExerciseComponent } from '../loud-soft-alternance/loud-soft-alternance-exercise.component';
 import { GenericExerciseComponent } from '../generic/generic-exercise.component';
 
 type PracticeState = 'idle' | 'practicing' | 'success' | 'retry';
@@ -19,9 +28,18 @@ type SZFlowPhase = 'instructions' | 'countdown-s' | 'timing-s' | 'phase2-ready' 
     BreathFlowHoldExerciseComponent,
     SZBalanceExerciseComponent,
     DynamicWaveExerciseComponent,
+    SteadyToneExerciseComponent,
+    ControlledVibratoExerciseComponent,
+    CleanOnsetExerciseComponent,
     PitchTargetExerciseComponent,
     PitchStepsExerciseComponent,
     PitchGlideExerciseComponent,
+    VocalGlideExerciseComponent,
+    StepExpansionExerciseComponent,
+    MixCoordinationExerciseComponent,
+    SingleBurstExerciseComponent,
+    VolumeRiseExerciseComponent,
+    LoudSoftAlternanceExerciseComponent,
     GenericExerciseComponent,
   ],
   templateUrl: './exercise-renderer.component.html',

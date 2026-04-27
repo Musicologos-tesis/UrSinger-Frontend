@@ -1,3 +1,4 @@
+import { AudioPitchService } from '../../../checkup/services/audio-pitch.service';
 import { VoiceDetectionService } from '../../../../services/voice-detection.service';
 import { LEVEL_CONFIGS, VOICE_FILTER_DEFAULTS } from '../exercise-engine.config';
 import {
@@ -13,8 +14,12 @@ import { ExerciseStrategy } from '../exercise-engine.strategy';
 
 export class SteadyToneStrategy implements ExerciseStrategy {
   readonly kind = 'steady-tone' as const;
+  private readonly MAX_BRIEF_DROP_MS = 220;
 
-  constructor(private readonly voiceDetection: VoiceDetectionService) {}
+  constructor(
+    private readonly voiceDetection: VoiceDetectionService,
+    private readonly pitchService: AudioPitchService
+  ) {}
 
   buildDefinition(exercise: ExerciseDescriptor): ExerciseDefinition {
     const normalized = exercise.level >= 2 ? 2 : 1;
@@ -22,7 +27,11 @@ export class SteadyToneStrategy implements ExerciseStrategy {
     const profile = this.voiceDetection.readVoiceProfile();
 
     const rules: SteadyToneRules = {
+      targetMidi: exercise.targetMidi,
+      targetFrequencyHz: this.pitchService.midiToFrequency(exercise.targetMidi),
       toleranceCents: levelConfig.toleranceCents,
+      holdDurationMs: levelConfig.holdDurationSec * 1000,
+      requiredRepetitions: levelConfig.requiredRepetitions,
       minSamples: levelConfig.minSamples,
       minVoiceRmsDb: profile?.avgMinRmsDb ?? -60,
       minFrequencyHz: VOICE_FILTER_DEFAULTS.minFrequencyHz,
@@ -30,7 +39,6 @@ export class SteadyToneStrategy implements ExerciseStrategy {
       edgeFrequencyLowHz: VOICE_FILTER_DEFAULTS.edgeFrequencyLowHz,
       edgeFrequencyHighHz: VOICE_FILTER_DEFAULTS.edgeFrequencyHighHz,
       minEdgeConfidence: VOICE_FILTER_DEFAULTS.minEdgeConfidence,
-      anchorFrames: levelConfig.anchorFrames,
     };
 
     return {
@@ -68,27 +76,41 @@ export class SteadyToneStrategy implements ExerciseStrategy {
         ? frame.confidence >= rules.minEdgeConfidence
         : true;
 
-    if (voiceDetected && edgeConfidenceOk && frame.frequency > 0) {
-      if (runtime.anchorFrequencyHz === null) {
-        runtime.anchorFrequencyHz = frame.frequency;
-        runtime.anchorFrameCount = 1;
-      } else if (runtime.anchorFrameCount < rules.anchorFrames) {
-        const n = runtime.anchorFrameCount;
-        runtime.anchorFrequencyHz = (runtime.anchorFrequencyHz * n + frame.frequency) / (n + 1);
-        runtime.anchorFrameCount = n + 1;
-      }
-    }
-
-    const anchorFrequency = runtime.anchorFrequencyHz;
     const centsFromAnchor =
-      anchorFrequency && frame.frequency > 0
-        ? 1200 * Math.log2(frame.frequency / anchorFrequency)
+      frame.frequency > 0 && rules.targetFrequencyHz > 0
+        ? 1200 * Math.log2(frame.frequency / rules.targetFrequencyHz)
         : Number.POSITIVE_INFINITY;
 
-    const primaryOk =
-      runtime.anchorFrameCount >= rules.anchorFrames &&
-      Number.isFinite(centsFromAnchor) &&
-      Math.abs(centsFromAnchor) <= rules.toleranceCents;
+    const primaryOk = Number.isFinite(centsFromAnchor) && Math.abs(centsFromAnchor) <= rules.toleranceCents;
+    const isValidFrame = voiceDetected && edgeConfidenceOk && primaryOk;
+
+    if (isValidFrame) {
+      if (runtime.steadyToneLastValidMs === null) {
+        runtime.steadyToneLastValidMs = frame.timestamp;
+      } else {
+        const deltaMs = Math.max(0, frame.timestamp - runtime.steadyToneLastValidMs);
+        runtime.steadyToneCurrentHoldMs += deltaMs;
+        runtime.steadyToneLastValidMs = frame.timestamp;
+      }
+
+      if (runtime.steadyToneCurrentHoldMs >= rules.holdDurationMs) {
+        runtime.steadyToneRepetitions += 1;
+        runtime.steadyToneCurrentHoldMs = 0;
+        runtime.steadyToneLastValidMs = null;
+      }
+    } else {
+      if (runtime.steadyToneLastValidMs === null) {
+        runtime.steadyToneCurrentHoldMs = 0;
+      } else {
+        const invalidGapMs = Math.max(0, frame.timestamp - runtime.steadyToneLastValidMs);
+        if (invalidGapMs > this.MAX_BRIEF_DROP_MS) {
+          runtime.steadyToneCurrentHoldMs = 0;
+          runtime.steadyToneLastValidMs = null;
+        } else {
+          runtime.steadyToneLastValidMs = frame.timestamp;
+        }
+      }
+    }
 
     return {
       checks: {
@@ -96,17 +118,20 @@ export class SteadyToneStrategy implements ExerciseStrategy {
         edgeConfidenceOk,
         primaryOk,
       },
-      isValidFrame: voiceDetected && edgeConfidenceOk && primaryOk,
+      isValidFrame,
     };
   }
 
-  buildResult(validFrames: number, definition: ExerciseDefinition): ExerciseResult {
+  buildResult(validFrames: number, definition: ExerciseDefinition, runtime?: ExerciseRuntimeState): ExerciseResult {
     const rules = definition.rules as SteadyToneRules;
     const requiredFrames = rules.minSamples;
-    const completionRatio = requiredFrames > 0 ? Math.min(1, validFrames / requiredFrames) : 0;
+    const repetitions = runtime?.steadyToneRepetitions ?? 0;
+    const completionRatio = rules.requiredRepetitions > 0
+      ? Math.min(1, repetitions / rules.requiredRepetitions)
+      : 0;
 
     return {
-      passed: validFrames >= requiredFrames,
+      passed: repetitions >= rules.requiredRepetitions,
       validFrames,
       requiredFrames,
       completionRatio,

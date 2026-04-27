@@ -1,31 +1,36 @@
 @use '../../../../shared/styles/variables' as *;
 @use '../../../../shared/styles/mixins' as *;
 
+:host {
+  display: block;
+  min-height: 100vh;
+  background: linear-gradient(180deg, #f5f3ff 0%, #eef2ff 100%);
+}
+
 .page-container {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 0 32px;
+  padding: 8px 32px 28px;
   min-height: 100vh;
-  background: #E0E0E0;
 }
 
 .practice-content {
-  padding: 40px 0;
+  padding: 0;
 }
 
 .title {
   font-family: 'Inter', sans-serif;
-  font-size: 40px;
+  font-size: 34px;
   font-weight: 600;
-  margin: 12px 0 12px 0;
+  margin: 8px 0 10px 0;
   color: #000;
 }
 
 .subtitle {
   font-family: 'Inter', sans-serif;
-  font-size: 20px;
+  font-size: 18px;
   color: #828282;
-  margin-bottom: 32px;
+  margin-bottom: 24px;
 }
 
 .loading,
@@ -56,6 +61,9 @@
 /* Panel principal */
 .panel { 
   @include card;
+  border-radius: 14px;
+  border: 1px solid $gray-200;
+  box-shadow: $shadow-sm;
   display: flex; 
   gap: $spacing-xl; 
   align-items: flex-start; 
@@ -63,10 +71,14 @@
 
 .mic-box { 
   @include mic-box;
+  border: 1px solid rgba(49, 46, 129, 0.42);
+  background: linear-gradient(165deg, #312e81 0%, #1e3a8a 100%);
 }
 
 .mic-circle { 
   @include mic-circle;
+  background: linear-gradient(155deg, #1e3a8a 0%, #3730a3 100%);
+  box-shadow: 0 0 0 10px rgba(99, 102, 241, 0.2);
 }
 
 .mic-circle.pulse { 
@@ -117,7 +129,7 @@
   padding: $spacing-lg;
   border: 1px solid $gray-200;
   border-radius: $radius-md;
-  background: $gray-50;
+  background: #ffffff;
 }
 
 .phase-header {

@@ -33,13 +33,14 @@ export class MixCoordinationStrategy implements ExerciseStrategy {
       endMidi,
       startFrequencyHz: this.pitchService.midiToFrequency(exercise.targetMidi),
       endFrequencyHz: this.pitchService.midiToFrequency(endMidi),
+      requiredRepetitions: levelConfig.requiredRepetitions,
       mixCenterMidi,
       mixCenterFrequencyHz: this.pitchService.midiToFrequency(mixCenterMidi),
       glideSpanSemitones: levelConfig.glideSpanSemitones,
       mixWindowToleranceCents: levelConfig.mixWindowToleranceCents,
       endToleranceCents: levelConfig.endToleranceCents,
       minTransitionSamples: levelConfig.minTransitionSamples,
-      minSamples: levelConfig.minSamples,
+      minSamples: levelConfig.minSamples * levelConfig.requiredRepetitions,
       minVoiceRmsDb: profile?.avgMinRmsDb ?? -60,
       minFrequencyHz: VOICE_FILTER_DEFAULTS.minFrequencyHz,
       maxFrequencyHz: VOICE_FILTER_DEFAULTS.maxFrequencyHz,
@@ -124,7 +125,16 @@ export class MixCoordinationStrategy implements ExerciseStrategy {
       const centsToStart = 1200 * Math.log2(frame.frequency / rules.startFrequencyHz);
       if (Number.isFinite(centsToStart) && Math.abs(centsToStart) <= rules.endToleranceCents) {
         runtime.glideReturnedStart = true;
-        runtime.glidePhase = 'complete';
+        runtime.mixCoordinationRepetitions += 1;
+
+        if (runtime.mixCoordinationRepetitions >= rules.requiredRepetitions) {
+          runtime.glidePhase = 'complete';
+        } else {
+          runtime.glidePhase = 'up';
+          runtime.previousMidi = null;
+          runtime.glidePeakReached = false;
+          runtime.glideReturnedStart = false;
+        }
       }
     } else {
       primaryOk = true;
@@ -142,14 +152,14 @@ export class MixCoordinationStrategy implements ExerciseStrategy {
 
   buildResult(validFrames: number, definition: ExerciseDefinition, runtime?: ExerciseRuntimeState): ExerciseResult {
     const rules = definition.rules as MixCoordinationRules;
-    const requiredFrames = rules.minSamples;
-    const completionRatio = requiredFrames > 0 ? Math.min(1, validFrames / requiredFrames) : 0;
-    const flowCompleted = !!runtime?.glidePeakReached && !!runtime?.glideReturnedStart;
+    const repetitions = runtime?.mixCoordinationRepetitions ?? 0;
+    const requiredFrames = rules.requiredRepetitions;
+    const completionRatio = requiredFrames > 0 ? Math.min(1, repetitions / requiredFrames) : 0;
     const transitionCompleted = !!runtime?.mixTransitionReached;
 
     return {
-      passed: validFrames >= requiredFrames && flowCompleted && transitionCompleted,
-      validFrames,
+      passed: repetitions >= rules.requiredRepetitions && transitionCompleted,
+      validFrames: repetitions,
       requiredFrames,
       completionRatio,
       score: Math.round(completionRatio * 100),

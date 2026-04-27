@@ -75,6 +75,7 @@ export class CheckupResultsComponent implements OnInit {
   };
 
   checkupCompleted = false;
+  showLearningPathInfoModal = false;
 
   async ngOnInit(): Promise<void> {
     this.evaluateResult = this.metricsService.getEvaluateResult();
@@ -294,5 +295,13 @@ export class CheckupResultsComponent implements OnInit {
     this.metricsService.clearEvaluateResult();
     console.log('[Results] Checkup finalizado - SessionId y métricas limpiadas');
     this.router.navigate(['/training/dashboard']);
+  }
+
+  openLearningPathInfoModal(): void {
+    this.showLearningPathInfoModal = true;
+  }
+
+  closeLearningPathInfoModal(): void {
+    this.showLearningPathInfoModal = false;
   }
 }
