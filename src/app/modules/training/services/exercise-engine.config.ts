@@ -4,7 +4,26 @@ const normalizeExerciseName = (name: string): string =>
   name
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[\/–—-]/g, ' ')
     .toLowerCase();
+
+const EXERCISE_NAME_KIND_BY_NORMALIZED: Record<string, ExerciseKind> = {
+  'flujo de aire sostenido': 'breath-flow-hold',
+  'balance del aire sin voz con voz': 's-z-balance',
+  'potencia dinamica': 'dynamic-wave',
+  'nota objetivo': 'pitch-target',
+  'notas escalonadas': 'pitch-steps',
+  'deslizamiento entre notas': 'pitch-glide',
+  'nota estable': 'steady-tone',
+  'vibrato controlado': 'controlled-vibrato',
+  'ataque limpio de nota': 'clean-onset',
+  'ataque potente de nota': 'single-burst',
+  'incremento de volumen': 'volume-rise',
+  'dinamismo de potencia controlado': 'loud-soft-alternance',
+  'deslizamiento vocal': 'pitch-glide',
+  'expansion escalonada de notas': 'step-expansion',
+  'transicion de registro mixto': 'mix-coordination',
+};
 
 export const EXERCISE_NAME_KIND_PATTERNS: Array<{ pattern: RegExp; kind: ExerciseKind }> = [
   { pattern: /pitch\s*target/i, kind: 'pitch-target' },
@@ -61,6 +80,12 @@ export function resolveExerciseKindFromId(exerciseId?: number | null): ExerciseK
 
 export function resolveExerciseKindFromName(exerciseName: string): ExerciseKind | null {
   const normalizedName = normalizeExerciseName(exerciseName);
+
+  const exactKind = EXERCISE_NAME_KIND_BY_NORMALIZED[normalizedName];
+  if (exactKind) {
+    return exactKind;
+  }
+
   for (const matcher of EXERCISE_NAME_KIND_PATTERNS) {
     if (matcher.pattern.test(normalizedName)) {
       return matcher.kind;

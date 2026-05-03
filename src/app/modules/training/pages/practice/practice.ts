@@ -1060,7 +1060,7 @@ export class PracticeComponent implements OnInit, OnDestroy {
   }
 
   private isVocalGlideName(normalizedName: string): boolean {
-    return /vocal\s*glide|deslizamiento\s*vocal|sirena\s*vocal|glissando\s*vocal/i.test(normalizedName);
+    return /vocal\s*glide|deslizamiento\s*vocal|sirena\s*vocal|glissando\s*vocal|deslizamiento\s*de\s*voz/i.test(normalizedName);
   }
 
   private getSequenceMidisForExercise(): number[] | null {
