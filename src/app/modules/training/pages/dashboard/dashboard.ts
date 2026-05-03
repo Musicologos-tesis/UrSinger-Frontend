@@ -228,13 +228,13 @@ export class TrainingDashboardComponent implements OnInit {
   formatPrecisionFriendly(value?: number): string {
     if (value === undefined || value === null || !Number.isFinite(value)) return '—';
     const v = Math.round(value * 10) / 10;
-    return `${v} cents`;
+    return `${v} centésimas`;
   }
 
   formatDbFriendly(value?: number): string {
     if (value === undefined || value === null || !Number.isFinite(value)) return '—';
     const v = Math.round(value * 10) / 10;
-    return `${v} dB`;
+    return `${v} decibeles`;
   }
 
   formatSemitoneFriendly(value?: number): string {
@@ -243,6 +243,12 @@ export class TrainingDashboardComponent implements OnInit {
     const octaves = (v / 12);
     const approx = octaves >= 1 ? ` (~${(Math.round(octaves*10)/10)} oct.)` : '';
     return `${v} semitonos${approx}`;
+  }
+
+  formatStabilityFriendly(value?: number): string {
+    if (value === undefined || value === null || !Number.isFinite(value)) return '—';
+    const v = Math.round(value * 10) / 10;
+    return `${v} centésimas`;
   }
 
   getDeltaClass(value: number | undefined, lowerIsBetter = false): string {
@@ -259,7 +265,8 @@ export class TrainingDashboardComponent implements OnInit {
     }
     const improved = lowerIsBetter ? value < 0 : value > 0;
     const abs = Math.round(Math.abs(value) * 10) / 10;
-    return `${improved ? 'Mejora' : 'Atención'} ${abs}${unit}`;
+    const unitFull = this.unitFullName(unit);
+    return `${improved ? 'Mejora' : 'Atención'} ${abs} ${unitFull}`;
   }
 
   getProgressPercentage(): number {
@@ -341,6 +348,30 @@ export class TrainingDashboardComponent implements OnInit {
       return 'sin cambio';
     }
     const abs = Math.round(Math.abs(value) * 10) / 10;
-    return `${abs} ${unit}`;
+    const unitFull = this.unitFullName(unit);
+    return `${abs} ${unitFull}`;
+  }
+
+  private unitFullName(unit: string): string {
+    if (!unit) return unit;
+    const normalized = unit.trim().toLowerCase();
+    switch (normalized) {
+      case 'c':
+      case 'cent':
+      case 'cents':
+        return 'centésimas';
+      case 'db':
+      case 'db':
+        return 'decibeles';
+      case 'st':
+      case 'semitonos':
+        return 'semitonos';
+      case 'pts':
+      case 'pts.':
+      case 'puntos':
+        return 'puntos';
+      default:
+        return unit;
+    }
   }
 }
