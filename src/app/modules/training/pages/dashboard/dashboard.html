@@ -115,8 +115,9 @@
 
             <div class="metrics-grid">
               <article class="metric-item">
-                <p class="metric-title">Precision</p>
-                <p class="metric-value">{{ formatMetric(evaluationSummary.latest.metrics?.precisionCents) }} c</p>
+                <p class="metric-title">Precisión</p>
+                <p class="metric-value">{{ formatPrecisionFriendly(evaluationSummary.latest.metrics?.precisionCents) }}</p>
+                <p class="metric-explain">Desviación promedio respecto a la nota objetivo — mientras menor, mejor.</p>
                 <p [class]="getDeltaClass(evaluationSummary.delta?.precisionCents, true)">
                   {{ getDeltaText(evaluationSummary.delta?.precisionCents, 'c', true) }}
                 </p>
@@ -131,16 +132,18 @@
               </article>
 
               <article class="metric-item">
-                <p class="metric-title">Dinamica</p>
-                <p class="metric-value">{{ formatMetric(evaluationSummary.latest.metrics?.dynamicRangeDb) }} dB</p>
+                <p class="metric-title">Dinámica</p>
+                <p class="metric-value">{{ formatDbFriendly(evaluationSummary.latest.metrics?.dynamicRangeDb) }}</p>
+                <p class="metric-explain">Diferencia entre los niveles de volumen (mayor valor = más rango dinámico).</p>
                 <p [class]="getDeltaClass(evaluationSummary.delta?.dynamicRangeDb)">
                   {{ getDeltaText(evaluationSummary.delta?.dynamicRangeDb, ' dB') }}
                 </p>
               </article>
 
               <article class="metric-item">
-                <p class="metric-title">Rango util</p>
-                <p class="metric-value">{{ evaluationSummary.latest.range?.spanSemitones ?? '—' }} st</p>
+                <p class="metric-title">Rango útil</p>
+                <p class="metric-value">{{ formatSemitoneFriendly(evaluationSummary.latest.range?.spanSemitones) }}</p>
+                <p class="metric-explain">Medido en semitonos (12 semitonos ≈ 1 octava). Mayor significa mayor amplitud vocal.</p>
                 <p [class]="getDeltaClass(evaluationSummary.delta?.rangeSpanSemitones)">
                   {{ getDeltaText(evaluationSummary.delta?.rangeSpanSemitones, ' st') }}
                 </p>

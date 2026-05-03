@@ -224,6 +224,27 @@ export class TrainingDashboardComponent implements OnInit {
     return `${Math.round(value * 10) / 10}`;
   }
 
+  /** Formatos amigables para usuarios no musicales */
+  formatPrecisionFriendly(value?: number): string {
+    if (value === undefined || value === null || !Number.isFinite(value)) return '—';
+    const v = Math.round(value * 10) / 10;
+    return `${v} cents`;
+  }
+
+  formatDbFriendly(value?: number): string {
+    if (value === undefined || value === null || !Number.isFinite(value)) return '—';
+    const v = Math.round(value * 10) / 10;
+    return `${v} dB`;
+  }
+
+  formatSemitoneFriendly(value?: number): string {
+    if (value === undefined || value === null || !Number.isFinite(value)) return '—';
+    const v = Math.round(value);
+    const octaves = (v / 12);
+    const approx = octaves >= 1 ? ` (~${(Math.round(octaves*10)/10)} oct.)` : '';
+    return `${v} semitonos${approx}`;
+  }
+
   getDeltaClass(value: number | undefined, lowerIsBetter = false): string {
     if (value === undefined || value === null || !Number.isFinite(value) || value === 0) {
       return 'delta delta--neutral';
