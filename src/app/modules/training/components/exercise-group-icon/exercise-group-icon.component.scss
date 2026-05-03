@@ -1,0 +1,13 @@
+:host {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: inherit;
+}
+
+svg {
+  width: var(--exercise-icon-size, 24px);
+  height: var(--exercise-icon-size, 24px);
+  stroke: currentColor;
+  fill: none;
+}

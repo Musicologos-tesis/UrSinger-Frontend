@@ -29,7 +29,7 @@
         <div class="mic-box">
           <div class="mic-circle" 
                [class.pulse]="state() === 'practicing'">
-            🎤
+            <app-exercise-group-icon [groupNumber]="exercise()!.groupNumber"></app-exercise-group-icon>
           </div>
         </div>
 

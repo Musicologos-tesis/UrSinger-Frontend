@@ -190,7 +190,9 @@
               class="exercise-card"
               [class.exercise-card--completed]="exercise.isCompletedThisWeek"
             >
-              <div class="exercise-icon">🎤</div>
+              <div class="exercise-icon">
+                <app-exercise-group-icon [groupNumber]="exercise.groupNumber"></app-exercise-group-icon>
+              </div>
 
               <div class="exercise-content">
                 <h3 class="exercise-title">Desafio {{ i + 1 }}: {{ exercise.exerciseName }}</h3>

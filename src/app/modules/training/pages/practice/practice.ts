@@ -9,6 +9,7 @@ import { AudioPitchService } from '../../../checkup/services/audio-pitch.service
 import { ExerciseEngineService } from '../../services/exercise-engine.service';
 import { BreathFlowHoldRules, CleanOnsetRules, ControlledVibratoRules, DynamicWaveRules, ExerciseDefinition, ExerciseFrameChecks, ExerciseRuntimeState, LoudSoftAlternanceRules, MixCoordinationRules, PitchGlideRules, PitchStepsRules, PitchTargetRules, SingleBurstRules, SteadyToneRules, StepExpansionRules, VolumeRiseRules } from '../../services/exercise-engine.models';
 import { ExerciseRendererComponent } from '../../components/exercises/exercise-renderer/exercise-renderer.component';
+import { ExerciseGroupIconComponent } from '../../components/exercise-group-icon/exercise-group-icon.component';
 
 type PracticeState = 'idle' | 'practicing' | 'success' | 'retry';
 type SZFlowPhase = 'instructions' | 'countdown-s' | 'timing-s' | 'phase2-ready' | 'holding-z';
@@ -16,7 +17,7 @@ type SZFlowPhase = 'instructions' | 'countdown-s' | 'timing-s' | 'phase2-ready' 
 @Component({
   selector: 'app-practice',
   standalone: true,
-  imports: [CommonModule, AuthHeaderComponent, ExerciseRendererComponent],
+  imports: [CommonModule, AuthHeaderComponent, ExerciseRendererComponent, ExerciseGroupIconComponent],
   templateUrl: './practice.html',
   styleUrl: './practice.scss',
 })
@@ -112,81 +113,94 @@ export class PracticeComponent implements OnInit, OnDestroy {
 
   private createLabExercise(exerciseKey: string, level: number): ExerciseDetail | null {
     const normalizedLevel = level >= 2 ? 2 : 1;
-    const catalog: Record<string, { exerciseName: string; groupName: string; description: string; instructions: string }> = {
+    const catalog: Record<string, { exerciseName: string; groupNumber: number; groupName: string; description: string; instructions: string }> = {
       'breath-flow-hold': {
         exerciseName: 'Breath Flow Hold',
+        groupNumber: 1,
         groupName: 'Soporte respiratorio y control del aire',
         description: 'Mantener una nota sostenida a volumen estable',
         instructions: 'Sostén una vocal cómoda intentando mantener flujo y volumen constantes.',
       },
       's-z-balance': {
         exerciseName: 'S–Z Balance',
+        groupNumber: 1,
         groupName: 'Soporte respiratorio y control del aire',
         description: 'Controlar el flujo de aire comparando S y Z',
         instructions: 'Emite "ssss" y luego "zzzz" buscando duración y consistencia similares.',
       },
       'dynamic-wave': {
         exerciseName: 'Dynamic Wave',
+        groupNumber: 1,
         groupName: 'Soporte respiratorio y control del aire',
         description: 'Patrón dinámico suave→fuerte→suave en una misma nota',
         instructions: 'Mantén una nota y completa 3 repeticiones del patrón suave→fuerte→suave en máximo 1 minuto.',
       },
       'pitch-target': {
         exerciseName: 'Pitch Target',
+        groupNumber: 2,
         groupName: 'Afinación y oído tonal',
         description: 'Mejorar precisión entre notas consecutivas',
         instructions: 'Canta dos notas en secuencia manteniendo el intervalo indicado.',
       },
       'pitch-glide': {
         exerciseName: 'Pitch Glide',
+        groupNumber: 2,
         groupName: 'Afinación y oído tonal',
         description: 'Barrido controlado entre dos notas objetivo',
         instructions: 'Completa 3 repeticiones manteniendo la nota objetivo según el nivel.',
       },
       'volume-rise': {
         exerciseName: 'Volume Rise',
+        groupNumber: 4,
         groupName: 'Potencia y control dinámico',
         description: 'Nota sostenida con aumento gradual de potencia',
         instructions: 'Completa 3 repeticiones sosteniendo la nota entre 3 y 5 segundos según el nivel, aumentando solo un poco la potencia. Máximo 1 minuto.',
       },
       'controlled-vibrato': {
         exerciseName: 'Controlled vibrato',
+        groupNumber: 3,
         groupName: 'Estabilidad y vibrato controlado',
         description: 'Aplicar vibrato controlado alrededor de la nota objetivo',
         instructions: 'Genera vibrato sobre la nota objetivo: 3s en nivel 1 y 5s en nivel 2, dentro de una ventana máxima de 1 minuto.',
       },
       'clean-onset': {
         exerciseName: 'Clean onset',
+        groupNumber: 3,
         groupName: 'Estabilidad y vibrato controlado',
         description: 'Iniciar la nota objetivo sin deslizar desde otra nota',
         instructions: 'Completa 3 repeticiones empezando directo en la nota objetivo. Nivel 1 usa nota cómoda y nivel 2 usa nota aguda al límite del rango vocal.',
       },
       'single-burst': {
         exerciseName: 'Single Burst',
+        groupNumber: 4,
         groupName: 'Potencia y control dinámico',
         description: 'Ataque energético controlado',
         instructions: 'Completa 3 repeticiones con ataque firme en máximo 1 minuto. Si completas antes, el ejercicio finaliza.',
       },
       'loud-soft-alternance': {
         exerciseName: 'Loud–Soft Alternance',
+        groupNumber: 4,
         groupName: 'Potencia y control dinámico',
         description: 'Alternar suave -> fuerte -> suave sobre una nota objetivo',
         instructions: 'Completa 3 repeticiones en máximo 1 minuto manteniendo la nota objetivo y alternando potencia suave -> fuerte -> suave.',
       },
       'vocal-glide': {
         exerciseName: 'Vocal glide',
+        groupNumber: 5,
         groupName: 'Rango y flexibilidad vocal',
         description: 'Glissando ida y vuelta entre nota baja y nota alta',
         instructions: 'Cada repetición consiste en deslizar de la nota baja a la nota alta y regresar. Completa 3 repeticiones en máximo 1 minuto.',
       },
       'step-expansion': {
         exerciseName: 'Step Expansion',
+        groupNumber: 5,
         groupName: 'Rango y flexibilidad vocal',
         description: 'Secuencia de escala ascendente y descendente por nivel',
         instructions: 'Canta la escala completa (subida y bajada) y repítela 3 veces en máximo 1 minuto.',
       },
       'mix-coordination': {
         exerciseName: 'Mix coordination',
+        groupNumber: 5,
         groupName: 'Rango y flexibilidad vocal',
         description: 'Coordinar transición entre voz de pecho y voz de cabeza',
         instructions: 'Trabaja entre una nota grave cómoda y una nota aguda dentro de tu rango vocal. Completa 3 repeticiones en máximo 1 minuto.',
@@ -203,7 +217,7 @@ export class PracticeComponent implements OnInit, OnDestroy {
       exerciseLevelId: 0,
       exerciseId: 0,
       exerciseName: selected.exerciseName,
-      groupNumber: 0,
+      groupNumber: selected.groupNumber,
       groupName: selected.groupName,
       level: normalizedLevel,
       description: selected.description,

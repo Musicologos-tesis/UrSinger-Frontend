@@ -79,6 +79,8 @@
   @include mic-circle;
   background: linear-gradient(155deg, #1e3a8a 0%, #3730a3 100%);
   box-shadow: 0 0 0 10px rgba(99, 102, 241, 0.2);
+  color: #e0e7ff;
+  --exercise-icon-size: 26px;
 }
 
 .mic-circle.pulse { 
