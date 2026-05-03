@@ -1,5 +1,4 @@
 <div class="profile-page">
-  <!-- Header con navegación -->
   <app-auth-header
     pageTitle="Mi Perfil"
     [showNavigation]="true"
@@ -10,23 +9,53 @@
     (navLogout)="logout()"
   ></app-auth-header>
 
-  <div class="content">
-    <!-- Loading State -->
+  <main class="profile-content">
+    <h1 class="page-title">Mi perfil</h1>
+    <p class="page-subtitle">Gestiona tu informacion personal para mantener tu ruta de aprendizaje vocal actualizada.</p>
+
     @if (isLoading()) {
-      <div class="loading-container">
+      <div class="loading-state">
         <div class="spinner"></div>
         <p>Cargando perfil...</p>
       </div>
     }
 
-    <!-- Profile Form -->
     @if (!isLoading()) {
-      <div>
-        <h1 class="page-title">Información Personal</h1>
-        <p class="page-subtitle">Actualiza tu información de perfil</p>
+      <section class="overview-grid">
+        <article class="profile-summary-card">
+          <h2 class="card-title">Resumen de perfil</h2>
+          <p class="card-subtitle">Estos datos se usan para personalizar recomendaciones y seguimiento.</p>
 
-        <div class="profile-container">
-          <!-- Success/Error Messages -->
+          <div class="summary-list">
+            <div class="summary-item">
+              <span class="summary-label">Nombre</span>
+              <span class="summary-value">{{ userProfile()?.name || '—' }}</span>
+            </div>
+            <div class="summary-item">
+              <span class="summary-label">Edad</span>
+              <span class="summary-value">{{ userProfile()?.age || '—' }}</span>
+            </div>
+            <div class="summary-item">
+              <span class="summary-label">Genero</span>
+              <span class="summary-value">{{ userProfile()?.gender || '—' }}</span>
+            </div>
+            <div class="summary-item">
+              <span class="summary-label">Frecuencia semanal</span>
+              <span class="summary-value">3 dias por semana</span>
+            </div>
+          </div>
+
+          <div class="hint-card">
+            Mantener tus datos actualizados ayuda a interpretar mejor tus evaluaciones y progresos semanales.
+          </div>
+        </article>
+
+        <section class="profile-form-card">
+          <div class="form-header">
+            <h2 class="card-title">Informacion personal</h2>
+            <p class="card-subtitle">Actualiza los campos y guarda los cambios.</p>
+          </div>
+
           @if (successMessage()) {
             <div class="alert alert-success">
               {{ successMessage() }}
@@ -39,10 +68,8 @@
             </div>
           }
 
-          <!-- Form -->
           <form [formGroup]="profileForm" (ngSubmit)="onSubmit()" class="profile-form">
             <div class="form-row">
-              <!-- Name -->
               <div class="form-group">
                 <label for="name">Nombre completo</label>
                 <input
@@ -57,7 +84,6 @@
                 }
               </div>
 
-              <!-- Age -->
               <div class="form-group">
                 <label for="age">Edad</label>
                 <input
@@ -76,7 +102,6 @@
             </div>
 
             <div class="form-row">
-              <!-- Gender -->
               <div class="form-group">
                 <label for="gender">Género</label>
                 <select
@@ -94,11 +119,9 @@
                 }
               </div>
 
-              <!-- Empty space for grid alignment -->
               <div></div>
             </div>
 
-            <!-- Weekly Training Frequency (readonly) -->
             <div class="form-group">
               <label for="weeklyTrainingFreq">Frecuencia de entrenamiento semanal</label>
               <input
@@ -111,7 +134,6 @@
               <span class="helper-text">La frecuencia de entrenamiento está establecida en 3 días por semana</span>
             </div>
 
-            <!-- Submit Button -->
             <div class="form-actions">
               <button
                 type="submit"
@@ -127,8 +149,8 @@
               </button>
             </div>
           </form>
-        </div>
-      </div>
+        </section>
+      </section>
     }
-  </div>
+  </main>
 </div>

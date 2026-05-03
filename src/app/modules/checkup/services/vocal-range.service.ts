@@ -717,6 +717,11 @@ export class VocalRangeService {
         this.provisionalMax = 0;
         this.confirmedMin = 0;
         this.confirmedMax = 0;
+        this.extremeTarget = 0;
+        this.extremeValidationStartTime = 0;
+        this.extremePhaseStartTime = 0;
+        this.extremeAttempts = 0;
+        this.extremeStarted$.next(false);
         this.calculatedMetrics = undefined;
         this.confirmationSamples = [];
         this.confirmationMetrics = { precisionCents: [] };
