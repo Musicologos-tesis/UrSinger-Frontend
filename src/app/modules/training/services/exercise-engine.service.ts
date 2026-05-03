@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { VoiceDetectionService } from '../../../services/voice-detection.service';
 import { AudioPitchService } from '../../checkup/services/audio-pitch.service';
-import { resolveExerciseKindFromName } from './exercise-engine.config';
+import { resolveExerciseKindFromId, resolveExerciseKindFromName } from './exercise-engine.config';
 import { PitchTargetStrategy } from './strategies/pitch-target.strategy';
 import { SteadyToneStrategy } from './strategies/steady-tone.strategy';
 import { PitchStepsStrategy } from './strategies/pitch-steps.strategy';
@@ -153,7 +153,7 @@ export class ExerciseEngineService {
   }
 
   createDefinitionFromExercise(exercise: ExerciseDescriptor): ExerciseDefinition {
-    const kind = resolveExerciseKindFromName(exercise.exerciseName);
+    const kind = resolveExerciseKindFromId(exercise.exerciseId) ?? resolveExerciseKindFromName(exercise.exerciseName);
     if (!kind) {
       throw new Error(`Tipo de ejercicio aún no implementado: ${exercise.exerciseName}`);
     }

@@ -7,6 +7,7 @@ import { AuthService } from '../../../../services/auth.service';
 import { AudioAnalyzerService } from '../../../checkup/services/audio.analyzer.service';
 import { AudioPitchService } from '../../../checkup/services/audio-pitch.service';
 import { ExerciseEngineService } from '../../services/exercise-engine.service';
+import { resolveExerciseKindFromName } from '../../services/exercise-engine.config';
 import { BreathFlowHoldRules, CleanOnsetRules, ControlledVibratoRules, DynamicWaveRules, ExerciseDefinition, ExerciseFrameChecks, ExerciseRuntimeState, LoudSoftAlternanceRules, MixCoordinationRules, PitchGlideRules, PitchStepsRules, PitchTargetRules, SingleBurstRules, SteadyToneRules, StepExpansionRules, VolumeRiseRules } from '../../services/exercise-engine.models';
 import { ExerciseRendererComponent } from '../../components/exercises/exercise-renderer/exercise-renderer.component';
 import { ExerciseGroupIconComponent } from '../../components/exercise-group-icon/exercise-group-icon.component';
@@ -361,6 +362,7 @@ export class PracticeComponent implements OnInit, OnDestroy {
     try {
       this.definition = this.exerciseEngine.createDefinitionFromExercise({
         id: exercise?.planExerciseId ?? this.planExerciseId,
+        exerciseId: exercise?.exerciseId,
         exerciseName: exercise?.exerciseName ?? 'Pitch Target',
         level: exercise?.level ?? 1,
         targetMidi: this.targetMidi(),
@@ -1028,31 +1030,37 @@ export class PracticeComponent implements OnInit, OnDestroy {
   }
 
   getExerciseKindForView(): string {
+    const exerciseName = this.exercise()?.exerciseName ?? '';
+    const normalizedName = this.normalizeExerciseName(exerciseName);
+
     if (this.definition) {
-      const exerciseName = (this.exercise()?.exerciseName ?? '').toLowerCase();
-      if (this.definition.kind === 'pitch-glide' && exerciseName.includes('vocal glide')) {
+      if (this.definition.kind === 'pitch-glide' && this.isVocalGlideName(normalizedName)) {
         return 'vocal-glide';
       }
       return this.definition.kind;
     }
 
-    const name = (this.exercise()?.exerciseName ?? '').toLowerCase();
-    if (name.includes('breath flow hold')) return 'breath-flow-hold';
-    if (name.includes('s–z balance') || name.includes('s-z balance')) return 's-z-balance';
-    if (name.includes('dynamic wave')) return 'dynamic-wave';
-    if (name.includes('volume rise')) return 'volume-rise';
-    if (name.includes('loud-soft alternance') || name.includes('loud–soft alternance')) return 'loud-soft-alternance';
-    if (name.includes('steady tone')) return 'steady-tone';
-    if (name.includes('pitch target')) return 'pitch-target';
-    if (name.includes('pitch steps')) return 'pitch-steps';
-    if (name.includes('step expansion')) return 'step-expansion';
-    if (name.includes('vocal glide')) return 'vocal-glide';
-    if (name.includes('pitch glide')) return 'pitch-glide';
-    if (name.includes('mix coordination')) return 'mix-coordination';
-    if (name.includes('controlled vibrato')) return 'controlled-vibrato';
-    if (name.includes('clean onset')) return 'clean-onset';
-    if (name.includes('single burst')) return 'single-burst';
-    return 'default';
+    const resolved = resolveExerciseKindFromName(exerciseName);
+    if (!resolved) {
+      return 'default';
+    }
+
+    if (resolved === 'pitch-glide' && this.isVocalGlideName(normalizedName)) {
+      return 'vocal-glide';
+    }
+
+    return resolved;
+  }
+
+  private normalizeExerciseName(name: string): string {
+    return name
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+  }
+
+  private isVocalGlideName(normalizedName: string): boolean {
+    return /vocal\s*glide|deslizamiento\s*vocal|sirena\s*vocal|glissando\s*vocal/i.test(normalizedName);
   }
 
   private getSequenceMidisForExercise(): number[] | null {
