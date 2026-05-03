@@ -73,12 +73,8 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-
-  svg {
-    color: #e0e7ff;
-    width: 24px;
-    height: 24px;
-  }
+  color: #e0e7ff;
+  --exercise-icon-size: 24px;
 }
 
 .exercise-description {

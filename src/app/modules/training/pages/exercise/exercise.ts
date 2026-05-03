@@ -4,11 +4,13 @@ import { CommonModule } from '@angular/common';
 import { AuthHeaderComponent } from '../../../auth/components/auth-header/auth-header.component';
 import { TrainingService, ExerciseDetail } from '../../services/training.service';
 import { AuthService } from '../../../../services/auth.service';
+import { ExerciseGroupIconComponent } from '../../components/exercise-group-icon/exercise-group-icon.component';
+import { getExerciseGroupIcon } from '../../utils/exercise-icons';
 
 @Component({
   selector: 'app-exercise',
   standalone: true,
-  imports: [CommonModule, AuthHeaderComponent],
+  imports: [CommonModule, AuthHeaderComponent, ExerciseGroupIconComponent],
   templateUrl: './exercise.html',
   styleUrl: './exercise.scss',
 })
