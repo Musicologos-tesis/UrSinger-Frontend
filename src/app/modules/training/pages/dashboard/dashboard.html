@@ -125,7 +125,8 @@
 
               <article class="metric-item">
                 <p class="metric-title">Estabilidad</p>
-                <p class="metric-value">{{ formatMetric(evaluationSummary.latest.metrics?.stabilityCents) }} c</p>
+                <p class="metric-value">{{ formatStabilityFriendly(evaluationSummary.latest.metrics?.stabilityCents) }}</p>
+                <p class="metric-explain">Consistencia al sostener una nota: cuánto varía tu afinación cuando mantienes la misma nota. Menor es mejor.</p>
                 <p [class]="getDeltaClass(evaluationSummary.delta?.stabilityCents, true)">
                   {{ getDeltaText(evaluationSummary.delta?.stabilityCents, 'c', true) }}
                 </p>
