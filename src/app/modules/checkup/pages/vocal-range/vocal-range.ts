@@ -40,6 +40,12 @@ export class VocalRangeComponent implements OnInit, OnDestroy {
 
   async ngOnInit(): Promise<void> {
     console.log('[VocalRange] Componente inicializado');
+
+    // Importante: el servicio es singleton, por lo que puede conservar estado
+    // de una evaluación previa (por ejemplo fase "complete"). Al entrar a la
+    // pantalla de rango siempre iniciamos desde cero.
+    this.rangeService.reset();
+
     const profileId = localStorage.getItem('profile_id');
     if (profileId) {
       this.hasActivePlan.set(await this.authService.checkActiveTrainingPlan(profileId));
@@ -228,6 +234,7 @@ export class VocalRangeComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    // El servicio se limpia automáticamente
+    // Limpia estado de rango al salir para evitar arrastre al reingresar.
+    this.rangeService.reset();
   }
 }
