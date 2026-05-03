@@ -313,6 +313,7 @@ export type ExerciseDefinition = PitchTargetDefinition | SteadyToneDefinition | 
 
 export interface ExerciseDescriptor {
   id: string;
+  exerciseId?: number;
   exerciseName: string;
   level: number;
   targetMidi: number;

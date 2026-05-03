@@ -1,26 +1,68 @@
 import { ExerciseKind } from './exercise-engine.models';
 
+const normalizeExerciseName = (name: string): string =>
+  name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+
 export const EXERCISE_NAME_KIND_PATTERNS: Array<{ pattern: RegExp; kind: ExerciseKind }> = [
   { pattern: /pitch\s*target/i, kind: 'pitch-target' },
+  { pattern: /objetivo\s*de\s*(afinacion|tono|pitch)/i, kind: 'pitch-target' },
+  { pattern: /nota\s*objetivo/i, kind: 'pitch-target' },
   { pattern: /steady\s*tone/i, kind: 'steady-tone' },
+  { pattern: /tono\s*(estable|constante)/i, kind: 'steady-tone' },
   { pattern: /breath\s*flow\s*hold/i, kind: 'breath-flow-hold' },
+  { pattern: /flujo\s*de\s*aire/i, kind: 'breath-flow-hold' },
+  { pattern: /sosten(?:er|ido|imiento)?\s*(del|de)\s*aire/i, kind: 'breath-flow-hold' },
   { pattern: /dynamic\s*wave/i, kind: 'dynamic-wave' },
+  { pattern: /onda\s*dinamica/i, kind: 'dynamic-wave' },
   { pattern: /volume\s*rise/i, kind: 'volume-rise' },
+  { pattern: /subida\s*de\s*volumen/i, kind: 'volume-rise' },
+  { pattern: /aumento\s*de\s*volumen/i, kind: 'volume-rise' },
   { pattern: /loud\s*[–-]\s*soft\s*alternance/i, kind: 'loud-soft-alternance' },
+  { pattern: /alternancia\s*(de\s*)?(fuerte|suave)/i, kind: 'loud-soft-alternance' },
+  { pattern: /(fuerte|suave)\s*[–-]\s*(suave|fuerte)/i, kind: 'loud-soft-alternance' },
   { pattern: /single\s*burst/i, kind: 'single-burst' },
+  { pattern: /rafaga\s*unica/i, kind: 'single-burst' },
+  { pattern: /ataque\s*unico/i, kind: 'single-burst' },
   { pattern: /clean\s*onset/i, kind: 'clean-onset' },
+  { pattern: /(inicio|ataque)\s*limpio/i, kind: 'clean-onset' },
   { pattern: /controlled\s*vibrato/i, kind: 'controlled-vibrato' },
+  { pattern: /vibrato\s*controlado/i, kind: 'controlled-vibrato' },
   { pattern: /s\s*[–-]\s*z\s*balance/i, kind: 's-z-balance' },
+  { pattern: /balance\s*s\s*[–-]\s*z/i, kind: 's-z-balance' },
   { pattern: /pitch\s*steps/i, kind: 'pitch-steps' },
+  { pattern: /pasos\s*(de\s*)?(afinacion|tono|tonal)/i, kind: 'pitch-steps' },
+  { pattern: /escalones\s*tonales?/i, kind: 'pitch-steps' },
   { pattern: /step\s*expansion/i, kind: 'step-expansion' },
+  { pattern: /expansion\s*(de\s*)?(pasos|escalas|escalonada)/i, kind: 'step-expansion' },
   { pattern: /pitch\s*glide/i, kind: 'pitch-glide' },
+  { pattern: /deslizamiento\s*(de\s*)?(afinacion|tono|tonal)/i, kind: 'pitch-glide' },
   { pattern: /vocal\s*glide/i, kind: 'pitch-glide' },
+  { pattern: /deslizamiento\s*vocal/i, kind: 'pitch-glide' },
+  { pattern: /sirena\s*vocal/i, kind: 'pitch-glide' },
+  { pattern: /glissando\s*(vocal|tonal)?/i, kind: 'pitch-glide' },
   { pattern: /mix\s*coordination/i, kind: 'mix-coordination' },
+  { pattern: /coordinacion\s*(de\s*)?(mix|mixta|mezcla)/i, kind: 'mix-coordination' },
 ];
 
+export const EXERCISE_ID_KIND_MAP: Partial<Record<number, ExerciseKind>> = {
+  // Se completa con los IDs reales del backend cuando estén disponibles.
+};
+
+export function resolveExerciseKindFromId(exerciseId?: number | null): ExerciseKind | null {
+  if (typeof exerciseId !== 'number') {
+    return null;
+  }
+
+  return EXERCISE_ID_KIND_MAP[exerciseId] ?? null;
+}
+
 export function resolveExerciseKindFromName(exerciseName: string): ExerciseKind | null {
+  const normalizedName = normalizeExerciseName(exerciseName);
   for (const matcher of EXERCISE_NAME_KIND_PATTERNS) {
-    if (matcher.pattern.test(exerciseName)) {
+    if (matcher.pattern.test(normalizedName)) {
       return matcher.kind;
     }
   }
