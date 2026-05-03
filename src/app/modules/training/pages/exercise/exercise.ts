@@ -5,7 +5,6 @@ import { AuthHeaderComponent } from '../../../auth/components/auth-header/auth-h
 import { TrainingService, ExerciseDetail } from '../../services/training.service';
 import { AuthService } from '../../../../services/auth.service';
 import { ExerciseGroupIconComponent } from '../../components/exercise-group-icon/exercise-group-icon.component';
-import { getExerciseGroupIcon } from '../../utils/exercise-icons';
 
 @Component({
   selector: 'app-exercise',

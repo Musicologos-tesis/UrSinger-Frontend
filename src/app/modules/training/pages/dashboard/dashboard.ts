@@ -2,7 +2,6 @@ import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { TrainingService, ActiveTrainingPlan, Exercise, LatestEvaluationSummaryResponse } from '../../services/training.service';
-import { getExerciseGroupIcon } from '../../utils/exercise-icons';
 import { AuthService } from '../../../../services/auth.service';
 import { AuthHeaderComponent } from '../../../auth/components/auth-header/auth-header.component';
 import { ExerciseGroupIconComponent } from '../../components/exercise-group-icon/exercise-group-icon.component';
