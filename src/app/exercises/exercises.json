@@ -134,8 +134,8 @@
         "objective": "Iniciar la nota objetivo con afinación exacta, sin deslizar desde otra nota.",
         "instructions": "UrSinger genera una nota objetivo. Nivel 1 trabaja en una nota cómoda del rango vocal; nivel 2 usa una nota aguda al límite del rango. Se deben completar 3 repeticiones limpias para superar el desafío.",
         "levels": [
-          { "level": 1, "description": "3 repeticiones en nota cómoda con entrada limpia (±50 cents).", "videoUrl": null },
-          { "level": 2, "description": "3 repeticiones en nota aguda límite con entrada limpia (±25 cents).", "videoUrl": null }
+          { "level": 1, "description": "3 repeticiones en nota cómoda con entrada limpia (±50 centésimas).", "videoUrl": null },
+          { "level": 2, "description": "3 repeticiones en nota aguda límite con entrada limpia (±25 centésimas).", "videoUrl": null }
         ]
       }
     ]

@@ -133,6 +133,13 @@ export class MetricsService {
       // Métrica exclusiva de estabilidad
       if (metrics.stabilityCents !== undefined) stored.stabilityCents = metrics.stabilityCents;
       if (metrics.attackLatencyMs !== undefined) stored.attackLatencyMs = metrics.attackLatencyMs;
+
+      // precisionCents: promedio con el valor de rango vocal si ya existe
+      if (metrics.precisionCents !== undefined) {
+        stored.precisionCents = stored.precisionCents !== undefined
+          ? (stored.precisionCents + metrics.precisionCents) / 2
+          : metrics.precisionCents;
+      }
       
       // Métricas compartidas (pueden promediar con las de rango)
       if (metrics.meanRmsDb !== undefined) {
