@@ -97,8 +97,8 @@ export class CheckupResultsComponent implements OnInit {
         // Actualizar UI con métricas del backend
         if (this.fullMetrics) {
           this.rangeLabel = this.buildRangeLabelFromMetrics(this.fullMetrics);
-          this.precisionPercent = this.centsToScore(this.fullMetrics.precisionCents);
-          this.stabilityPercent = this.centsToScore(this.fullMetrics.stabilityCents);
+          this.precisionPercent = this.centsToScore(this.fullMetrics.precisionCents, 47, 600);
+          this.stabilityPercent = this.centsToScore(this.fullMetrics.stabilityCents, 23, 200);
           this.checkupCompleted = true;
         }
       } catch (error) {
@@ -130,11 +130,11 @@ export class CheckupResultsComponent implements OnInit {
       const { precisionCents, stabilityCents } = stabilityMetrics;
 
       if (precisionCents !== null) {
-        this.precisionPercent = this.centsToScore(precisionCents);
+        this.precisionPercent = this.centsToScore(precisionCents, 47, 600);
       }
 
       if (stabilityCents !== null) {
-        this.stabilityPercent = this.centsToScore(stabilityCents);
+        this.stabilityPercent = this.centsToScore(stabilityCents, 23, 200);
       }
 
       this.checkupCompleted = true;
@@ -198,10 +198,14 @@ export class CheckupResultsComponent implements OnInit {
     return dayMap[dayNumber] || `Día ${dayNumber}`;
   }
 
-  /** Convierte “error en cents” a un score de 0–100 (ajustable). */
-  private centsToScore(cents: number): number {
-    const raw = 100 - cents / 2; // mientras más error, menor score
-    return Math.max(0, Math.min(100, Math.round(raw)));
+  private centsToScore(cents: number, midpoint: number, max: number): number {
+    if (cents >= max) return 0;
+    if (cents <= 0) return 100;
+    if (cents >= midpoint) {
+      return Math.round(50 * (max - cents) / (max - midpoint));
+    } else {
+      return Math.round(50 + 50 * (midpoint - cents) / midpoint);
+    }
   }
 
   get weaknessGroupsForDisplay(): WeaknessGroupDisplay[] {

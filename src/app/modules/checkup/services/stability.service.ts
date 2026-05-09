@@ -68,13 +68,19 @@ export class StabilityService {
   private readonly TARGET_TOLERANCE_CENTS = 50;
   private readonly ATTACK_LATENCY_LIMIT_MS = 500;
   private readonly STABILITY_CENTS_LIMIT = 50;
+  private readonly ONSET_BLOCK_FRAMES = 3; // ~300ms de ataque a ignorar
   private attackLatencyCandidatesMs: number[] = [];
   private currentAttackStartMs: number | null = null;
   private attackCapturedInCurrentUtterance = false;
   private hasReachedTargetInCurrentUtterance = false;
-  private currentDeviationCents: number[] = [];
-  private deviationSegmentMeansCents: number[] = [];
   private wasVocalActive = false;
+  // precisionCents: desviación media de la voz respecto al target (excluye ataque)
+  private onsetBlockRemaining: number = 0;
+  private precisionMidiBuffer: number[] = [];
+  private precisionSegmentMeans: number[] = [];
+  // stabilityCents: variación (std dev) desde que se alcanza la nota objetivo
+  private stabilityMidiBuffer: number[] = [];
+  private stabilitySegmentStdevs: number[] = [];
   private minVoiceRmsDb: number = -40;
 
   lastMetrics?: StabilityMetrics;
@@ -125,6 +131,7 @@ export class StabilityService {
    */
   stopAndComputeMetrics(): StabilityMetrics | null {
     this.stopCaptureLoop();
+    this.finalizeActiveUtterance();
 
     if (!this.samples.length) {
       this.phase$.next(StabilityPhase.Error);
@@ -249,9 +256,12 @@ export class StabilityService {
     this.currentAttackStartMs = null;
     this.attackCapturedInCurrentUtterance = false;
     this.hasReachedTargetInCurrentUtterance = false;
-    this.currentDeviationCents = [];
-    this.deviationSegmentMeansCents = [];
     this.wasVocalActive = false;
+    this.onsetBlockRemaining = 0;
+    this.precisionMidiBuffer = [];
+    this.precisionSegmentMeans = [];
+    this.stabilityMidiBuffer = [];
+    this.stabilitySegmentStdevs = [];
   }
 
   private stopCaptureLoop() {
@@ -303,91 +313,110 @@ export class StabilityService {
     const longestCorrectDurationSec = this.calculateLongestCorrectDurationSec();
     const durationForPayload = longestCorrectDurationSec ?? longestSegment.durationSec;
     const attackLatencyMs = this.calculateAttackLatencyMs();
-    const stabilityCents = this.calculateTargetDeviationStabilityCents();
+
+    // precisionCents: media de desviaciones post-ataque por emisión (cap 600)
+    const precisionCentsRaw = this.precisionSegmentMeans.length > 0
+      ? this.mean(this.precisionSegmentMeans)
+      : null;
+    const precisionCents = precisionCentsRaw !== null ? Math.min(precisionCentsRaw, 600) / 2 : null;
+
+    // stabilityCents: media de std dev por emisión (solo cuando se alcanzó la nota objetivo)
+    const stabilityCents = this.stabilitySegmentStdevs.length > 0
+      ? this.mean(this.stabilitySegmentStdevs)
+      : 200;
 
     return {
       meanRmsDb: validMeanRms.length > 0 ? this.mean(validMeanRms) : null,
       rmsConsistency: validRmsConsistency.length > 0 ? this.mean(validRmsConsistency) : null,
       dynamicRangeDb: validDynamicRange.length > 0 ? this.mean(validDynamicRange) : null,
       durationSec: durationForPayload,
-      precisionCents: null, // No se calcula en estabilidad
-      stabilityCents: stabilityCents ?? (validStability.length > 0 ? this.mean(validStability) : this.STABILITY_CENTS_LIMIT),
+      precisionCents,
+      stabilityCents,
       attackLatencyMs,
     };
   }
 
-  private calculateTargetDeviationStabilityCents(): number | null {
-    this.finalizeDeviationSegmentIfNeeded();
+  private finalizeActiveUtterance(): void {
+    if (!this.wasVocalActive) return;
 
-    if (!this.deviationSegmentMeansCents.length) {
-      return this.STABILITY_CENTS_LIMIT;
+    if (this.targetMidi && this.precisionMidiBuffer.length > 0) {
+      const meanDev = this.mean(
+        this.precisionMidiBuffer.map(m => Math.abs((m - this.targetMidi!) * 100))
+      );
+      if (meanDev !== null) this.precisionSegmentMeans.push(meanDev);
     }
 
-    const valid = this.deviationSegmentMeansCents.filter(value => value < this.STABILITY_CENTS_LIMIT);
-    if (!valid.length) {
-      return this.STABILITY_CENTS_LIMIT;
+    if (this.hasReachedTargetInCurrentUtterance && this.stabilityMidiBuffer.length >= 2) {
+      const stdev = this.std(this.stabilityMidiBuffer);
+      if (stdev !== null) this.stabilitySegmentStdevs.push(stdev * 100);
     }
 
-    return this.mean(valid);
+    this.precisionMidiBuffer = [];
+    this.stabilityMidiBuffer = [];
   }
 
   private updateAttackLatencyTracking(isVocalSignal: boolean, midiNote: number, timestampMs: number): void {
-    if (!this.targetMidi) {
-      this.wasVocalActive = isVocalSignal;
-      return;
-    }
+    const isOnset = isVocalSignal && !this.wasVocalActive;
+    const isEnd   = !isVocalSignal && this.wasVocalActive;
 
-    if (isVocalSignal && !this.wasVocalActive) {
-      // Inicio de una nueva emisión vocal con nota detectada
+    // ── Inicio de emisión ──────────────────────────────────────────────
+    if (isOnset) {
       this.currentAttackStartMs = timestampMs;
       this.attackCapturedInCurrentUtterance = false;
       this.hasReachedTargetInCurrentUtterance = false;
-      this.currentDeviationCents = [];
+      this.onsetBlockRemaining = this.ONSET_BLOCK_FRAMES;
+      this.precisionMidiBuffer = [];
+      this.stabilityMidiBuffer = [];
     }
 
-    if (!isVocalSignal && this.wasVocalActive) {
-      // Fin de emisión: reset para capturar siguiente intento
-      this.finalizeDeviationSegmentIfNeeded();
+    // ── Fin de emisión ─────────────────────────────────────────────────
+    if (isEnd) {
+      // precisionCents: media de desviaciones de todos los frames post-ataque
+      if (this.targetMidi && this.precisionMidiBuffer.length > 0) {
+        const meanDev = this.mean(
+          this.precisionMidiBuffer.map(m => Math.abs((m - this.targetMidi!) * 100))
+        );
+        if (meanDev !== null) this.precisionSegmentMeans.push(meanDev);
+      }
+
+      // stabilityCents: std dev del midi desde que se alcanzó la nota objetivo
+      if (this.hasReachedTargetInCurrentUtterance && this.stabilityMidiBuffer.length >= 2) {
+        const stdev = this.std(this.stabilityMidiBuffer);
+        if (stdev !== null) this.stabilitySegmentStdevs.push(stdev * 100); // semitones → cents
+      }
+
+      this.precisionMidiBuffer = [];
+      this.stabilityMidiBuffer = [];
       this.currentAttackStartMs = null;
       this.attackCapturedInCurrentUtterance = false;
       this.hasReachedTargetInCurrentUtterance = false;
-      this.currentDeviationCents = [];
     }
 
-    if (
-      isVocalSignal &&
-      !this.attackCapturedInCurrentUtterance &&
-      this.currentAttackStartMs !== null &&
-      this.isTargetNote(midiNote)
-    ) {
-      const latencyMs = Math.max(0, timestampMs - this.currentAttackStartMs);
-      this.attackLatencyCandidatesMs.push(latencyMs);
-      this.attackCapturedInCurrentUtterance = true;
-    }
+    // ── Frame activo ───────────────────────────────────────────────────
+    if (isVocalSignal && this.targetMidi) {
+      // Attack latency
+      if (!this.attackCapturedInCurrentUtterance && this.currentAttackStartMs !== null && this.isTargetNote(midiNote)) {
+        this.attackLatencyCandidatesMs.push(Math.max(0, timestampMs - this.currentAttackStartMs));
+        this.attackCapturedInCurrentUtterance = true;
+      }
 
-    if (isVocalSignal) {
-      const deviationCents = Math.abs((midiNote - this.targetMidi) * 100);
+      // precisionCents: acumular post-ataque
+      if (this.onsetBlockRemaining > 0) {
+        this.onsetBlockRemaining--;
+      } else {
+        this.precisionMidiBuffer.push(midiNote);
+      }
 
+      // stabilityCents: acumular desde que se llega al target
       if (!this.hasReachedTargetInCurrentUtterance && this.isTargetNote(midiNote)) {
         this.hasReachedTargetInCurrentUtterance = true;
-        this.currentDeviationCents.push(deviationCents);
-      } else if (this.hasReachedTargetInCurrentUtterance) {
-        this.currentDeviationCents.push(deviationCents);
+      }
+      if (this.hasReachedTargetInCurrentUtterance) {
+        this.stabilityMidiBuffer.push(midiNote);
       }
     }
 
     this.wasVocalActive = isVocalSignal;
-  }
-
-  private finalizeDeviationSegmentIfNeeded(): void {
-    if (!this.hasReachedTargetInCurrentUtterance || !this.currentDeviationCents.length) {
-      return;
-    }
-
-    const meanDeviation = this.mean(this.currentDeviationCents);
-    if (meanDeviation !== null) {
-      this.deviationSegmentMeansCents.push(meanDeviation);
-    }
   }
 
   private isTargetNote(midi: number): boolean {

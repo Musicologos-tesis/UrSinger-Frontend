@@ -187,22 +187,8 @@ export class StabilityComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // Si hay métricas válidas, calculamos el "score"
-    if (metrics.stabilityCents !== null && metrics.stabilityCents !== undefined) {
-      const spread = metrics.stabilityCents;
-      
-      // Fórmula: mientras menor spread (desviación), mejor score
-      // 0 cents = 100%, 200 cents = 0%
-      const score = Math.max(0, Math.min(100, 100 - spread / 2));
-      this.stabilityPercent = Math.round(score);
-      
-      console.log('[Stability] Spread (stabilityCents):', spread.toFixed(2), 'cents');
-      console.log('[Stability] Score calculado:', this.stabilityPercent, '%');
-    } else {
-      console.warn('[Stability] stabilityCents es null - no se pudo calcular score');
-      console.warn('[Stability] Métricas completas:', JSON.stringify(metrics, null, 2));
-      this.stabilityPercent = 0;
-    }
+    const spread = metrics.stabilityCents ?? null;
+    this.stabilityPercent = spread !== null ? this.centsToScore(spread, 23, 200) : 0;
 
     this.state.set('done');
   }
@@ -235,6 +221,16 @@ export class StabilityComponent implements OnInit, OnDestroy {
       if (continuar) {
         this.router.navigate(['/checkup/results']);
       }
+    }
+  }
+
+  private centsToScore(cents: number, midpoint: number, max: number): number {
+    if (cents >= max) return 0;
+    if (cents <= 0) return 100;
+    if (cents >= midpoint) {
+      return Math.round(50 * (max - cents) / (max - midpoint));
+    } else {
+      return Math.round(50 + 50 * (midpoint - cents) / midpoint);
     }
   }
 

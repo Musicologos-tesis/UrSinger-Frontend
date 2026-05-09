@@ -84,14 +84,10 @@ export class VocalRangeService {
     private confirmedMin: number = 0;
     private confirmedMax: number = 0;
     
-    // Muestras de confirmaciones (para calcular precisionCents)
+    // Muestras de confirmaciones (para calcular precisionCents y calibración)
     private confirmationSamples: PitchSample[] = [];
-    private confirmationMetrics: {
-        precisionCents: number[];
-    } = {
-        precisionCents: []
-    };
-    
+    private confirmationMetrics: { precisionCents: number[] } = { precisionCents: [] };
+
     // Métricas calculadas
     private calculatedMetrics?: RangeMetrics;
     
@@ -101,8 +97,18 @@ export class VocalRangeService {
     private extremeTarget: number = 0;
     private minVoiceRmsDb: number = -40;
     private extremeAttempts: number = 0; // Contador de intentos de ajuste
-    
-    
+    private extremeDynamicSubPhase: 'soft' | 'loud' = 'soft';
+    private dynamicReadings: {
+        minSoft?: number;
+        minLoud?: number;
+        maxSoft?: number;
+        maxLoud?: number;
+    } = {};
+    private readonly ONSET_BLOCK_FRAMES = 3; // ~300ms de ataque a ignorar
+    private wasVocalSignalInConfirmation: boolean = false;
+    private onsetBlockRemainingConfirmation: number = 0;
+
+
 
     /**
      * Inicia el ejercicio de rango vocal
@@ -334,11 +340,15 @@ export class VocalRangeService {
         this.extremeValidationStartTime = 0;
         this.extremePhaseStartTime = 0; // No iniciar hasta que haga clic en "Empezar"
         this.extremeAttempts = 0;
+        this.extremeDynamicSubPhase = 'soft';
+        this.confirmationSamples = [];
+        this.wasVocalSignalInConfirmation = false;
+        this.onsetBlockRemainingConfirmation = 0;
         this.extremeStarted$.next(false); // Resetear estado de inicio
         this.progress$.next(0);
-        
+
         const noteName = this.pitchService.midiToNoteName(this.provisionalMin);
-        this.tip$.next(`Presiona "Empezar" cuando estés listo para cantar ${noteName}`);
+        this.tip$.next(`Presiona "Empezar" cuando estés listo para cantar ${noteName} suavemente`);
         
         this.resetExtremeValidation();
     }
@@ -355,11 +365,15 @@ export class VocalRangeService {
         this.extremeValidationStartTime = 0;
         this.extremePhaseStartTime = 0; // No iniciar hasta que haga clic en "Empezar"
         this.extremeAttempts = 0;
+        this.extremeDynamicSubPhase = 'soft';
+        this.confirmationSamples = [];
+        this.wasVocalSignalInConfirmation = false;
+        this.onsetBlockRemainingConfirmation = 0;
         this.extremeStarted$.next(false); // Resetear estado de inicio
         this.progress$.next(0);
-        
+
         const noteName = this.pitchService.midiToNoteName(this.provisionalMax);
-        this.tip$.next(`Presiona "Empezar" cuando estés listo para cantar ${noteName}`);
+        this.tip$.next(`Presiona "Empezar" cuando estés listo para cantar ${noteName} suavemente`);
         
         this.resetExtremeValidation();
     }
@@ -372,9 +386,13 @@ export class VocalRangeService {
         
         this.extremeStarted$.next(true);
         this.extremePhaseStartTime = performance.now(); // Iniciar timeout de 15s
-        
+
         const noteName = this.pitchService.midiToNoteName(this.extremeTarget);
-        this.tip$.next(`Canta y sostén la nota ${noteName} durante 1 segundo`);
+        if (this.extremeDynamicSubPhase === 'soft') {
+            this.tip$.next(`Canta ${noteName} suavemente (piano) durante 1 segundo`);
+        } else {
+            this.tip$.next(`Ahora canta ${noteName} con toda tu potencia durante 1 segundo`);
+        }
         
         // Log deshabilitado: mantener solo RMS > -40 dB en barrido
     }
@@ -387,7 +405,7 @@ export class VocalRangeService {
     private validateExtreme(midi: number, confidence: number, rms: number, isVocalSignal: boolean): void {
         // No validar si el ejercicio no ha empezado
         if (!this.extremeStarted$.value) return;
-        
+
         // TIMEOUT: Verificar si han pasado 15 segundos sin completar
         const phaseElapsed = (performance.now() - this.extremePhaseStartTime) / 1000;
         
@@ -397,11 +415,24 @@ export class VocalRangeService {
             return; // Salir y reintentar con nueva nota
         }
         
+        // Colectar muestras de voz para precisionCents (bloquear frames de ataque)
+        const isOnset = isVocalSignal && !this.wasVocalSignalInConfirmation;
+        this.wasVocalSignalInConfirmation = isVocalSignal;
+        if (isOnset) {
+            this.onsetBlockRemainingConfirmation = this.ONSET_BLOCK_FRAMES;
+        }
+        if (isVocalSignal) {
+            if (this.onsetBlockRemainingConfirmation > 0) {
+                this.onsetBlockRemainingConfirmation--;
+            } else {
+                this.confirmationSamples.push({ midi, confidence, rms, timestamp: performance.now() });
+            }
+        }
+
         // Usar el MISMO criterio que la UI de "nota actual":
         // si no hay señal vocal válida, no debe marcar afinación como correcta.
         if (!isVocalSignal) {
             this.extremeValidationStartTime = 0;
-            this.confirmationSamples = [];
             this.progress$.next(0);
             this.extremeValidation$.next({
                 pitchOk: false,
@@ -413,17 +444,12 @@ export class VocalRangeService {
         }
 
         const centsFromTarget = (midi - this.extremeTarget) * 100;
-        
+
         // Check 1: Pitch dentro de ±100 cents (1 semitono)
         const pitchOk = Math.abs(centsFromTarget) <= 100;
-        
-        // SIN filtros de confidence ni SNR - SOLO validar pitch
-        // El ruido ya se filtró antes (isVocalSignal en captura principal)
-        const confidenceOk = true; // Aceptar cualquier confidence
-        const rmsOk = true; // Ya validado en captura principal
-        
-        // Log deshabilitado: mantener solo RMS > -40 dB en barrido
-        
+        const confidenceOk = true;
+        const rmsOk = true;
+
         // Actualizar estado de checks
         const currentValidation = this.extremeValidation$.value;
         this.extremeValidation$.next({
@@ -433,58 +459,74 @@ export class VocalRangeService {
             rmsOk
         });
 
-        // Si los 3 checks están ok, iniciar timer Y CAPTURAR MUESTRAS
+        // Si los 3 checks están ok, iniciar/avanzar timer de sostenimiento
         if (pitchOk && confidenceOk && rmsOk) {
             if (this.extremeValidationStartTime === 0) {
                 this.extremeValidationStartTime = performance.now();
-                this.confirmationSamples = []; // Resetear samples para esta confirmación
             }
-            
-            // CAPTURAR MUESTRA para calcular précisionCents
-            this.confirmationSamples.push({
-                midi,
-                confidence,
-                rms,
-                timestamp: performance.now()
-            });
 
             const elapsed = (performance.now() - this.extremeValidationStartTime) / 1000;
             const requiredDuration = 1.0; // 1 segundo sostenido
             this.progress$.next(Math.min(1, elapsed / requiredDuration));
 
-            // Check 4: Sostenido ≥ 1.0s → Calcular métricas y AUTO-AVANZAR
+            // Check 4: Sostenido ≥ 1.0s → calcular métricas y avanzar
             if (elapsed >= requiredDuration) {
-                // Calcular métricas de esta confirmación
                 this.calculateConfirmationMetrics();
 
-                // Calibrar confianza mínima en graves durante confirmación de nota mínima
-                if (this.phase$.value === RangePhase.ConfirmMin) {
-                    const confidences = this.confirmationSamples
-                        .map(sample => sample.confidence)
-                        .filter(value => Number.isFinite(value));
-
-                    if (confidences.length > 0) {
-                        const minConfidence = Math.min(...confidences);
-                        const calibratedMin = Math.max(0.05, Math.min(0.3, minConfidence));
-                        this.voiceDetection.updateVoiceProfile({ minConfidenceLow: calibratedMin });
-                        // Log deshabilitado: mantener solo RMS > -40 dB en barrido
-                    }
-                }
-                
                 this.extremeValidation$.next({
                     pitchOk: true,
                     confidenceOk: true,
                     rmsOk: true,
                     sustained: true
                 });
-                
-                // AUTO-AVANZAR automáticamente cuando se complete
-                setTimeout(() => this.confirmCurrentExtreme(), 500);
+
+                const meanRms = this.calculateMean(this.confirmationSamples.map(s => s.rms));
+
+                if (this.extremeDynamicSubPhase === 'soft') {
+                    // Guardar RMS suave y pedir la nota potente
+                    if (this.phase$.value === RangePhase.ConfirmMin) {
+                        this.dynamicReadings.minSoft = meanRms;
+
+                        // Calibrar confianza mínima en graves
+                        const confidences = this.confirmationSamples
+                            .map(s => s.confidence)
+                            .filter(v => Number.isFinite(v));
+                        if (confidences.length > 0) {
+                            const calibratedMin = Math.max(0.05, Math.min(0.3, Math.min(...confidences)));
+                            this.voiceDetection.updateVoiceProfile({ minConfidenceLow: calibratedMin });
+                        }
+                    } else {
+                        this.dynamicReadings.maxSoft = meanRms;
+                    }
+
+                    setTimeout(() => {
+                        this.extremeDynamicSubPhase = 'loud';
+                        this.extremeValidationStartTime = 0;
+                        this.extremePhaseStartTime = 0;
+                        this.confirmationSamples = [];
+                        this.wasVocalSignalInConfirmation = false;
+                        this.onsetBlockRemainingConfirmation = 0;
+                        this.extremeStarted$.next(false);
+                        this.progress$.next(0);
+                        this.resetExtremeValidation();
+
+                        const noteName = this.pitchService.midiToNoteName(this.extremeTarget);
+                        this.tip$.next(`¡Bien! Ahora presiona "Empezar" para cantar ${noteName} con toda tu potencia`);
+                    }, 500);
+                } else {
+                    // Guardar RMS potente y AUTO-AVANZAR
+                    if (this.phase$.value === RangePhase.ConfirmMin) {
+                        this.dynamicReadings.minLoud = meanRms;
+                    } else {
+                        this.dynamicReadings.maxLoud = meanRms;
+                    }
+
+                    setTimeout(() => this.confirmCurrentExtreme(), 500);
+                }
             }
         } else {
-            // Reset timer si se pierde algún check
+            // Reset timer si se pierde el pitch
             this.extremeValidationStartTime = 0;
-            this.confirmationSamples = []; // Limpiar muestras
             this.progress$.next(0);
             this.extremeValidation$.next({
                 pitchOk,
@@ -516,6 +558,10 @@ export class VocalRangeService {
         }
         
         // Resetear timers y botón para nuevo intento
+        this.extremeDynamicSubPhase = 'soft';
+        this.confirmationSamples = [];
+        this.wasVocalSignalInConfirmation = false;
+        this.onsetBlockRemainingConfirmation = 0;
         this.extremeValidationStartTime = 0;
         this.extremePhaseStartTime = 0;
         this.extremeStarted$.next(false); // Volver a mostrar botón "Empezar"
@@ -571,9 +617,12 @@ export class VocalRangeService {
             // Calcular todas las métricas
             this.calculatedMetrics = this.calculateMetrics();
             
-            // Calcular promedios de las confirmaciones
-            const avgPrecisionCents = this.confirmationMetrics.precisionCents.length > 0
-                ? this.confirmationMetrics.precisionCents.reduce((a, b) => a + b, 0) / this.confirmationMetrics.precisionCents.length
+            // Precisión: promedio de confirmaciones
+            const avgPrecisionCentsRaw = this.confirmationMetrics.precisionCents.length > 0
+                ? this.calculateMean(this.confirmationMetrics.precisionCents)
+                : undefined;
+            const avgPrecisionCents = avgPrecisionCentsRaw !== undefined
+                ? Math.min(avgPrecisionCentsRaw, 600) / 2
                 : undefined;
             
             // Log deshabilitado: mantener solo RMS > -40 dB en barrido
@@ -600,25 +649,18 @@ export class VocalRangeService {
         }
     }
 
+
     /**
      * Calcula métricas de una confirmación de extremo (precisionCents)
      */
     private calculateConfirmationMetrics(): void {
         if (this.confirmationSamples.length === 0) return;
-        
-        const midis = this.confirmationSamples.map(s => s.midi);
-        
-        // precisionCents: desviación promedio del target en cents
-        const targetMidi = this.extremeTarget;
-        const errorsCents = midis.map(m => Math.abs((m - targetMidi) * 100));
-        const precisionCents = this.calculateMean(errorsCents);
-        
-        // Guardar métricas de esta confirmación
-        this.confirmationMetrics.precisionCents.push(precisionCents);
-        
-        // Log deshabilitado: mantener solo RMS > -40 dB en barrido
-    }
 
+        const midis = this.confirmationSamples.map(s => s.midi);
+        const errorsCents = midis.map(m => Math.abs((m - this.extremeTarget) * 100));
+        const precisionCents = this.calculateMean(errorsCents);
+        this.confirmationMetrics.precisionCents.push(precisionCents);
+    }
 
     /**
      * Calcula todas las métricas del ejercicio
@@ -635,8 +677,14 @@ export class VocalRangeService {
         const meanRmsDb = this.calculateMean(rmsValues);
         const rmsConsistency = this.calculateConsistency(rmsValues);
 
-        // Dynamic range
-        const dynamicRangeDb = Math.max(...rmsValues) - Math.min(...rmsValues);
+        // Dynamic range: promedio de (potente - suave) medido en mínimo y máximo
+        const { minSoft, minLoud, maxSoft, maxLoud } = this.dynamicReadings;
+        const readings: number[] = [];
+        if (minSoft !== undefined && minLoud !== undefined) readings.push(minLoud - minSoft);
+        if (maxSoft !== undefined && maxLoud !== undefined) readings.push(maxLoud - maxSoft);
+        const dynamicRangeDb = readings.length > 0
+            ? readings.reduce((a, b) => a + b, 0) / readings.length
+            : undefined;
 
         return {
             sessionId,
@@ -721,6 +769,10 @@ export class VocalRangeService {
         this.extremeValidationStartTime = 0;
         this.extremePhaseStartTime = 0;
         this.extremeAttempts = 0;
+        this.extremeDynamicSubPhase = 'soft';
+        this.dynamicReadings = {};
+        this.wasVocalSignalInConfirmation = false;
+        this.onsetBlockRemainingConfirmation = 0;
         this.extremeStarted$.next(false);
         this.calculatedMetrics = undefined;
         this.confirmationSamples = [];
