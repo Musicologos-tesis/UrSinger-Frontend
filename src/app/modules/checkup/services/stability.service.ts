@@ -318,7 +318,7 @@ export class StabilityService {
     const precisionCentsRaw = this.precisionSegmentMeans.length > 0
       ? this.mean(this.precisionSegmentMeans)
       : null;
-    const precisionCents = precisionCentsRaw !== null ? Math.min(precisionCentsRaw, 600) / 2 : null;
+    const precisionCents = precisionCentsRaw !== null ? Math.min(precisionCentsRaw, 600) / 1.5 : null;
 
     // stabilityCents: media de std dev por emisión (solo cuando se alcanzó la nota objetivo)
     const stabilityCents = this.stabilitySegmentStdevs.length > 0
