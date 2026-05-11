@@ -542,33 +542,41 @@ export class VocalRangeService {
      */
     private adjustExtremeTarget(): void {
         this.extremeAttempts++;
-        
+
+        // Guardar precisión del intento fallido antes de resetear muestras
+        if (this.confirmationSamples.length > 0) {
+            this.calculateConfirmationMetrics();
+        }
+
         if (this.phase$.value === RangePhase.ConfirmMin) {
-            // Mínimo no alcanzado → Subir medio tono
-            this.extremeTarget += 1;
+            // Nueva nota = mínimo MIDI real escuchado; nunca por debajo del target actual
+            const minHeard = this.confirmationSamples.length > 0
+                ? Math.round(Math.min(...this.confirmationSamples.map(s => s.midi)))
+                : this.extremeTarget + 1;
+            this.extremeTarget = Math.max(minHeard, this.extremeTarget + 1);
             const noteName = this.pitchService.midiToNoteName(this.extremeTarget);
             this.tip$.next(`Nota muy grave. Intentemos ${noteName}. Presiona "Empezar" nuevamente`);
-            // Log deshabilitado: mantener solo RMS > -40 dB en barrido
         } else if (this.phase$.value === RangePhase.ConfirmMax) {
-            // Máximo no alcanzado → Bajar medio tono
-            this.extremeTarget -= 1;
+            // Nueva nota = máximo MIDI real escuchado; nunca por encima del target actual
+            const maxHeard = this.confirmationSamples.length > 0
+                ? Math.round(Math.max(...this.confirmationSamples.map(s => s.midi)))
+                : this.extremeTarget - 1;
+            this.extremeTarget = Math.min(maxHeard, this.extremeTarget - 1);
             const noteName = this.pitchService.midiToNoteName(this.extremeTarget);
             this.tip$.next(`Nota muy aguda. Intentemos ${noteName}. Presiona "Empezar" nuevamente`);
-            // Log deshabilitado: mantener solo RMS > -40 dB en barrido
         }
-        
-        // Resetear timers y botón para nuevo intento
+
+        // Resetear para nuevo intento
         this.extremeDynamicSubPhase = 'soft';
         this.confirmationSamples = [];
         this.wasVocalSignalInConfirmation = false;
         this.onsetBlockRemainingConfirmation = 0;
         this.extremeValidationStartTime = 0;
         this.extremePhaseStartTime = 0;
-        this.extremeStarted$.next(false); // Volver a mostrar botón "Empezar"
+        this.extremeStarted$.next(false);
         this.progress$.next(0);
         this.resetExtremeValidation();
-        
-        // Límite de seguridad: Si ajusta más de 5 veces, algo está mal
+
         if (this.extremeAttempts > 5) {
             this.handleError('No se pudo confirmar el extremo después de varios intentos. Por favor, reinicia el ejercicio.');
         }
