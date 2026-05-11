@@ -27,12 +27,6 @@
   ></app-flashcard>
 }
 
-<!-- Estado: Completado -->
-  @if (state() === CalibState.Done) {
-    <p class="subtitle">✅ ¡Micrófono calibrado correctamente!</p>
-    <p class="subtitle"><small>Ahora puedes continuar con el rango vocal.</small></p>
-  }
-
   <div class="stepper-container">
     <app-stepper [currentStep]="'calibration'"></app-stepper>
   </div><div class="panel">
@@ -158,21 +152,18 @@
   <!-- Durante medición de input: botón según resultado de los 15s -->
   @if (state() === CalibState.InputMeasuring) {
     @if (progress() < 1) {
-      <!-- Durante los 15 segundos -->
       <button class="primary" disabled>
         Midiendo... {{ (15 - (progress() * 15)).toFixed(0) }}s
       </button>
     } @else {
-      <!-- Después de los 15 segundos -->
       @if (inputStatus() === ValidationStatus.Valid) {
         <button class="primary" (click)="onConfirmInput()">
           Continuar con el rango vocal
         </button>
-      } @else {
-        <button class="secondary" (click)="onConfirmInput()">
-          Reintentar calibración de voz
-        </button>
       }
+      <button class="secondary" (click)="onRetryInput()">
+        Repetir
+      </button>
     }
   }
   

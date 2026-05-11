@@ -217,6 +217,36 @@ export class CalibrationService {
         let confidenceCount = 0;
         const pitchValues: number[] = [];
 
+        const finalize = () => {
+            const avgRmsDb = frameCount > 0 ? sumRms / frameCount : -90;
+            this.signalRmsDb = avgRmsDb;
+
+            const pitchValidRate = pitchFrameCount > 0 ? pitchValidCount / pitchFrameCount : 0;
+            const avgConfidence = confidenceCount > 0 ? confidenceSum / confidenceCount : 0;
+            const medianPitch = this.calculateMedian(pitchValues);
+            const pitchStd = this.calculateStd(pitchValues, medianPitch);
+
+            const minRmsValues = segments.map(s => s.minRmsDb);
+            const avgMinRmsDb = minRmsValues.length
+                ? (minRmsValues.reduce((sum, value) => sum + value, 0) / minRmsValues.length) - 3
+                : avgRmsDb - 3;
+
+            this.persistVoiceProfile({
+                avgRmsDb,
+                noiseFloorDbfs: this.noiseFloorDbfs,
+                snrDb: Math.abs(this.noiseFloorDbfs - avgRmsDb),
+                pitchValidRate,
+                avgConfidence,
+                medianPitch,
+                pitchStd,
+                avgMinRmsDb
+            });
+
+            console.log('[Calibration] RMS mínimo promedio (Probando):', avgMinRmsDb.toFixed(2), 'dB');
+            this.validateProbandoSegments(segments, pitchValidRate, avgConfidence, pitchStd);
+            this.progress$.next(1);
+        };
+
         const loop = async () => {
             const elapsed = (performance.now() - start) / 1000;
             const progress = Math.min(1, elapsed / durationSec);
@@ -281,6 +311,11 @@ export class CalibrationService {
                     };
                     segments.push(segment);
                     console.log('[Calibration] Probando detectado:', segment);
+                    if (segments.length >= 3) {
+                        voiceActive = false;
+                        finalize();
+                        return;
+                    }
                 }
                 voiceActive = false;
             }
@@ -301,41 +336,21 @@ export class CalibrationService {
                     }
                     voiceActive = false;
                 }
-
-                const avgRmsDb = frameCount > 0 ? sumRms / frameCount : -90;
-                this.signalRmsDb = avgRmsDb;
-
-                const pitchValidRate = pitchFrameCount > 0 ? pitchValidCount / pitchFrameCount : 0;
-                const avgConfidence = confidenceCount > 0 ? confidenceSum / confidenceCount : 0;
-                const medianPitch = this.calculateMedian(pitchValues);
-                const pitchStd = this.calculateStd(pitchValues, medianPitch);
-
-                const minRmsValues = segments.map(segment => segment.minRmsDb);
-                const avgMinRmsDb = minRmsValues.length
-                    ? (minRmsValues.reduce((sum, value) => sum + value, 0) / minRmsValues.length) - 3
-                    : avgRmsDb - 3;
-
-                this.persistVoiceProfile({
-                    avgRmsDb,
-                    noiseFloorDbfs: this.noiseFloorDbfs,
-                    snrDb: Math.abs(this.noiseFloorDbfs - avgRmsDb),
-                    pitchValidRate,
-                    avgConfidence,
-                    medianPitch,
-                    pitchStd,
-                    avgMinRmsDb
-                });
-
-                console.log('[Calibration] RMS mínimo promedio (Probando):', avgMinRmsDb.toFixed(2), 'dB');
-
-                this.validateProbandoSegments(segments, pitchValidRate, avgConfidence, pitchStd);
-                this.progress$.next(1);
+                finalize();
             }
         };
         
         loop();
     }
     
+    retryInputMeasurement() {
+        if (this.state$.value !== CalibState.InputMeasuring) return;
+        this.inputStatus$.next(ValidationStatus.Pending);
+        this.inputMessage$.next('');
+        this.tip$.next(null);
+        this.startGainCheck();
+    }
+
     private showInputFeedback(rmsDb: number) {
         if (rmsDb < this.RMS_MIN_DB) {
             this.tip$.next('Habla más fuerte');
