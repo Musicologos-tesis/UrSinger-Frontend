@@ -103,6 +103,10 @@ export class CalibrationComponent implements OnInit, OnDestroy {
     }
   }
   
+  onRetryInput() {
+    this.cal.retryInputMeasurement();
+  }
+
   onRetry() {
     this.cal.reset();
   }
