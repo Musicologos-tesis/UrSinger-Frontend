@@ -549,19 +549,15 @@ export class VocalRangeService {
         }
 
         if (this.phase$.value === RangePhase.ConfirmMin) {
-            // Nueva nota = mínimo MIDI real escuchado; nunca por debajo del target actual
-            const minHeard = this.confirmationSamples.length > 0
+            this.extremeTarget = this.confirmationSamples.length > 0
                 ? Math.round(Math.min(...this.confirmationSamples.map(s => s.midi)))
                 : this.extremeTarget + 1;
-            this.extremeTarget = Math.max(minHeard, this.extremeTarget + 1);
             const noteName = this.pitchService.midiToNoteName(this.extremeTarget);
             this.tip$.next(`Nota muy grave. Intentemos ${noteName}. Presiona "Empezar" nuevamente`);
         } else if (this.phase$.value === RangePhase.ConfirmMax) {
-            // Nueva nota = máximo MIDI real escuchado; nunca por encima del target actual
-            const maxHeard = this.confirmationSamples.length > 0
+            this.extremeTarget = this.confirmationSamples.length > 0
                 ? Math.round(Math.max(...this.confirmationSamples.map(s => s.midi)))
                 : this.extremeTarget - 1;
-            this.extremeTarget = Math.min(maxHeard, this.extremeTarget - 1);
             const noteName = this.pitchService.midiToNoteName(this.extremeTarget);
             this.tip$.next(`Nota muy aguda. Intentemos ${noteName}. Presiona "Empezar" nuevamente`);
         }
@@ -622,6 +618,11 @@ export class VocalRangeService {
         this.tip$.next('Calculando métricas...');
 
         try {
+            // Garantizar coherencia: mínimo < máximo
+            if (this.confirmedMin > this.confirmedMax) {
+                [this.confirmedMin, this.confirmedMax] = [this.confirmedMax, this.confirmedMin];
+            }
+
             // Calcular todas las métricas
             this.calculatedMetrics = this.calculateMetrics();
             
