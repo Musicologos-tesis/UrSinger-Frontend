@@ -622,7 +622,7 @@ export class VocalRangeService {
                 ? this.calculateMean(this.confirmationMetrics.precisionCents)
                 : undefined;
             const avgPrecisionCents = avgPrecisionCentsRaw !== undefined
-                ? Math.min(avgPrecisionCentsRaw, 600) / 2
+                ? Math.min(avgPrecisionCentsRaw, 600) / 1.5
                 : undefined;
             
             // Log deshabilitado: mantener solo RMS > -40 dB en barrido
