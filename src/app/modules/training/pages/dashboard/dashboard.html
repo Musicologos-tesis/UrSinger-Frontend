@@ -208,7 +208,8 @@
                   class="start-btn"
                   [class.start-btn--disabled]="!canStartExercise(exercise, day.exercises)"
                   [class.start-btn--completed]="exercise.isCompletedThisWeek"
-                  [disabled]="!canStartExercise(exercise, day.exercises)"
+                  [class.loading]="navigatingId() === exercise.planExerciseId"
+                  [disabled]="!canStartExercise(exercise, day.exercises) || navigatingId() === exercise.planExerciseId"
                   (click)="startExercise(exercise)"
                 >
                   <span class="btn-icon">▶</span>

@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { TrainingService, ActiveTrainingPlan, Exercise, LatestEvaluationSummaryResponse } from '../../services/training.service';
@@ -18,6 +18,7 @@ export class TrainingDashboardComponent implements OnInit {
   private trainingService = inject(TrainingService);
   private authService = inject(AuthService);
 
+  navigatingId = signal<string | null>(null);
   trainingPlan: ActiveTrainingPlan | null = null;
   evaluationSummary: LatestEvaluationSummaryResponse | null = null;
   evaluationSummaryError: string | null = null;
@@ -289,13 +290,14 @@ export class TrainingDashboardComponent implements OnInit {
     if (!this.canStartExercise(exercise, this.getExercisesForDay(exercise))) {
       return;
     }
-    
+
     // Si ya está completado, no hacer nada
     if (exercise.isCompletedThisWeek) {
       return;
     }
-    
+
     console.log('[TrainingDashboard] Iniciando ejercicio:', exercise.exerciseName);
+    this.navigatingId.set(exercise.planExerciseId);
     this.router.navigate(['/training/exercise', exercise.planExerciseId]);
   }
 

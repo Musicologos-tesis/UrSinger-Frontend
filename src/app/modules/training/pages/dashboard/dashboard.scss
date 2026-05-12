@@ -600,6 +600,31 @@
   background: #059669;
 }
 
+.start-btn.loading {
+  position: relative;
+  pointer-events: none;
+  color: transparent;
+
+  .btn-icon { visibility: hidden; }
+
+  &::after {
+    content: '';
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    top: 50%; left: 50%;
+    margin: -8px 0 0 -8px;
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: btn-spin 0.7s linear infinite;
+  }
+}
+
+@keyframes btn-spin {
+  to { transform: rotate(360deg); }
+}
+
 .btn-icon {
   font-size: 16px;
 }

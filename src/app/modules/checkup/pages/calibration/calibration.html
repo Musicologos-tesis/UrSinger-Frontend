@@ -139,7 +139,7 @@
   <!-- Durante medición de ruido: botón habilitado solo si verde -->
   @if (state() === CalibState.NoiseMeasuring) {
     @if (canConfirmNoise()) {
-      <button class="primary" (click)="onContinueToInput()">
+      <button class="primary" [class.loading]="isNavigating()" (click)="onContinueToInput()" [disabled]="isNavigating()">
         Continuar con el nivel de entrada
       </button>
     } @else {
@@ -169,7 +169,7 @@
   
   <!-- Estado final: continuar al siguiente paso -->
   @if (state() === CalibState.Done) {
-    <button class="primary" (click)="onContinueToVocalRange()">
+    <button class="primary" [class.loading]="isNavigating()" (click)="onContinueToVocalRange()" [disabled]="isNavigating()">
       Continuar al Ejercicio de Rango Vocal
     </button>
   }

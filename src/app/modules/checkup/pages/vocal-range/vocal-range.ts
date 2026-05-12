@@ -34,6 +34,7 @@ export class VocalRangeComponent implements OnInit, OnDestroy {
 
   // Estados locales
   isLoading = signal(false);
+  isNavigating = signal(false);
   hasActivePlan = signal(false);
   RangePhase = RangePhase; // Para usar en el template
   Math = Math; // Para usar Math.round en el template
@@ -151,7 +152,7 @@ export class VocalRangeComponent implements OnInit, OnDestroy {
    * Finaliza el ejercicio y navega al siguiente paso
    */
   onContinue(): void {
-    // TODO: Navegar al ejercicio de estabilidad
+    this.isNavigating.set(true);
     this.router.navigate(['/checkup/stability']);
   }
 

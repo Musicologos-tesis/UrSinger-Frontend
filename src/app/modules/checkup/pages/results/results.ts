@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { VocalRangeService, RangeMetrics } from '../../services/vocal-range.service';
 import { StabilityService, StabilityMetrics } from '../../services/stability.service';
@@ -76,6 +76,7 @@ export class CheckupResultsComponent implements OnInit {
 
   checkupCompleted = false;
   showLearningPathInfoModal = false;
+  isNavigating = signal(false);
 
   async ngOnInit(): Promise<void> {
     this.evaluateResult = this.metricsService.getEvaluateResult();
@@ -294,6 +295,7 @@ export class CheckupResultsComponent implements OnInit {
   }
 
   finishCheckup() {
+    this.isNavigating.set(true);
     localStorage.removeItem('ursinger.checkup.sessionId');
     localStorage.removeItem('ursinger.metrics.partial');
     this.metricsService.clearEvaluateResult();

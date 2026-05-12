@@ -32,6 +32,7 @@ export class CalibrationComponent implements OnInit, OnDestroy {
   noiseMessage = signal<string>('');
   inputMessage = signal<string>('');
   hasActivePlan = signal(false);
+  isNavigating = signal(false);
 
   async ngOnInit(): Promise<void> {
     const profileId = localStorage.getItem('profile_id');
@@ -85,10 +86,12 @@ export class CalibrationComponent implements OnInit, OnDestroy {
   }
   
   onContinueToInput() {
+    this.isNavigating.set(true);
     // Confirmar y enviar room_check al backend antes de continuar
     this.cal.confirmNoiseCheck();
     // Iniciar fase de nivel de entrada
     this.cal.startInputMeasurement();
+    this.isNavigating.set(false);
   }
   
   async onConfirmInput() {
@@ -112,11 +115,13 @@ export class CalibrationComponent implements OnInit, OnDestroy {
   }
   
   onContinueToVocalRange() {
+    this.isNavigating.set(true);
     console.log('[Calibration] Navegando a /checkup/vocal-range');
     this.router.navigate(['/checkup/vocal-range']).then(success => {
       console.log('[Calibration] Navegación exitosa:', success);
     }).catch(error => {
       console.error('[Calibration] Error en navegación:', error);
+      this.isNavigating.set(false);
     });
   }
   

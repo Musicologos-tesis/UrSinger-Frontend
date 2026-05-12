@@ -20,15 +20,34 @@
   @include button-base;
   background: $primary;
   color: #fff;
-  
+
   &:hover:not(:disabled) {
     background: $primary-dark;
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
   }
-  
+
   &:active:not(:disabled) {
     transform: translateY(0);
+  }
+
+  &.loading {
+    position: relative;
+    pointer-events: none;
+    color: transparent;
+
+    &::after {
+      content: '';
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      top: 50%; left: 50%;
+      margin: -8px 0 0 -8px;
+      border: 2px solid rgba(255, 255, 255, 0.35);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: btn-spin 0.7s linear infinite;
+    }
   }
 }
 
@@ -36,10 +55,33 @@
   @include button-base;
   background: $gray-100;
   color: $gray-700;
-  
+
   &:hover:not(:disabled) {
     background: $gray-200;
   }
+
+  &.loading {
+    position: relative;
+    pointer-events: none;
+    color: transparent;
+
+    &::after {
+      content: '';
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      top: 50%; left: 50%;
+      margin: -8px 0 0 -8px;
+      border: 2px solid rgba(75, 85, 99, 0.3);
+      border-top-color: #4b5563;
+      border-radius: 50%;
+      animation: btn-spin 0.7s linear infinite;
+    }
+  }
+}
+
+@keyframes btn-spin {
+  to { transform: rotate(360deg); }
 }
 
 // Mixin para cards
