@@ -605,8 +605,6 @@
   pointer-events: none;
   color: transparent;
 
-  .btn-icon { visibility: hidden; }
-
   &::after {
     content: '';
     position: absolute;
@@ -619,10 +617,6 @@
     border-radius: 50%;
     animation: btn-spin 0.7s linear infinite;
   }
-}
-
-@keyframes btn-spin {
-  to { transform: rotate(360deg); }
 }
 
 .btn-icon {
