@@ -19,6 +19,7 @@ export class PreparationComponent implements OnInit, OnDestroy {
   devices: MediaDeviceInfo[] = [];
   selectedDeviceId: string | null = null;
   hasActivePlan = signal(false);
+  isNavigating = signal(false);
 
   private authService = inject(AuthService);
 
@@ -54,6 +55,7 @@ export class PreparationComponent implements OnInit, OnDestroy {
   }
 
   startCheck() {
+    this.isNavigating.set(true);
     this.router.navigate(['/checkup/calibration'], {
       state: { sampleRate: Number(localStorage.getItem('ursinger.prep.sampleRate') || 0) }
     });

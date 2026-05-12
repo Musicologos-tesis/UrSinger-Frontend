@@ -37,7 +37,7 @@
 
 <div class="cta">
   <button class="secondary" (click)="activateMic()" [disabled]="state()!=='idle'">Activar micrófono</button>
-  <button class="primary" (click)="startCheck()" [disabled]="state()!=='active'">Comenzar chequeo</button>
+  <button class="primary" [class.loading]="isNavigating()" (click)="startCheck()" [disabled]="state()!=='active' || isNavigating()">Comenzar chequeo</button>
 </div>
 
 @if (state() === 'error') {

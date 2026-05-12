@@ -45,6 +45,7 @@ export class StabilityComponent implements OnInit, OnDestroy {
   targetNote = signal<string>('-');
 
   stabilityPercent: number | null = null;
+  isNavigating = signal(false);
 
   private timerId: any = null;
 
@@ -205,20 +206,23 @@ export class StabilityComponent implements OnInit, OnDestroy {
   }
 
   async goToResults() {
+    this.isNavigating.set(true);
     try {
       // Enviar métricas finales al backend antes de navegar
       console.log('[Stability] Enviando métricas a /metrics/evaluate...');
       const response = await this.metricsService.evaluateMetrics();
       console.log('[Stability] Métricas enviadas exitosamente:', response);
-      
+
       // Navegar a resultados
       this.router.navigate(['/checkup/results']);
     } catch (error: any) {
       console.error('[Stability] Error al enviar métricas:', error);
+      this.isNavigating.set(false);
       const detail = error?.error?.message || error?.message || 'Error desconocido';
       // Preguntar al usuario si desea continuar a resultados sin enviar
       const continuar = confirm(`No se pudieron enviar las métricas al servidor.\n\nDetalle: ${detail}\n\n¿Deseas continuar a resultados de todas formas?`);
       if (continuar) {
+        this.isNavigating.set(true);
         this.router.navigate(['/checkup/results']);
       }
     }

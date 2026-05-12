@@ -215,6 +215,31 @@
   &:active {
     transform: translateY(0);
   }
+
+  &.loading {
+    position: relative;
+    pointer-events: none;
+    color: transparent;
+
+    svg { visibility: hidden; }
+
+    &::after {
+      content: '';
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      top: 50%; left: 50%;
+      margin: -9px 0 0 -9px;
+      border: 2px solid rgba(255, 255, 255, 0.35);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: btn-spin 0.7s linear infinite;
+    }
+  }
+}
+
+@keyframes btn-spin {
+  to { transform: rotate(360deg); }
 }
 
 .repeat-hint {

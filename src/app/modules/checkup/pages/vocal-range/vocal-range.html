@@ -310,7 +310,7 @@
   
   <!-- COMPLETE: Continuar -->
   @if (phase.value === RangePhase.Complete) {
-    <button class="primary" (click)="onContinue()">
+    <button class="primary" [class.loading]="isNavigating()" (click)="onContinue()" [disabled]="isNavigating()">
       Continuar al Ejercicio de Estabilidad
     </button>
   }

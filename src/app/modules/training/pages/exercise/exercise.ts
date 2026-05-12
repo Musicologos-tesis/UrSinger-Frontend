@@ -21,6 +21,7 @@ export class ExerciseComponent implements OnInit {
 
   exercise = signal<ExerciseDetail | null>(null);
   isLoading = signal(true);
+  isNavigating = signal(false);
   error = signal<string | null>(null);
 
   async ngOnInit(): Promise<void> {
@@ -48,9 +49,10 @@ export class ExerciseComponent implements OnInit {
   }
 
   startChallenge(): void {
-    console.log('[Exercise] Iniciar desafío:', this.exercise()?.planExerciseId);
     const exerciseId = this.exercise()?.planExerciseId;
     if (exerciseId) {
+      this.isNavigating.set(true);
+      console.log('[Exercise] Iniciar desafío:', exerciseId);
       this.router.navigate(['/training/practice', exerciseId]);
     }
   }

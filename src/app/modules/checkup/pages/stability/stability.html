@@ -167,7 +167,7 @@
         </p>
       </div>
 
-      <button class="primary" (click)="goToResults()">
+      <button class="primary" [class.loading]="isNavigating()" (click)="goToResults()" [disabled]="isNavigating()">
         Ver resultados finales
       </button>
     }

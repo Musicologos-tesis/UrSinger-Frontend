@@ -125,7 +125,7 @@
 
     <!-- Botón final -->
     <section class="bottom-actions">
-      <button class="finish-btn" type="button" (click)="finishCheckup()">
+      <button class="finish-btn" [class.loading]="isNavigating()" type="button" (click)="finishCheckup()" [disabled]="isNavigating()">
         Finalizar chequeo
       </button>
       <p class="bottom-note">
