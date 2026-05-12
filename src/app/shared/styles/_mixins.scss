@@ -80,10 +80,6 @@
   }
 }
 
-@keyframes btn-spin {
-  to { transform: rotate(360deg); }
-}
-
 // Mixin para cards
 @mixin card {
   border: 1px solid $gray-200;
