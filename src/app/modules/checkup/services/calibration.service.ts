@@ -165,8 +165,13 @@ export class CalibrationService {
 
         // Warm-up del detector para evitar perder los primeros segundos de voz
         // (compilación inicial de TF/WebGL + primera inferencia de CREPE).
-        await this.pitch.initialize(analyser);
-        await this.warmupPitchDetector();
+        try {
+            await this.pitch.initialize(analyser);
+            await this.warmupPitchDetector();
+        } catch (error: any) {
+            this.handleError('No se pudo cargar el detector de pitch. Recarga la página e intenta de nuevo.');
+            return;
+        }
 
         await this.startGainCheck();
     }

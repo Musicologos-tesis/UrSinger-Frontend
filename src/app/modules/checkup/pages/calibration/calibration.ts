@@ -85,13 +85,14 @@ export class CalibrationComponent implements OnInit, OnDestroy {
     }
   }
   
-  onContinueToInput() {
+  async onContinueToInput() {
     this.isNavigating.set(true);
-    // Confirmar y enviar room_check al backend antes de continuar
     this.cal.confirmNoiseCheck();
-    // Iniciar fase de nivel de entrada
-    this.cal.startInputMeasurement();
-    this.isNavigating.set(false);
+    try {
+      await this.cal.startInputMeasurement();
+    } finally {
+      this.isNavigating.set(false);
+    }
   }
   
   async onConfirmInput() {
