@@ -18,8 +18,8 @@ export class AudioPitchService {
     private isModelLoaded = false;
     private timeDataArray?: Float32Array;
 
-    // CREPE config
-    private readonly MODEL_URL = 'https://cdn.jsdelivr.net/gh/ml5js/ml5-data-and-models/models/pitch-detection/crepe/model.json';
+    // CREPE config — model files served from local assets (avoids CDN instability)
+    private readonly MODEL_URL = '/assets/models/crepe/model.json';
     private readonly CREPE_SAMPLE_RATE = 16000; // CREPE espera 16kHz
     private readonly CREPE_INPUT_SIZE = 1024; // Ventana de 1024 samples
     private readonly MAX_ANALYSER_FFT_SIZE = 32768;
