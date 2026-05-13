@@ -97,26 +97,25 @@ export class AudioPitchService {
     private async loadCrepeModel(): Promise<void> {
         try {
             console.log('[AudioPitchService] Cargando modelo CREPE desde:', this.MODEL_URL);
-            
-            // Configurar TensorFlow.js backend
+
+            // Seleccionar el mejor backend disponible sin forzar WebGL
             await tf.ready();
-            await tf.setBackend('webgl');
-            
+            console.log('[AudioPitchService] TF backend:', tf.getBackend());
+
             // Cargar modelo
             this.crepeModel = await tf.loadLayersModel(this.MODEL_URL);
             this.isModelLoaded = true;
-            
-            // Validar que el modelo tiene la forma correcta
+
             const inputShape = (this.crepeModel as any).inputs[0].shape;
             const outputShape = (this.crepeModel as any).outputs[0].shape;
-            
+
             console.log('[AudioPitchService] ✓ Modelo CREPE cargado exitosamente');
             console.log('[AudioPitchService] Input shape:', inputShape);
             console.log('[AudioPitchService] Output shape:', outputShape);
-            
+
         } catch (error) {
             console.error('[AudioPitchService] Error al cargar modelo CREPE:', error);
-            throw new Error('No se pudo cargar el modelo CREPE');
+            throw error;
         }
     }
 
