@@ -548,18 +548,12 @@ export class VocalRangeService {
             this.calculateConfirmationMetrics();
         }
 
-        if (this.phase$.value === RangePhase.ConfirmMin) {
-            this.extremeTarget = this.confirmationSamples.length > 0
-                ? Math.round(Math.min(...this.confirmationSamples.map(s => s.midi)))
-                : this.extremeTarget + 1;
+        if (this.phase$.value === RangePhase.ConfirmMin || this.phase$.value === RangePhase.ConfirmMax) {
+            if (this.confirmationSamples.length > 0) {
+                this.extremeTarget = this.getMostFrequentMidi(this.confirmationSamples);
+            }
             const noteName = this.pitchService.midiToNoteName(this.extremeTarget);
-            this.tip$.next(`Nota muy grave. Intentemos ${noteName}. Presiona "Empezar" nuevamente`);
-        } else if (this.phase$.value === RangePhase.ConfirmMax) {
-            this.extremeTarget = this.confirmationSamples.length > 0
-                ? Math.round(Math.max(...this.confirmationSamples.map(s => s.midi)))
-                : this.extremeTarget - 1;
-            const noteName = this.pitchService.midiToNoteName(this.extremeTarget);
-            this.tip$.next(`Nota muy aguda. Intentemos ${noteName}. Presiona "Empezar" nuevamente`);
+            this.tip$.next(`Intentemos ${noteName}. Presiona "Empezar" nuevamente`);
         }
 
         // Resetear para nuevo intento
@@ -576,6 +570,20 @@ export class VocalRangeService {
         if (this.extremeAttempts > 5) {
             this.handleError('No se pudo confirmar el extremo después de varios intentos. Por favor, reinicia el ejercicio.');
         }
+    }
+
+    private getMostFrequentMidi(samples: PitchSample[]): number {
+        const freq = new Map<number, number>();
+        for (const s of samples) {
+            const note = Math.round(s.midi);
+            freq.set(note, (freq.get(note) ?? 0) + 1);
+        }
+        let best = Math.round(samples[0].midi);
+        let bestCount = 0;
+        for (const [note, count] of freq) {
+            if (count > bestCount) { bestCount = count; best = note; }
+        }
+        return best;
     }
 
     /**
