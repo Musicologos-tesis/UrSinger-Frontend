@@ -90,18 +90,22 @@
         <div class="target-note-display">
           <div class="target-label">Nota objetivo:</div>
           <div class="target-note">{{ rangeService.getTargetNoteName() }}</div>
-          <button class="play-note-btn" (click)="playTargetNote()" title="Escuchar nota">
-            🔊 Reproducir nota
-          </button>
+          @if (isNoteLoading()) {
+            <div class="note-loading-indicator">Cargando nota...</div>
+          } @else {
+            <button class="play-note-btn" (click)="playTargetNote()" title="Escuchar nota">
+              🔊 Reproducir nota
+            </button>
+          }
         </div>
-        
+
         <!-- BOTÓN EMPEZAR (solo si no ha empezado) -->
         @if (!rangeService.extremeStarted$.value) {
           <button class="primary" (click)="rangeService.startExtremeExercise()">
             ▶ Empezar
           </button>
         }
-        
+
         <!-- CONTENIDO DEL EJERCICIO (solo si ya empezó) -->
         @if (rangeService.extremeStarted$.value) {
           <!-- Tiempo restante -->
@@ -109,7 +113,7 @@
             <span class="timeout-label">Tiempo restante:</span>
             <span class="timeout-value">{{ rangeService.getRemainingTime() }}s</span>
           </div>
-          
+
           <!-- Indicadores en tiempo real -->
           <div class="live-indicators">
             <div class="indicator-row">
@@ -117,25 +121,25 @@
               <span class="value">{{ currentNote.value || '---' }}</span>
             </div>
           </div>
-          
+
           <!-- Validaciones en tiempo real -->
           <div class="validation-checks">
           <div class="check-item" [class.valid]="extremeValidation.value.pitchOk">
             <span class="check-icon">{{ extremeValidation.value.pitchOk ? '✓' : '○' }}</span>
             <span class="check-label">Afinación correcta (±100 cents)</span>
           </div>
-          
+
           <div class="check-item" [class.valid]="extremeValidation.value.rmsOk">
             <span class="check-icon">{{ extremeValidation.value.rmsOk ? '✓' : '○' }}</span>
             <span class="check-label">Volumen adecuado</span>
           </div>
-          
+
           <div class="check-item" [class.valid]="extremeValidation.value.sustained">
             <span class="check-icon">{{ extremeValidation.value.sustained ? '✓' : '○' }}</span>
             <span class="check-label">Sostenido 1 segundo</span>
           </div>
         </div>
-        
+
         <!-- Barra de progreso de sostenimiento -->
         @if (extremeValidation.value.pitchOk && extremeValidation.value.rmsOk) {
           <div class="progress-bar">
@@ -158,16 +162,20 @@
             <span class="status-indicator valid">✓</span>
           }
         </div>
-        
+
         <p class="instruction">{{ tip.value }}</p>
-        
+
         <!-- NOTA OBJETIVO -->
         <div class="target-note-display">
           <div class="target-label">Nota objetivo:</div>
           <div class="target-note">{{ rangeService.getTargetNoteName() }}</div>
-          <button class="play-note-btn" (click)="playTargetNote()" title="Escuchar nota">
-            🔊 Reproducir nota
-          </button>
+          @if (isNoteLoading()) {
+            <div class="note-loading-indicator">Cargando nota...</div>
+          } @else {
+            <button class="play-note-btn" (click)="playTargetNote()" title="Escuchar nota">
+              🔊 Reproducir nota
+            </button>
+          }
         </div>
         
         <!-- BOTÓN EMPEZAR (solo si no ha empezado) -->

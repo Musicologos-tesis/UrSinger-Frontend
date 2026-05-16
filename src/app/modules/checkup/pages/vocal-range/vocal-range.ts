@@ -1,6 +1,7 @@
 import { Component, OnInit, OnDestroy, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
+import { Subscription } from 'rxjs';
 import { VocalRangeService, RangePhase } from '../../services/vocal-range.service';
 import { AudioAnalyzerService } from '../../services/audio.analyzer.service';
 import { AuthService } from '../../../../services/auth.service';
@@ -39,6 +40,13 @@ export class VocalRangeComponent implements OnInit, OnDestroy {
   RangePhase = RangePhase; // Para usar en el template
   Math = Math; // Para usar Math.round en el template
 
+  isNoteLoading = signal(false);
+
+  private sfAudioContext: AudioContext | null = null;
+  private sfBufferCache = new Map<string, AudioBuffer>();
+  private sfRawCache = new Map<string, ArrayBuffer>();
+  private phaseSub?: Subscription;
+
   async ngOnInit(): Promise<void> {
     console.log('[VocalRange] Componente inicializado');
 
@@ -51,7 +59,27 @@ export class VocalRangeComponent implements OnInit, OnDestroy {
     if (profileId) {
       this.hasActivePlan.set(await this.authService.checkActiveTrainingPlan(profileId));
     }
-    // El analyser se inicializará cuando el usuario haga clic en "Comenzar Ejercicio"
+
+    this.phaseSub = this.rangeService.phase$.subscribe(phase => {
+      if (phase === RangePhase.ConfirmMin || phase === RangePhase.ConfirmMax) {
+        const freq = this.rangeService.getTargetFrequency();
+        if (freq > 0) {
+          const midi = Math.round(12 * Math.log2(freq / 440) + 69);
+          this.prefetchTargetNote(midi);
+        }
+      }
+    });
+  }
+
+  private prefetchTargetNote(midi: number): void {
+    const url = this.buildSoundFontUrl(midi);
+    if (this.sfBufferCache.has(url) || this.sfRawCache.has(url)) return;
+    this.isNoteLoading.set(true);
+    fetch(url)
+      .then(r => r.arrayBuffer())
+      .then(ab => this.sfRawCache.set(url, ab))
+      .catch(() => {})
+      .finally(() => this.isNoteLoading.set(false));
   }
 
   /**
@@ -101,44 +129,52 @@ export class VocalRangeComponent implements OnInit, OnDestroy {
   /**
    * Reproduce la nota objetivo como referencia
    */
-  playTargetNote(): void {
+  async playTargetNote(): Promise<void> {
     const frequency = this.rangeService.getTargetFrequency();
     if (frequency === 0) return;
 
+    const midi = Math.round(12 * Math.log2(frequency / 440) + 69);
+
     try {
-      // Crear contexto de audio si no existe
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      
-      // Crear oscilador (onda sinusoidal)
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
-      
-      oscillator.type = 'sine';
-      oscillator.frequency.value = frequency;
-      
-      // Configurar volumen (fade in/out)
-      gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-      gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.1); // Fade in
-      gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.9); // Sostener
-      gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 1.0);   // Fade out
-      
-      // Conectar y reproducir
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-      
-      oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 1.0);
-      
-      // Limpiar después
-      setTimeout(() => {
-        oscillator.disconnect();
-        gainNode.disconnect();
-        audioContext.close();
-      }, 1100);
-      
+      if (!this.sfAudioContext) {
+        this.sfAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      }
+      const ctx = this.sfAudioContext;
+
+      const url = this.buildSoundFontUrl(midi);
+      let buffer = this.sfBufferCache.get(url);
+
+      if (!buffer) {
+        const raw = this.sfRawCache.get(url);
+        const arrayBuffer = raw
+          ? raw.slice(0)
+          : await fetch(url).then(r => r.arrayBuffer());
+        buffer = await ctx.decodeAudioData(arrayBuffer);
+        this.sfBufferCache.set(url, buffer);
+        this.sfRawCache.delete(url);
+      }
+
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.8, ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 2.0);
+
+      source.connect(gain);
+      gain.connect(ctx.destination);
+      source.start(ctx.currentTime);
+      source.stop(ctx.currentTime + 2.0);
     } catch (error) {
       console.error('[VocalRange] Error al reproducir nota:', error);
     }
+  }
+
+  private buildSoundFontUrl(midi: number): string {
+    const names = ['C', 'Cs', 'D', 'Ds', 'E', 'F', 'Fs', 'G', 'Gs', 'A', 'As', 'B'];
+    const octave = Math.floor(midi / 12) - 1;
+    const note = names[midi % 12];
+    return `https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/acoustic_grand_piano-mp3/${note}${octave}.mp3`;
   }
 
   /**
@@ -235,7 +271,10 @@ export class VocalRangeComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    // Limpia estado de rango al salir para evitar arrastre al reingresar.
+    this.phaseSub?.unsubscribe();
     this.rangeService.reset();
+    this.sfAudioContext?.close();
+    this.sfBufferCache.clear();
+    this.sfRawCache.clear();
   }
 }

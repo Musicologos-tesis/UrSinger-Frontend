@@ -53,9 +53,13 @@
       <div class="target-note-display">
         <div class="target-label">Nota objetivo:</div>
         <div class="target-note">{{ targetNote() }}</div>
-        <button class="play-note-btn" (click)="playTargetNote()" title="Escuchar nota">
-          🔊 Reproducir nota
-        </button>
+        @if (isNoteLoading()) {
+          <div class="note-loading-indicator">Cargando nota...</div>
+        } @else {
+          <button class="play-note-btn" (click)="playTargetNote()" title="Escuchar nota">
+            🔊 Reproducir nota
+          </button>
+        }
       </div>
 
       <div class="phase-container">
@@ -82,9 +86,13 @@
         <div class="target-note-display">
           <div class="target-label">Nota objetivo:</div>
           <div class="target-note">{{ targetNote() }}</div>
-          <button class="play-note-btn" (click)="playTargetNote()" title="Escuchar nota">
-            🔊 Reproducir nota
-          </button>
+          @if (isNoteLoading()) {
+            <div class="note-loading-indicator">Cargando nota...</div>
+          } @else {
+            <button class="play-note-btn" (click)="playTargetNote()" title="Escuchar nota">
+              🔊 Reproducir nota
+            </button>
+          }
         </div>
 
         <!-- Tiempo restante -->

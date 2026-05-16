@@ -46,8 +46,12 @@ export class StabilityComponent implements OnInit, OnDestroy {
 
   stabilityPercent: number | null = null;
   isNavigating = signal(false);
+  isNoteLoading = signal(false);
 
   private timerId: any = null;
+  private sfAudioContext: AudioContext | null = null;
+  private sfBufferCache = new Map<string, AudioBuffer>();
+  private sfRawCache = new Map<string, ArrayBuffer>();
 
   async ngOnInit(): Promise<void> {
     const profileId = localStorage.getItem('profile_id');
@@ -70,10 +74,22 @@ export class StabilityComponent implements OnInit, OnDestroy {
         const mid = Math.round((minMidi + maxMidi) / 2);
         this.targetMidi.set(mid);
         this.targetNote.set(this.formatNote(mid));
+        this.prefetchTargetNote(mid);
       }
     } catch {
       return;
     }
+  }
+
+  private prefetchTargetNote(midi: number): void {
+    const url = this.buildSoundFontUrl(midi);
+    if (this.sfBufferCache.has(url) || this.sfRawCache.has(url)) return;
+    this.isNoteLoading.set(true);
+    fetch(url)
+      .then(r => r.arrayBuffer())
+      .then(ab => this.sfRawCache.set(url, ab))
+      .catch(() => {})
+      .finally(() => this.isNoteLoading.set(false));
   }
 
   async startTest() {
@@ -115,38 +131,49 @@ export class StabilityComponent implements OnInit, OnDestroy {
     }
   }
 
-  playTargetNote(): void {
+  async playTargetNote(): Promise<void> {
     const midi = this.targetMidi();
     if (!midi) return;
-    const frequency = 440 * Math.pow(2, (midi - 69) / 12);
 
     try {
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
+      if (!this.sfAudioContext) {
+        this.sfAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      }
+      const ctx = this.sfAudioContext;
+      const url = this.buildSoundFontUrl(midi);
 
-      oscillator.type = 'sine';
-      oscillator.frequency.value = frequency;
+      let buffer = this.sfBufferCache.get(url);
+      if (!buffer) {
+        const raw = this.sfRawCache.get(url);
+        const arrayBuffer = raw
+          ? raw.slice(0)
+          : await fetch(url).then(r => r.arrayBuffer());
+        buffer = await ctx.decodeAudioData(arrayBuffer);
+        this.sfBufferCache.set(url, buffer);
+        this.sfRawCache.delete(url);
+      }
 
-      gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-      gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.1);
-      gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.9);
-      gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 1.0);
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
 
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.8, ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 2.0);
 
-      oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 1.0);
-
-      setTimeout(() => {
-        oscillator.disconnect();
-        gainNode.disconnect();
-        audioContext.close();
-      }, 1100);
+      source.connect(gain);
+      gain.connect(ctx.destination);
+      source.start(ctx.currentTime);
+      source.stop(ctx.currentTime + 2.0);
     } catch {
-      // Silenciar errores de reproducción
+      // Silenciar errores de red o decodificación
     }
+  }
+
+  private buildSoundFontUrl(midi: number): string {
+    const names = ['C', 'Cs', 'D', 'Ds', 'E', 'F', 'Fs', 'G', 'Gs', 'A', 'As', 'B'];
+    const octave = Math.floor(midi / 12) - 1;
+    const note = names[midi % 12];
+    return `https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/acoustic_grand_piano-mp3/${note}${octave}.mp3`;
   }
 
   private startTimer() {
@@ -259,5 +286,8 @@ export class StabilityComponent implements OnInit, OnDestroy {
     this.clearTimer();
     this.audio.stop();
     this.stabilityService.reset();
+    this.sfAudioContext?.close();
+    this.sfBufferCache.clear();
+    this.sfRawCache.clear();
   }
 }
