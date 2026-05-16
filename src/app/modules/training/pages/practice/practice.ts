@@ -1223,8 +1223,7 @@ export class PracticeComponent implements OnInit, OnDestroy {
     const cached = this.sfBufferCache.get(url);
     if (cached) return cached;
     try {
-      const response = await fetch(url);
-      const arrayBuffer = await response.arrayBuffer();
+      const arrayBuffer = await this.fetchRawBuffer(midi);
       const buffer = await this.sfAudioContext.decodeAudioData(arrayBuffer);
       this.sfBufferCache.set(url, buffer);
       return buffer;
@@ -1238,6 +1237,18 @@ export class PracticeComponent implements OnInit, OnDestroy {
     const octave = Math.floor(midi / 12) - 1;
     const note = names[midi % 12];
     return `https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/acoustic_grand_piano-mp3/${note}${octave}.mp3`;
+  }
+
+  private async fetchRawBuffer(midi: number): Promise<ArrayBuffer> {
+    const sharp = ['C', 'Cs', 'D', 'Ds', 'E', 'F', 'Fs', 'G', 'Gs', 'A', 'As', 'B'];
+    const flat  = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+    const octave = Math.floor(midi / 12) - 1;
+    const base = 'https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/acoustic_grand_piano-mp3';
+    for (const names of [sharp, flat]) {
+      const r = await fetch(`${base}/${names[midi % 12]}${octave}.mp3`);
+      if (r.ok) return r.arrayBuffer();
+    }
+    throw new Error(`Soundfont no disponible para MIDI ${midi}`);
   }
 
   private formatDetectedNote(midiNote: number, frequency: number, targetMidi: number | null): string {

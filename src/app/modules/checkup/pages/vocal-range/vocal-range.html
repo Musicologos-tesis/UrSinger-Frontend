@@ -34,9 +34,27 @@
     <!-- ESTADO: IDLE - Instrucciones iniciales -->
     @if (phase.value === RangePhase.Idle) {
       <p class="instruction">
-        Primero harás un sonido bajo, luego uno alto.<br>
-        No te preocupes si no sabes qué notas usar, UrSinger te guiará paso a paso.
+        Escucha el ejemplo de glissando y luego imítalo con tu voz:<br>
+        empieza desde tu voz de habla (grave) y sube gradualmente hasta donde puedas.<br>
+        <b>Usa todo el tiempo que se te da</b>
       </p>
+
+      <div class="glissando-demo">
+        <button
+          class="play-note-btn"
+          (click)="playGlissando()"
+          [disabled]="isPlayingGlissando()"
+          title="Escuchar ejemplo de glissando">
+          @if (isPlayingGlissando()) {
+            🎵 Reproduciendo...
+          } @else {
+            🔊 Escuchar ejemplo
+          }
+        </button>
+        <span class="glissando-hint">
+          {{ isPlayingGlissando() ? 'Grave → Agudo' : 'Toca para escuchar cómo se hace' }}
+        </span>
+      </div>
     }
 
     <!-- ESTADO: SWEEP - Barrido continuo (12s) -->
