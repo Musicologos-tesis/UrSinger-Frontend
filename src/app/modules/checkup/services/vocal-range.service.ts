@@ -348,7 +348,7 @@ export class VocalRangeService {
         this.progress$.next(0);
 
         const noteName = this.pitchService.midiToNoteName(this.provisionalMin);
-        this.tip$.next(`Presiona "Empezar" cuando estés listo para cantar ${noteName} suavemente`);
+        this.tip$.next(`Presiona "Empezar" cuando estés listo para cantar ${noteName} <b>suavemente</b>`);
         
         this.resetExtremeValidation();
     }
@@ -373,7 +373,7 @@ export class VocalRangeService {
         this.progress$.next(0);
 
         const noteName = this.pitchService.midiToNoteName(this.provisionalMax);
-        this.tip$.next(`Presiona "Empezar" cuando estés listo para cantar ${noteName} suavemente`);
+        this.tip$.next(`Presiona "Empezar" cuando estés listo para cantar ${noteName} <b>suavemente</b>`);
         
         this.resetExtremeValidation();
     }
@@ -389,9 +389,9 @@ export class VocalRangeService {
 
         const noteName = this.pitchService.midiToNoteName(this.extremeTarget);
         if (this.extremeDynamicSubPhase === 'soft') {
-            this.tip$.next(`Canta ${noteName} suavemente (piano) durante 1 segundo`);
+            this.tip$.next(`Canta ${noteName} <b>suavemente</b> (piano) durante 1 segundo`);
         } else {
-            this.tip$.next(`Ahora canta ${noteName} con toda tu potencia durante 1 segundo`);
+            this.tip$.next(`Ahora canta ${noteName} con <b>más potencia</b> durante 1 segundo`);
         }
         
         // Log deshabilitado: mantener solo RMS > -40 dB en barrido
@@ -511,7 +511,7 @@ export class VocalRangeService {
                         this.resetExtremeValidation();
 
                         const noteName = this.pitchService.midiToNoteName(this.extremeTarget);
-                        this.tip$.next(`¡Bien! Ahora presiona "Empezar" para cantar ${noteName} con toda tu potencia`);
+                        this.tip$.next(`¡Bien! Ahora presiona "Empezar" para cantar ${noteName} con <b>más potencia</b>`);
                     }, 500);
                 } else {
                     // Guardar RMS potente y AUTO-AVANZAR

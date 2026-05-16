@@ -435,6 +435,92 @@
   font-size: 12px;
 }
 
+/* Glissando demo player (Idle state) */
+.glissando-demo {
+  margin: $spacing-xl 0;
+  padding: $spacing-xl $spacing-2xl;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: $radius-lg;
+  text-align: center;
+  color: white;
+}
+
+.glissando-header {
+  margin-bottom: $spacing-lg;
+}
+
+.glissando-title {
+  font-size: $font-size-sm;
+  font-weight: $font-weight-semibold;
+  opacity: 0.85;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+.glissando-visual {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 5px;
+  height: 48px;
+  margin: $spacing-md auto;
+  width: fit-content;
+
+  .bar {
+    display: block;
+    width: 7px;
+    border-radius: 3px 3px 0 0;
+    background: rgba(255, 255, 255, 0.35);
+    transform-origin: bottom;
+    transition: background $transition-base;
+  }
+
+  .bar-1 { height: 8px; }
+  .bar-2 { height: 14px; }
+  .bar-3 { height: 20px; }
+  .bar-4 { height: 27px; }
+  .bar-5 { height: 34px; }
+  .bar-6 { height: 41px; }
+  .bar-7 { height: 48px; }
+
+  &.playing .bar {
+    background: rgba(255, 255, 255, 0.9);
+    animation: glissando-pulse 0.7s ease-in-out infinite alternate;
+
+    &.bar-1 { animation-delay: 0s; }
+    &.bar-2 { animation-delay: 0.1s; }
+    &.bar-3 { animation-delay: 0.2s; }
+    &.bar-4 { animation-delay: 0.3s; }
+    &.bar-5 { animation-delay: 0.4s; }
+    &.bar-6 { animation-delay: 0.5s; }
+    &.bar-7 { animation-delay: 0.6s; }
+  }
+}
+
+@keyframes glissando-pulse {
+  from { opacity: 0.55; transform: scaleY(0.92); }
+  to   { opacity: 1;    transform: scaleY(1.08); }
+}
+
+.glissando-range-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: $font-size-xs;
+  font-weight: $font-weight-semibold;
+  opacity: 0.7;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: $spacing-xs 0 $spacing-lg;
+}
+
+/* Loading indicator for soundfont notes */
+.note-loading-indicator {
+  margin-top: 12px;
+  font-size: $font-size-sm;
+  opacity: 0.8;
+  font-style: italic;
+}
+
 @media (max-width: 900px) {
   .page-container {
     padding: 6px 18px 24px;

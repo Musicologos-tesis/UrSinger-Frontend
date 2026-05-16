@@ -40,6 +40,25 @@
       </p>
 
       <div class="glissando-demo">
+        <div class="glissando-header">
+          <span class="glissando-title">Ejemplo de glissando</span>
+        </div>
+
+        <div class="glissando-visual" [class.playing]="isPlayingGlissando()">
+          <span class="bar bar-1"></span>
+          <span class="bar bar-2"></span>
+          <span class="bar bar-3"></span>
+          <span class="bar bar-4"></span>
+          <span class="bar bar-5"></span>
+          <span class="bar bar-6"></span>
+          <span class="bar bar-7"></span>
+        </div>
+
+        <div class="glissando-range-labels">
+          <span>Grave</span>
+          <span>Agudo</span>
+        </div>
+
         <button
           class="play-note-btn"
           (click)="playGlissando()"
@@ -51,9 +70,6 @@
             🔊 Escuchar ejemplo
           }
         </button>
-        <span class="glissando-hint">
-          {{ isPlayingGlissando() ? 'Grave → Agudo' : 'Toca para escuchar cómo se hace' }}
-        </span>
       </div>
     }
 
