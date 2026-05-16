@@ -81,7 +81,7 @@
           <span class="status-indicator pending">⏳</span>
         </div>
         
-        <p class="instruction">{{ tip.value || 'Canta desde tu nota más grave hasta la más aguda' }}</p>
+        <p class="instruction" [innerHTML]="tip.value || 'Canta desde tu nota más grave hasta la más aguda'"></p>
         
         <!-- Indicadores en tiempo real -->
         <div class="live-indicators">
@@ -118,7 +118,7 @@
           }
         </div>
         
-        <p class="instruction">{{ tip.value }}</p>
+        <p class="instruction" [innerHTML]="tip.value"></p>
         
         <!-- NOTA OBJETIVO -->
         <div class="target-note-display">
@@ -197,7 +197,7 @@
           }
         </div>
 
-        <p class="instruction">{{ tip.value }}</p>
+        <p class="instruction" [innerHTML]="tip.value"></p>
 
         <!-- NOTA OBJETIVO -->
         <div class="target-note-display">
