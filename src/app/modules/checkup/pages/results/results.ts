@@ -131,11 +131,11 @@ export class CheckupResultsComponent implements OnInit {
       const { precisionCents, stabilityCents } = stabilityMetrics;
 
       if (precisionCents !== null) {
-        this.precisionPercent = this.centsToScore(precisionCents, 47, 600);
+        this.precisionPercent = this.centsToScore(precisionCents / 1.5, 47, 600);
       }
 
       if (stabilityCents !== null) {
-        this.stabilityPercent = this.centsToScore(stabilityCents, 23, 200);
+        this.stabilityPercent = this.centsToScore(stabilityCents / 1.5, 23, 200);
       }
 
       this.checkupCompleted = true;
