@@ -41,6 +41,7 @@ export class VocalRangeComponent implements OnInit, OnDestroy {
   Math = Math; // Para usar Math.round en el template
 
   isNoteLoading = signal(false);
+  isPlayingGlissando = signal(false);
 
   private sfAudioContext: AudioContext | null = null;
   private sfBufferCache = new Map<string, AudioBuffer>();
@@ -75,8 +76,7 @@ export class VocalRangeComponent implements OnInit, OnDestroy {
     const url = this.buildSoundFontUrl(midi);
     if (this.sfBufferCache.has(url) || this.sfRawCache.has(url)) return;
     this.isNoteLoading.set(true);
-    fetch(url)
-      .then(r => r.arrayBuffer())
+    this.fetchRawBuffer(midi)
       .then(ab => this.sfRawCache.set(url, ab))
       .catch(() => {})
       .finally(() => this.isNoteLoading.set(false));
@@ -146,9 +146,7 @@ export class VocalRangeComponent implements OnInit, OnDestroy {
 
       if (!buffer) {
         const raw = this.sfRawCache.get(url);
-        const arrayBuffer = raw
-          ? raw.slice(0)
-          : await fetch(url).then(r => r.arrayBuffer());
+        const arrayBuffer = raw ? raw.slice(0) : await this.fetchRawBuffer(midi);
         buffer = await ctx.decodeAudioData(arrayBuffer);
         this.sfBufferCache.set(url, buffer);
         this.sfRawCache.delete(url);
@@ -175,6 +173,18 @@ export class VocalRangeComponent implements OnInit, OnDestroy {
     const octave = Math.floor(midi / 12) - 1;
     const note = names[midi % 12];
     return `https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/acoustic_grand_piano-mp3/${note}${octave}.mp3`;
+  }
+
+  private async fetchRawBuffer(midi: number): Promise<ArrayBuffer> {
+    const sharp = ['C', 'Cs', 'D', 'Ds', 'E', 'F', 'Fs', 'G', 'Gs', 'A', 'As', 'B'];
+    const flat  = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+    const octave = Math.floor(midi / 12) - 1;
+    const base = 'https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/acoustic_grand_piano-mp3';
+    for (const names of [sharp, flat]) {
+      const r = await fetch(`${base}/${names[midi % 12]}${octave}.mp3`);
+      if (r.ok) return r.arrayBuffer();
+    }
+    throw new Error(`Soundfont no disponible para MIDI ${midi}`);
   }
 
   /**
@@ -268,6 +278,42 @@ export class VocalRangeComponent implements OnInit, OnDestroy {
   logout(): void {
     this.authService.logout();
     this.router.navigate(['/auth/login']);
+  }
+
+  playGlissando(): void {
+    if (this.isPlayingGlissando()) return;
+    this.isPlayingGlissando.set(true);
+
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const duration = 3.5;
+
+      osc.type = 'sine';
+      // Barrido exponencial desde ~110 Hz (A2, voz hablada) hasta ~440 Hz (A4)
+      osc.frequency.setValueAtTime(110, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + duration);
+
+      gain.gain.setValueAtTime(0, ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.35, ctx.currentTime + 0.15);
+      gain.gain.setValueAtTime(0.35, ctx.currentTime + duration - 0.2);
+      gain.gain.linearRampToValueAtTime(0, ctx.currentTime + duration);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + duration);
+
+      osc.onended = () => {
+        osc.disconnect();
+        gain.disconnect();
+        ctx.close();
+        this.isPlayingGlissando.set(false);
+      };
+    } catch {
+      this.isPlayingGlissando.set(false);
+    }
   }
 
   ngOnDestroy(): void {
