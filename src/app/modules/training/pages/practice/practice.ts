@@ -60,6 +60,8 @@ export class PracticeComponent implements OnInit, OnDestroy {
   
   private timerId: any = null;
   private animationFrameId: any = null;
+  private sfAudioContext: AudioContext | null = null;
+  private sfBufferCache = new Map<string, AudioBuffer>();
   private szCountdownTimerId: any = null;
   private szSMeasureTimerId: any = null;
   private szSMeasureStartMs: number = 0;
@@ -1180,42 +1182,62 @@ export class PracticeComponent implements OnInit, OnDestroy {
     this.playFrequencySequence([frequency], 1.0, 0);
   }
 
-  private playFrequencySequence(frequencies: number[], toneSec: number, gapSec: number): void {
+  private async playFrequencySequence(frequencies: number[], toneSec: number, gapSec: number): Promise<void> {
     try {
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const now = audioContext.currentTime;
+      if (!this.sfAudioContext) {
+        this.sfAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      }
+      const ctx = this.sfAudioContext;
 
-      frequencies.forEach((frequency, idx) => {
+      const midis = frequencies.map(f => Math.round(12 * Math.log2(f / 440) + 69));
+      const buffers = await Promise.all(midis.map(midi => this.loadSoundFontBuffer(midi)));
+
+      const now = ctx.currentTime;
+      buffers.forEach((buffer, idx) => {
+        if (!buffer) return;
         const start = now + idx * (toneSec + gapSec);
         const end = start + toneSec;
 
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
 
-        oscillator.type = 'sine';
-        oscillator.frequency.value = frequency;
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(0, start);
+        gain.gain.linearRampToValueAtTime(0.8, start + 0.08);
+        gain.gain.setValueAtTime(0.8, Math.max(start + 0.08, end - 0.08));
+        gain.gain.linearRampToValueAtTime(0, end);
 
-        gainNode.gain.setValueAtTime(0, start);
-        gainNode.gain.linearRampToValueAtTime(0.3, start + 0.08);
-        gainNode.gain.setValueAtTime(0.3, Math.max(start + 0.08, end - 0.08));
-        gainNode.gain.linearRampToValueAtTime(0, end);
-
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-        oscillator.start(start);
-        oscillator.stop(end);
-
-        oscillator.onended = () => {
-          oscillator.disconnect();
-          gainNode.disconnect();
-        };
+        source.connect(gain);
+        gain.connect(ctx.destination);
+        source.start(start);
+        source.stop(end);
       });
-
-      const totalDurationMs = Math.ceil((frequencies.length * toneSec + Math.max(0, frequencies.length - 1) * gapSec) * 1000) + 120;
-      setTimeout(() => void audioContext.close(), totalDurationMs);
     } catch (error) {
       console.error('[Practice] Error al reproducir nota:', error);
     }
+  }
+
+  private async loadSoundFontBuffer(midi: number): Promise<AudioBuffer | null> {
+    if (!this.sfAudioContext) return null;
+    const url = this.buildSoundFontUrl(midi);
+    const cached = this.sfBufferCache.get(url);
+    if (cached) return cached;
+    try {
+      const response = await fetch(url);
+      const arrayBuffer = await response.arrayBuffer();
+      const buffer = await this.sfAudioContext.decodeAudioData(arrayBuffer);
+      this.sfBufferCache.set(url, buffer);
+      return buffer;
+    } catch {
+      return null;
+    }
+  }
+
+  private buildSoundFontUrl(midi: number): string {
+    const names = ['C', 'Cs', 'D', 'Ds', 'E', 'F', 'Fs', 'G', 'Gs', 'A', 'As', 'B'];
+    const octave = Math.floor(midi / 12) - 1;
+    const note = names[midi % 12];
+    return `https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/acoustic_grand_piano-mp3/${note}${octave}.mp3`;
   }
 
   private formatDetectedNote(midiNote: number, frequency: number, targetMidi: number | null): string {
@@ -1285,5 +1307,7 @@ export class PracticeComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.clearTimer();
     this.audioService.stop();
+    this.sfAudioContext?.close();
+    this.sfBufferCache.clear();
   }
 }
