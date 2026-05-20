@@ -225,7 +225,7 @@ export class StabilityComponent implements OnInit, OnDestroy {
     }
 
     const spread = metrics.stabilityCents ?? null;
-    this.stabilityPercent = spread !== null ? this.centsToScore(spread / 1.5, 23, 200) : 0;
+    this.stabilityPercent = spread !== null ? this.centsToScore(spread, 23, 200) : 0;
 
     this.state.set('done');
   }
