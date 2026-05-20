@@ -236,8 +236,8 @@ export class MetricsService {
     const rmsConsistency = this.requireFiniteMetric(partial.rmsConsistency, 'rmsConsistency');
     const dynamicRangeDb = this.requireFiniteMetric(partial.dynamicRangeDb, 'dynamicRangeDb');
     const durationSec = this.requireFiniteMetric(partial.durationSec, 'durationSec');
-    const precisionCents = this.requireFiniteMetric(partial.precisionCents, 'precisionCents') / 1.5;
-    const stabilityCents = this.requireFiniteMetric(partial.stabilityCents, 'stabilityCents') / 1.5;
+    const precisionCents = this.requireFiniteMetric(partial.precisionCents, 'precisionCents');
+    const stabilityCents = this.requireFiniteMetric(partial.stabilityCents, 'stabilityCents');
     const rangeMinMidi = this.requireFiniteMetric(partial.rangeMinMidi, 'rangeMinMidi');
     const rangeMaxMidi = this.requireFiniteMetric(partial.rangeMaxMidi, 'rangeMaxMidi');
     const rangeSpanSemitones = this.requireFiniteMetric(partial.rangeSpanSemitones, 'rangeSpanSemitones');
